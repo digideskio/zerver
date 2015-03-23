@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cosiner/golib/sys"
+	"github.com/cosiner/gohper/lib/sys"
 
-	. "github.com/cosiner/golib/errors"
+	. "github.com/cosiner/gohper/lib/errors"
 )
 
 type (

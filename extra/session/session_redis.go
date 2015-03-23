@@ -1,8 +1,8 @@
 package session
 
 // import (
-// 	"github.com/cosiner/golib/encoding"
-// 	"github.com/cosiner/gomodule/redis"
+// 	"github.com/cosiner/gohper/lib/encoding"
+// 	"github.com/cosiner/gohper/redis"
 // 	"github.com/cosiner/zerver"
 // )
 

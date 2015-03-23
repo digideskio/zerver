@@ -3,9 +3,9 @@ package zerver
 import (
 	"reflect"
 
-	. "github.com/cosiner/golib/errors"
+	. "github.com/cosiner/gohper/lib/errors"
 
-	ref "github.com/cosiner/golib/reflect"
+	ref "github.com/cosiner/gohper/lib/reflect"
 )
 
 type (
@@ -43,9 +43,8 @@ func (v *urlVarIndexer) URLVar(name string) string {
 func (v *urlVarIndexer) URLVarDef(name string, defvalue string) string {
 	if index, has := v.vars[name]; has {
 		return v.values[index]
-	} else {
-		return defvalue
 	}
+	return defvalue
 }
 
 // ScanURLVars scan values into variable addresses

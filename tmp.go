@@ -3,7 +3,7 @@ package zerver
 import (
 	"fmt"
 
-	"github.com/cosiner/golib/runtime"
+	"github.com/cosiner/gohper/lib/runtime"
 )
 
 // Tmp* provide a temporary data store, it should not be used after server start

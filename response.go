@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	. "github.com/cosiner/golib/errors"
+	. "github.com/cosiner/gohper/lib/errors"
 )
 
 type (

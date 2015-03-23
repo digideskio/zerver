@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cosiner/golib/sys"
-	"github.com/cosiner/golib/types"
+	"github.com/cosiner/gohper/lib/sys"
+	"github.com/cosiner/gohper/lib/types"
 	"github.com/cosiner/zerver"
 )
 

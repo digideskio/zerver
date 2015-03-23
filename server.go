@@ -8,7 +8,7 @@ import (
 
 	websocket "github.com/cosiner/zerver_websocket"
 
-	. "github.com/cosiner/golib/errors"
+	. "github.com/cosiner/gohper/lib/errors"
 )
 
 type (
@@ -110,6 +110,10 @@ func (s *Server) StartTLS(listenAddr, certFile, keyFile string) error {
 // ServHttp serve for http reuest
 // find handler and resolve path, find filters, process
 func (s *Server) ServeHTTP(w http.ResponseWriter, request *http.Request) {
+    path := request.URL.Path
+    if l := len(path); l > 1 && path[l-1] == '/' {
+        request.URL.Path = path[:l-1]
+    }
 	if websocket.IsWebSocketRequest(request) {
 		s.serveWebSocket(w, request)
 	} else {

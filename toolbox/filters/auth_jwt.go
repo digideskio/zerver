@@ -1,7 +1,7 @@
 package filters
 
 import (
-	. "github.com/cosiner/golib/errors"
+	. "github.com/cosiner/gohper/lib/errors"
 
 	"github.com/cosiner/zerver"
 	jwt "github.com/cosiner/zerver_jwt"

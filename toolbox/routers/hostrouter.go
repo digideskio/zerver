@@ -6,7 +6,7 @@ import (
 
 	. "github.com/cosiner/zerver"
 
-	"github.com/cosiner/golib/sys"
+	"github.com/cosiner/gohper/lib/sys"
 )
 
 type (

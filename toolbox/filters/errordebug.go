@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cosiner/golib/types"
+	"github.com/cosiner/gohper/lib/types"
 	"github.com/cosiner/zerver"
 )
 

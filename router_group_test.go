@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cosiner/golib/test"
+	"github.com/cosiner/gohper/lib/test"
 )
 
 var grt = func() Router {

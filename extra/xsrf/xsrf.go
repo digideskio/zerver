@@ -6,7 +6,7 @@ import (
 
 	"github.com/cosiner/zerver"
 
-	"github.com/cosiner/golib/crypto"
+	"github.com/cosiner/gohper/lib/crypto"
 )
 
 const (

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cosiner/golib/test"
+	"github.com/cosiner/gohper/lib/test"
 
-	. "github.com/cosiner/golib/errors"
+	. "github.com/cosiner/gohper/lib/errors"
 )
 
 func TestCompile(t *testing.T) {
@@ -317,7 +317,7 @@ func BenchmarkMatchRouteMultiple(b *testing.B) {
 	// path := "/user/aa/exist"
 	for i := 0; i < b.N; i++ {
 		pathIndex := 0
-		var vars []string = make([]string, 0, 2)
+		var vars = make([]string, 0, 2)
 		var continu = true
 		n := r
 		for continu {

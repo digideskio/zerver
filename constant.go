@@ -27,10 +27,10 @@ const (
 	UNKNOWN_METHOD = "UNKNOWN"
 
 	// Content Type
-	CONTNTTYPE_PLAIN = "text/plain"
-	CONTENTTYPE_HTML = "text/html"
-	CONTENTTYPE_XML  = "application/xml"
-	CONTENTTYPE_JSON = "application/json"
+	CONTNTTYPE_PLAIN = "text/plain;charset=utf-8"
+	CONTENTTYPE_HTML = "text/html;charset=utf-8"
+	CONTENTTYPE_XML  = "application/xml;charset=utf-8"
+	CONTENTTYPE_JSON = "application/json;charset=utf-8"
 )
 
 // parseRequestMethod convert a string to request method, default use GET
