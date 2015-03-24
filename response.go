@@ -9,9 +9,12 @@ import (
 	"time"
 
 	. "github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/types"
 )
 
 type (
+	MarshalFunc func(interface{}) ([]byte, error)
+
 	Response interface {
 		// These methods should be called before Write
 		SetHeader(name, value string)
@@ -37,7 +40,16 @@ type (
 
 		// Write will automicly write http status and header, any operations about
 		// status and header should be performed before Write
+		// if there is a previous error, operation will not be performed, just
+		// return this error, and any error will be stored
 		io.Writer
+		// ClearError clear error stored in response
+		ClearError()
+
+		// WriteResource write resource to response, if key is empty, direct write
+		// marshaled value, else write as a json object, default use global Marshaler
+		WriteResource(key string, value interface{}) error
+		WriteResourceWith(key string, value interface{}, marshaler MarshalFunc) error
 
 		destroy()
 		// Value/SetValue provide a approach to transmit value between filter/handler
@@ -54,7 +66,12 @@ type (
 		status       int
 		statusWrited bool
 		value        interface{}
+		err          error
 	}
+)
+
+var (
+	Marshaler MarshalFunc
 )
 
 const (
@@ -74,11 +91,44 @@ func (resp *response) destroy() {
 	resp.statusWrited = false
 	resp.ResponseWriter = nil
 	resp.header = nil
+	resp.err = nil
 }
 
-func (resp *response) Write(data []byte) (int, error) {
+func (resp *response) Write(data []byte) (i int, err error) {
 	resp.flushHeader()
-	return resp.ResponseWriter.Write(data)
+	if err = resp.err; err == nil {
+		i, err = resp.ResponseWriter.Write(data)
+		resp.err = err
+	}
+	return
+}
+
+func (resp *response) ClearError() {
+	resp.err = nil
+}
+
+var _jsonHeadStart = []byte(`{"`)
+var _jsonHeadEnd = []byte(`":`)
+var _jsonEnd = []byte("}")
+
+func (resp *response) WriteResource(key string, value interface{}) error {
+	return resp.WriteResourceWith(key, value, Marshaler)
+}
+
+func (resp *response) WriteResourceWith(key string, value interface{}, marshaler MarshalFunc) error {
+	var bs []byte
+	if key == "" {
+		bs, resp.err = Marshaler(value)
+	} else {
+		resp.Write(_jsonHeadStart)
+		resp.Write(types.UnsafeBytes(key))
+		resp.Write(_jsonHeadEnd)
+		bs, resp.err = marshaler(value)
+		resp.Write(bs)
+		bs = _jsonEnd
+	}
+	_, err := resp.Write(bs)
+	return err
 }
 
 func (resp *response) flushHeader() {

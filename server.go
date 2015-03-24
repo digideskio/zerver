@@ -1,6 +1,7 @@
 package zerver
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"net/url"
@@ -67,6 +68,9 @@ func (s *Server) start() {
 	if s.ContentType == "" {
 		s.ContentType = CONTENTTYPE_JSON
 	}
+	if Marshaler == nil {
+		Marshaler = json.Marshal
+	}
 	OnErrPanic(s.RootFilters.Init(s))
 	log.Println("Init Handlers and Filters")
 	s.Router.Init(func(handler Handler) bool {
@@ -110,10 +114,10 @@ func (s *Server) StartTLS(listenAddr, certFile, keyFile string) error {
 // ServHttp serve for http reuest
 // find handler and resolve path, find filters, process
 func (s *Server) ServeHTTP(w http.ResponseWriter, request *http.Request) {
-    path := request.URL.Path
-    if l := len(path); l > 1 && path[l-1] == '/' {
-        request.URL.Path = path[:l-1]
-    }
+	path := request.URL.Path
+	if l := len(path); l > 1 && path[l-1] == '/' {
+		request.URL.Path = path[:l-1]
+	}
 	if websocket.IsWebSocketRequest(request) {
 		s.serveWebSocket(w, request)
 	} else {
