@@ -14,14 +14,15 @@ import (
 
 type (
 	ServerOption struct {
-		WebSocketChecker  HeaderChecker // default nil
-		ResourceMarshaler MarshalFunc   // default json.Marshal
-		ContentType       string        // default application/json;charset=utf-8
-		PathVarCount      int           // default 2
-		FilterCount       int           // default 2
-		ListenAddr        string        // default :4000
-		CertFile          string        // default not enable tls
-		KeyFile           string
+		WebSocketChecker    HeaderChecker // default nil
+		ResourceMarshaler   MarshalFunc   // default json.Marshal
+		ResourceUnmarshaler UnmarshalFunc // default json.Unmarshal
+		ContentType         string        // default application/json;charset=utf-8
+		PathVarCount        int           // default 2
+		FilterCount         int           // default 2
+		ListenAddr          string        // default :4000
+		CertFile            string        // default not enable tls
+		KeyFile             string
 	}
 
 	// Server represent a web server
@@ -65,6 +66,9 @@ func (o *ServerOption) init() {
 	if o.ResourceMarshaler == nil {
 		o.ResourceMarshaler = json.Marshal
 	}
+	if o.ResourceUnmarshaler == nil {
+		o.ResourceUnmarshaler = json.Unmarshal
+	}
 }
 
 // NewServer create a new server
@@ -97,6 +101,7 @@ func (s *Server) start(o *ServerOption) {
 	o.init()
 	s.contentType = o.ContentType
 	marshaler = o.ResourceMarshaler
+	unmarshaler = o.ResourceUnmarshaler
 	pathVarCount = o.PathVarCount
 	filterCount = o.FilterCount
 
