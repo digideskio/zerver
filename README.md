@@ -9,6 +9,15 @@ Each file contains a component, all api about this component is defined there.
 ### Install
 `go get github.com/cosiner/zerver`
 
+### Features
+* RESTFul Route
+* Tree-based mux/router, support route group
+* Filter Chain supported
+* Interceptor supported
+* Builtin WebSocket supported
+* Builtin Task supported
+* Resource Marshaler/Unmarshaler
+
 ### Getting Started
 ```Go
 package main
@@ -20,17 +29,73 @@ func main() {
     server.Get("/", func(req zerver.Request, resp zerver.Response) {
         resp.Write([]byte("Hello World!"))    
     })
-    server.Start(":8080")
+    server.Start(nil) // default listen at ":4000"
 }
 ```
 
-### Features
-* RESTFul Route
-* Tree-based mux/router, support route group
-* Filter Chain supported
-* Interceptor supported
-* Builtin WebSocket supported
-* Builtin Task supported
+### Config
+```Go
+ServerOption struct {
+    // check for websocket header
+    WebSocketChecker HeaderChecker // default nil
+    // automiclly set for each response
+    ContentType      string        // default application/json;charset=utf-8
+    // average variable count at each route
+    PathVarCount     int           // default 2
+    // average filter count for of filters at each route
+    FilterCount      int           // default 2
+    // server listening address
+    ListenAddr       string        // default :4000
+    // TLS config
+    CertFile         string        // default not enable tls
+    KeyFile          string
+}
+```
+Example:
+```
+server.Start(&ServerOption{
+    ContentType:"text/plain;charset=utf-8",
+    ListenAddr:":8000",
+})
+```
+
+### AttrContainer
+Store attribute, the server has a locked container, each request has a unlocked
+container, response has only a `interface{}` to store value, both used to share attributes between components.  
+The server's container should be used to store global attributes. The request's container should be used to pass down values between filter/filter or filter/handler. The response's container should be used to pass up value.
+
+Example:
+```
+server.Attr(name)
+server.SetAttr(name, value)
+
+request.Attr(name)
+request.SetAttr(name, value)
+
+response.Value()
+response.SetValue(value)
+```
+
+### ResourceMaster
+ResourceMaster responsible for marshal/unmarshal data, it's indenpendent from any other components.  
+```
+MarshalFunc func(interface{}) ([]byte, error)
+UnmarshalFunc func([]byte, interface{}) error
+Marshaler interface {
+    Marshal(interface{}) ([]byte, error)
+    Pool([]byte) // pool marshaled buffer for reduce allocation
+}
+ResourceMaster struct {
+    Marshaler
+    Unmarshal UnmarshalFunc
+}
+func (m MarshalFunc) Marshal(v interface{}) ([]byte, error) { return m(v) }
+func (MarshalFunc) Pool([]byte)                             {}
+var DefaultResourceMaster = ResourceMaster{
+    Marshaler: MarshalFunc(json.Marshal),
+    Unmarshal: json.Unmarshal,
+}
+```
 
 # Exampels
 * url variables
