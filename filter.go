@@ -95,6 +95,7 @@ func (rfs *rootFilters) AddFilter(filter Filter) {
 func (rfs *rootFilters) AddFuncFilter(filter FilterFunc) {
 	rfs.AddFilter(filter)
 }
+
 func (rfs *rootFilters) Destroy() {
 	for _, f := range *rfs {
 		f.Destroy()
@@ -115,7 +116,7 @@ func newFilterChain(filters []Filter, handler func(Request, Response)) FilterCha
 	} else if l == 1 {
 		return newInterceptHandler(handler, filters[0])
 	}
-	chain := Pool.newFilterChain()
+	chain := newFilterChainFromPool()
 	chain.filters = filters
 	chain.handler = handler
 	return chain.handleChain
@@ -140,7 +141,7 @@ func (chain *filterChain) handleChain(req Request, resp Response) {
 func (chain *filterChain) destroy() {
 	chain.filters = nil
 	chain.handler = nil
-	Pool.recycleFilterChain(chain)
+	recycleFilterChain(chain)
 }
 
 // InterceptHandler will create a permanent HandlerFunc/FilterChain, there is no

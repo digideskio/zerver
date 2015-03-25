@@ -12,6 +12,11 @@ import (
 	"github.com/cosiner/gohper/lib/types"
 )
 
+// global variables need to be initialed by ServerOption
+var (
+	marshaler MarshalFunc
+)
+
 type (
 	MarshalFunc func(interface{}) ([]byte, error)
 
@@ -70,10 +75,6 @@ type (
 	}
 )
 
-var (
-	Marshaler MarshalFunc
-)
-
 const (
 	ErrHijack = Err("Connection not support hijack")
 )
@@ -94,8 +95,16 @@ func (resp *response) destroy() {
 	resp.err = nil
 }
 
+func (resp *response) flushHeader() {
+	if !resp.statusWrited {
+		resp.WriteHeader(resp.status)
+		resp.statusWrited = true
+	}
+}
+
 func (resp *response) Write(data []byte) (i int, err error) {
 	resp.flushHeader()
+	// inspired by official go blog "Errors are value: http://blog.golang.org/errors-are-values"
 	if err = resp.err; err == nil {
 		i, err = resp.ResponseWriter.Write(data)
 		resp.err = err
@@ -107,18 +116,20 @@ func (resp *response) ClearError() {
 	resp.err = nil
 }
 
-var _jsonHeadStart = []byte(`{"`)
-var _jsonHeadEnd = []byte(`":`)
-var _jsonEnd = []byte("}")
-
 func (resp *response) WriteResource(key string, value interface{}) error {
-	return resp.WriteResourceWith(key, value, Marshaler)
+	return resp.WriteResourceWith(key, value, marshaler)
 }
+
+var (
+	_jsonHeadStart = []byte(`{"`)
+	_jsonHeadEnd   = []byte(`":`)
+	_jsonEnd       = []byte("}")
+)
 
 func (resp *response) WriteResourceWith(key string, value interface{}, marshaler MarshalFunc) error {
 	var bs []byte
 	if key == "" {
-		bs, resp.err = Marshaler(value)
+		bs, resp.err = marshaler(value)
 	} else {
 		resp.Write(_jsonHeadStart)
 		resp.Write(types.UnsafeBytes(key))
@@ -129,13 +140,6 @@ func (resp *response) WriteResourceWith(key string, value interface{}, marshaler
 	}
 	_, err := resp.Write(bs)
 	return err
-}
-
-func (resp *response) flushHeader() {
-	if !resp.statusWrited {
-		resp.WriteHeader(resp.status)
-		resp.statusWrited = true
-	}
 }
 
 // ReportStatus report an http status with given status code

@@ -28,7 +28,7 @@ type (
 func (v *urlVarIndexer) destroySelf() {
 	v.values = v.values[:0]
 	v.vars = nil
-	Pool.recycleVarIndexer(v)
+	recycleVarIndexer(v)
 }
 
 // URLVar return values of variable

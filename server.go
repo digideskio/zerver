@@ -13,13 +13,24 @@ import (
 )
 
 type (
+	ServerOption struct {
+		WebSocketChecker  HeaderChecker // default nil
+		ResourceMarshaler MarshalFunc   // default json.Marshal
+		ContentType       string        // default application/json;charset=utf-8
+		PathVarCount      int           // default 2
+		FilterCount       int           // default 2
+		ListenAddr        string        // default :4000
+		CertFile          string        // default not enable tls
+		KeyFile           string
+	}
+
 	// Server represent a web server
 	Server struct {
 		Router
 		AttrContainer
 		RootFilters RootFilters // Match Every Routes
 		checker     websocket.HeaderChecker
-		ContentType string // default content type
+		contentType string // default content type
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -37,6 +48,24 @@ type (
 		Server() *Server
 	}
 )
+
+func (o *ServerOption) init() {
+	if o.ListenAddr == "" {
+		o.ListenAddr = ":4000"
+	}
+	if o.ContentType == "" {
+		o.ContentType = CONTENTTYPE_JSON
+	}
+	if o.FilterCount == 0 {
+		o.FilterCount = 2
+	}
+	if o.PathVarCount == 0 {
+		o.PathVarCount = 2
+	}
+	if o.ResourceMarshaler == nil {
+		o.ResourceMarshaler = json.Marshal
+	}
+}
 
 // NewServer create a new server
 func NewServer() *Server {
@@ -64,13 +93,13 @@ func (s *Server) Server() *Server {
 }
 
 // Start start server
-func (s *Server) start() {
-	if s.ContentType == "" {
-		s.ContentType = CONTENTTYPE_JSON
-	}
-	if Marshaler == nil {
-		Marshaler = json.Marshal
-	}
+func (s *Server) start(o *ServerOption) {
+	o.init()
+	s.contentType = o.ContentType
+	marshaler = o.ResourceMarshaler
+	pathVarCount = o.PathVarCount
+	filterCount = o.FilterCount
+
 	OnErrPanic(s.RootFilters.Init(s))
 	log.Println("Init Handlers and Filters")
 	s.Router.Init(func(handler Handler) bool {
@@ -93,9 +122,15 @@ func (s *Server) start() {
 }
 
 // Start start server as http server
-func (s *Server) Start(listenAddr string) error {
-	s.start()
-	return http.ListenAndServe(listenAddr, s)
+func (s *Server) Start(options *ServerOption) error {
+	if options == nil {
+		options = &ServerOption{}
+	}
+	s.start(options)
+	if options.CertFile == "" {
+		return http.ListenAndServe(options.ListenAddr, s)
+	}
+	return http.ListenAndServeTLS(options.ListenAddr, options.CertFile, options.KeyFile, s)
 }
 
 // Destroy is mainly designed to stop server, release all resources
@@ -103,12 +138,6 @@ func (s *Server) Start(listenAddr string) error {
 func (s *Server) Destroy() {
 	s.RootFilters.Destroy()
 	s.Router.Destroy()
-}
-
-// StartTLS start server as https server
-func (s *Server) StartTLS(listenAddr, certFile, keyFile string) error {
-	s.start()
-	return http.ListenAndServeTLS(listenAddr, certFile, keyFile, s)
 }
 
 // ServHttp serve for http reuest
@@ -156,9 +185,9 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	url := request.URL
 	url.Host = request.Host
 	handler, indexer, filters := s.MatchHandlerFilters(url)
-	requestEnv := Pool.newRequestEnv()
+	requestEnv := newRequestEnvFromPool()
 	req, resp := requestEnv.req.init(s, request, indexer), requestEnv.resp.init(w)
-	resp.SetContentType(s.ContentType)
+	resp.SetContentType(s.contentType)
 	var chain FilterChain
 	if handler == nil {
 		resp.ReportNotFound()
@@ -168,8 +197,8 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	newFilterChain(s.RootFilters.Filters(url), newFilterChain(filters, chain))(req, resp)
 	req.destroy()
 	resp.destroy()
-	Pool.recycleRequestEnv(requestEnv)
-	Pool.recycleFilters(filters)
+	recycleRequestEnv(requestEnv)
+	recycleFilters(filters)
 }
 
 // serveTask serve for asynchronous task

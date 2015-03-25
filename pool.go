@@ -6,6 +6,16 @@ import (
 	"sync"
 )
 
+// global variables need to be initialed by ServerOption
+var (
+	// pathVarCount is common url path variable count
+	// match functions of router will create a slice use it as capcity to store
+	// all path variable values
+	// to get best performance, it should commonly set to the average, default, it's 2
+	pathVarCount int
+	filterCount  int
+)
+
 type requestEnv struct {
 	req  request
 	resp response
@@ -19,28 +29,28 @@ type ServerPool struct {
 	otherPools      map[string]*sync.Pool
 }
 
-var Pool *ServerPool
+var _defaultPool *ServerPool
 
 func init() {
-	Pool = &ServerPool{otherPools: make(map[string]*sync.Pool)}
-	Pool.requestEnvPool.New = func() interface{} {
+	_defaultPool = &ServerPool{otherPools: make(map[string]*sync.Pool)}
+	_defaultPool.requestEnvPool.New = func() interface{} {
 		env := &requestEnv{}
 		env.req.AttrContainer = NewAttrContainer()
 		return env
 	}
-	Pool.varIndexerPool.New = func() interface{} {
-		return &urlVarIndexer{values: make([]string, 0, PathVarCount)}
+	_defaultPool.varIndexerPool.New = func() interface{} {
+		return &urlVarIndexer{values: make([]string, 0, pathVarCount)}
 	}
-	Pool.filtersPool.New = func() interface{} {
-		return make([]Filter, 0, FilterCount)
+	_defaultPool.filtersPool.New = func() interface{} {
+		return make([]Filter, 0, filterCount)
 	}
-	Pool.filterChainPool.New = func() interface{} {
+	_defaultPool.filterChainPool.New = func() interface{} {
 		return new(filterChain)
 	}
 }
 
-func (pool *ServerPool) ReigisterPool(name string, newFunc func() interface{}) error {
-	op := pool.otherPools
+func ReigisterPool(name string, newFunc func() interface{}) error {
+	op := _defaultPool.otherPools
 	if _, has := op[name]; has {
 		return Err("Pool for " + name + " already exist")
 	}
@@ -48,45 +58,45 @@ func (pool *ServerPool) ReigisterPool(name string, newFunc func() interface{}) e
 	return nil
 }
 
-func (pool *ServerPool) NewFrom(name string) interface{} {
-	return pool.otherPools[name].Get()
+func NewFrom(poolName string) interface{} {
+	return _defaultPool.otherPools[poolName].Get()
 }
 
-func (pool *ServerPool) newRequestEnv() *requestEnv {
-	return pool.requestEnvPool.Get().(*requestEnv)
+func newRequestEnvFromPool() *requestEnv {
+	return _defaultPool.requestEnvPool.Get().(*requestEnv)
 }
 
-func (pool *ServerPool) newVarIndexer() *urlVarIndexer {
-	return pool.varIndexerPool.Get().(*urlVarIndexer)
+func newVarIndexerFromPool() *urlVarIndexer {
+	return _defaultPool.varIndexerPool.Get().(*urlVarIndexer)
 }
 
-func (pool *ServerPool) newFilters() []Filter {
-	return pool.filtersPool.Get().([]Filter)
+func newFiltersFromPool() []Filter {
+	return _defaultPool.filtersPool.Get().([]Filter)
 }
 
-func (pool *ServerPool) newFilterChain() *filterChain {
-	return pool.filterChainPool.Get().(*filterChain)
+func newFilterChainFromPool() *filterChain {
+	return _defaultPool.filterChainPool.Get().(*filterChain)
 }
 
-func (pool *ServerPool) recycleRequestEnv(req *requestEnv) {
-	pool.requestEnvPool.Put(req)
+func recycleRequestEnv(req *requestEnv) {
+	_defaultPool.requestEnvPool.Put(req)
 }
 
-func (pool *ServerPool) recycleVarIndexer(indexer URLVarIndexer) {
-	pool.varIndexerPool.Put(indexer)
+func recycleVarIndexer(indexer URLVarIndexer) {
+	_defaultPool.varIndexerPool.Put(indexer)
 }
 
-func (pool *ServerPool) recycleFilters(filters []Filter) {
+func recycleFilters(filters []Filter) {
 	if filters != nil {
 		filters = filters[:0]
-		pool.filtersPool.Put(filters)
+		_defaultPool.filtersPool.Put(filters)
 	}
 }
 
-func (pool *ServerPool) recycleFilterChain(chain *filterChain) {
-	pool.filterChainPool.Put(chain)
+func recycleFilterChain(chain *filterChain) {
+	_defaultPool.filterChainPool.Put(chain)
 }
 
-func (pool *ServerPool) RecycleTo(name string, value interface{}) {
-	pool.otherPools[name].Put(value)
+func RecycleTo(poolName string, value interface{}) {
+	_defaultPool.otherPools[poolName].Put(value)
 }

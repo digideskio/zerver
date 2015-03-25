@@ -99,17 +99,6 @@ type (
 	}
 )
 
-var (
-	// nilVars is empty variable map
-	nilVars = make(map[string]int)
-	// PathVarCount is common url path variable count
-	// match functions of router will create a slice use it as capcity to store
-	// all path variable values
-	// to get best performance, it should commonly set to the average, default, it's 2
-	PathVarCount = 2
-	FilterCount  = 2
-)
-
 const (
 	ErrConflictPathVar = Err("There is a similar route pattern which use same wildcard" +
 		" or catchall at the same position, " +
@@ -345,7 +334,7 @@ func (rt *router) addPattern(pattern string, fn func(*routeProcessor, map[string
 // MatchWebSockethandler match url to find final websocket handler
 func (rt *router) MatchWebSocketHandler(url *url.URL) (WebSocketHandler, URLVarIndexer) {
 	path := url.Path
-	indexer := Pool.newVarIndexer()
+	indexer := newVarIndexerFromPool()
 	rt, values := rt.matchOne(path, indexer.values)
 	indexer.values = values
 	if rt != nil {
@@ -362,7 +351,7 @@ func (rt *router) MatchWebSocketHandler(url *url.URL) (WebSocketHandler, URLVarI
 // MatchTaskhandler match url to find final websocket handler
 func (rt *router) MatchTaskHandler(url *url.URL) (TaskHandler, URLVarIndexer) {
 	path := url.Path
-	indexer := Pool.newVarIndexer()
+	indexer := newVarIndexerFromPool()
 	rt, values := rt.matchOne(path, indexer.values)
 	indexer.values = values
 	if rt != nil {
@@ -380,7 +369,7 @@ func (rt *router) MatchTaskHandler(url *url.URL) (TaskHandler, URLVarIndexer) {
 // // MatchHandler match url to find final websocket handler
 // func (rt *router) MatchHandler(url *url.URL) (handler Handler, indexer URLVarIndexer) {
 // 	path := url.Path
-// 	indexer = Pool.newVarIndexer()
+// 	indexer = newVarIndexerFromPool()
 // 	rt, values := rt.matchOne(path, indexer.values)
 // 	indexer.values = values
 // 	if rt != nil && rt.processor != nil {
@@ -398,14 +387,14 @@ func (rt *router) MatchHandlerFilters(url *url.URL) (Handler,
 	var (
 		path    = url.Path
 		p       *routeProcessor
-		indexer = Pool.newVarIndexer()
+		indexer = newVarIndexerFromPool()
 		values  = indexer.values
 		filters []Filter
 	)
 	if rt.noFilter {
 		rt, values = rt.matchOne(path, indexer.values)
 	} else {
-		filters = Pool.newFilters()
+		filters = newFiltersFromPool()
 		pathIndex, continu := 0, true
 		for continu {
 			if p = rt.processor; p != nil {
@@ -616,6 +605,11 @@ func isInvalidSection(s string) bool {
 	}
 	return false
 }
+
+var (
+	// nilVars is empty variable map
+	nilVars = make(map[string]int)
+)
 
 // compile compile a url path to a clean path that replace all named variable
 // to _WILDCARD or _REMAINSALL and extract all variable names
