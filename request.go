@@ -2,19 +2,12 @@ package zerver
 
 import (
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 )
 
-var (
-	unmarshaler UnmarshalFunc
-)
-
 type (
-	UnmarshalFunc func([]byte, interface{}) error
-
 	Request interface {
 		RemoteAddr() string
 		RemoteIP() string
@@ -31,8 +24,6 @@ type (
 		// SecureCookie(name string) string
 		serverGetter
 		io.Reader
-		ReadResource(v interface{}) error
-		ReadResourceWith(v interface{}, unmarshaler UnmarshalFunc) error
 		URLVarIndexer
 		destroy()
 	}
@@ -77,18 +68,6 @@ func (req *request) destroy() {
 
 func (req *request) Read(data []byte) (int, error) {
 	return req.request.Body.Read(data)
-}
-
-func (req *request) ReadResource(v interface{}) error {
-	return req.ReadResourceWith(v, unmarshaler)
-}
-
-func (req *request) ReadResourceWith(v interface{}, unmarshaler UnmarshalFunc) error {
-	bs, err := ioutil.ReadAll(req)
-	if err == nil {
-		err = unmarshaler(bs, v)
-	}
-	return err
 }
 
 // Method return method of request
