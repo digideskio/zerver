@@ -8,14 +8,14 @@ import (
 	"github.com/cosiner/zerver"
 )
 
-var Bytes = types.UnsafeBytes
+var bytes_ = types.UnsafeBytes
 var notFound = []byte("<h1>404 Not Found</h1>")
 var methodNotAllowed = []byte("<h1>405 Method Not Allowed</h1>")
 
 func ErrorToBrowserFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	defer func() {
 		if e := recover(); e != nil {
-			resp.Write(Bytes(fmt.Sprint(e)))
+			resp.Write(bytes_(fmt.Sprint(e)))
 		}
 	}()
 	var ret []byte
