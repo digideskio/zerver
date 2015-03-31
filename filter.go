@@ -1,6 +1,8 @@
 package zerver
 
-import "net/url"
+import (
+	"net/url"
+)
 
 type (
 	// FilterFunc represent common filter function type,
@@ -17,7 +19,7 @@ type (
 
 	// FilterChain represent a chain of filter, the last is final handler,
 	// to continue the chain, must call chain(Request, Response)
-	FilterChain HandlerFunc
+	FilterChain HandleFunc
 
 	// FilterChain interface {
 	// 	Continue(Request, Response)
@@ -27,13 +29,13 @@ type (
 	// if there is no filters, the final handler will be called
 	filterChain struct {
 		filters []Filter
-		handler HandlerFunc
+		handler HandleFunc
 	}
 
 	// handlerInterceptor is a interceptor
 	handlerInterceptor struct {
 		filter  Filter
-		handler HandlerFunc
+		handler HandleFunc
 	}
 
 	// MatchAll routes
@@ -42,18 +44,31 @@ type (
 		// Filters return all root filters
 		Filters(url *url.URL) []Filter
 		// AddFilter add root filter for "/"
-		AddFilter(Filter)
-		AddFuncFilter(FilterFunc)
+		AddFilter(interface{})
 		Destroy()
 	}
 
 	rootFilters []Filter
 )
 
+const (
+	errNotFilter = "Not a filter"
+)
+
 // EmptyFilterFunc is a empty filter function, it simplely continue the filter chain
 // it's useful for test, may be also other conditions
 func EmptyFilterFunc(req Request, resp Response, chain FilterChain) {
 	chain(req, resp)
+}
+
+func convertFilter(i interface{}) Filter {
+	switch f := i.(type) {
+	case func(Request, Response, FilterChain):
+		return FilterFunc(f)
+	case Filter:
+		return f
+	}
+	panic(errNotFilter)
 }
 
 // FilterFunc is a function Filter
@@ -87,13 +102,8 @@ func (rfs *rootFilters) Filters(*url.URL) []Filter {
 }
 
 // AddFilter add root filter
-func (rfs *rootFilters) AddFilter(filter Filter) {
-	*rfs = append(*rfs, filter)
-}
-
-// AddFilter add root filter
-func (rfs *rootFilters) AddFuncFilter(filter FilterFunc) {
-	rfs.AddFilter(filter)
+func (rfs *rootFilters) AddFilter(filter interface{}) {
+	*rfs = append(*rfs, convertFilter(filter))
 }
 
 func (rfs *rootFilters) Destroy() {
@@ -144,28 +154,18 @@ func (chain *filterChain) destroy() {
 	recycleFilterChain(chain)
 }
 
-// InterceptHandler will create a permanent HandlerFunc/FilterChain, there is no
+// InterceptHandler will create a permanent HandleFunc/FilterChain, there is no
 // states keeps, it can be used without limitation.
 //
 // InterceptHandler wrap a handler with some filters as a interceptor
-func InterceptHandler(handler func(Request, Response), filters ...Filter) func(Request, Response) {
+func InterceptHandler(handler func(Request, Response), filters ...interface{}) func(Request, Response) {
 	if handler == nil {
 		handler = EmptyHandlerFunc
 	}
 	if len(filters) == 0 {
 		return handler
 	}
-	return newInterceptHandler(InterceptHandler(handler, filters[1:]...), filters[0])
-}
-
-func InterceptHandler2(handler func(Request, Response), filters ...FilterFunc) func(Request, Response) {
-	if handler == nil {
-		handler = EmptyHandlerFunc
-	}
-	if len(filters) == 0 {
-		return handler
-	}
-	return newInterceptHandler(InterceptHandler2(handler, filters[1:]...), filters[0])
+	return newInterceptHandler(InterceptHandler(handler, filters[1:]...), convertFilter(filters[0]))
 }
 
 func newInterceptHandler(handler func(Request, Response), filter Filter) func(Request, Response) {

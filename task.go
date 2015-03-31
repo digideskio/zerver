@@ -24,6 +24,10 @@ type (
 	}
 )
 
+const (
+	errNotTaskHandler = "Not a task handler"
+)
+
 func newTask(s serverGetter, indexer URLVarIndexer, value interface{}) Task {
 	return &task{
 		serverGetter:  s,
@@ -38,6 +42,16 @@ func (t *task) destroy() {
 
 func (t *task) Value() interface{} {
 	return t.value
+}
+
+func convertTaskHandler(i interface{}) TaskHandler {
+	switch t := i.(type) {
+	case func(Task):
+		return TaskHandlerFunc(t)
+	case TaskHandler:
+		return t
+	}
+	panic(errNotTaskHandler)
 }
 
 func (TaskHandlerFunc) Init(*Server) error  { return nil }

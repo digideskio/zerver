@@ -7,7 +7,6 @@ import (
 )
 
 type HostRootFilters struct {
-	RootFilters
 	hosts   []string
 	filters []RootFilters
 }
@@ -30,6 +29,10 @@ func (hr *HostRootFilters) Init(s *Server) error {
 		}
 	}
 	return nil
+}
+
+func (hr *HostRootFilters) AddFilter(interface{}) {
+	panic("Don't add filter to wrapper directly")
 }
 
 // Filters return all root filters

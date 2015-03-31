@@ -185,7 +185,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	var chain FilterChain
 	if handler == nil {
 		resp.ReportNotFound()
-	} else if chain = FilterChain(indicateHandler(req.Method(), handler)); chain == nil {
+	} else if chain = FilterChain(handler.Handler(req.Method())); chain == nil {
 		resp.ReportMethodNotAllowed()
 	}
 	newFilterChain(s.RootFilters.Filters(url), newFilterChain(filters, chain))(req, resp)

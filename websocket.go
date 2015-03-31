@@ -46,6 +46,10 @@ type (
 	}
 )
 
+const (
+	errNotWebSocketHandler = "Not a websocket handler"
+)
+
 // newWebSocketConn wrap a exist websocket connection and url variables to a
 // new webSocketConn
 func newWebSocketConn(s serverGetter, conn *websocket.Conn, varIndexer URLVarIndexer) *webSocketConn {
@@ -72,6 +76,16 @@ func (wsc *webSocketConn) RemoteIP() string {
 // UserAgent return user's agent identify
 func (wsc *webSocketConn) UserAgent() string {
 	return wsc.request.Header.Get(HEADER_USERAGENT)
+}
+
+func convertWebSocketHandler(i interface{}) WebSocketHandler {
+	switch w := i.(type) {
+	case func(WebSocketConn):
+		return WebSocketHandlerFunc(w)
+	case WebSocketHandler:
+		return w
+	}
+	panic(errNotWebSocketHandler)
 }
 
 // WebSocketHandlerFunc is a function WebSocketHandler
