@@ -43,16 +43,12 @@ type (
 		ServerInitializer
 		// Filters return all root filters
 		Filters(url *url.URL) []Filter
-		// AddFilter add root filter for "/"
-		AddFilter(interface{})
+		// Add add root filter for "/"
+		Add(interface{})
 		Destroy()
 	}
 
 	rootFilters []Filter
-)
-
-const (
-	errNotFilter = "Not a filter"
 )
 
 // EmptyFilterFunc is a empty filter function, it simplely continue the filter chain
@@ -68,7 +64,7 @@ func convertFilter(i interface{}) Filter {
 	case Filter:
 		return f
 	}
-	panic(errNotFilter)
+	return nil
 }
 
 // FilterFunc is a function Filter
@@ -101,8 +97,8 @@ func (rfs *rootFilters) Filters(*url.URL) []Filter {
 	return *rfs
 }
 
-// AddFilter add root filter
-func (rfs *rootFilters) AddFilter(filter interface{}) {
+// Add add root filter
+func (rfs *rootFilters) Add(filter interface{}) {
 	*rfs = append(*rfs, convertFilter(filter))
 }
 

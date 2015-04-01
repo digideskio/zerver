@@ -46,10 +46,6 @@ type (
 	}
 )
 
-const (
-	errNotWebSocketHandler = "Not a websocket handler"
-)
-
 // newWebSocketConn wrap a exist websocket connection and url variables to a
 // new webSocketConn
 func newWebSocketConn(s serverGetter, conn *websocket.Conn, varIndexer URLVarIndexer) *webSocketConn {
@@ -85,7 +81,7 @@ func convertWebSocketHandler(i interface{}) WebSocketHandler {
 	case WebSocketHandler:
 		return w
 	}
-	panic(errNotWebSocketHandler)
+	return nil
 }
 
 // WebSocketHandlerFunc is a function WebSocketHandler

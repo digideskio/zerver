@@ -331,11 +331,11 @@ func BenchmarkMatchRouteMultiple(b *testing.B) {
 
 func TestRoute(t *testing.T) {
 	rt := new(router)
-	OnErrPanic(rt.AddHandler("/user.:format", newFuncHandler()))
-	OnErrPanic(rt.AddHandler("/v:version", newFuncHandler()))
-	OnErrPanic(rt.AddHandler("/vaa/:id", newFuncHandler()))
-	// OnErrPanic(rt.AddHandler("/vba/:id", newFuncHandler()))
-	// OnErrPanic(rt.AddHandler("/v0a/:id", newFuncHandler()))
+	OnErrPanic(rt.Handle("/user.:format", MapHandler{}))
+	OnErrPanic(rt.Handle("/v:version", MapHandler{}))
+	OnErrPanic(rt.Handle("/vaa/:id", MapHandler{}))
+	// OnErrPanic(rt.Handle("/vba/:id", EmptyHandlerFunc))
+	// OnErrPanic(rt.Handle("/v0a/:id", EmptyHandlerFunc))
 	rt.PrintRouteTree(os.Stdout)
 	_, value := rt.matchOne("/user.json", nil)
 	t.Log(value)
@@ -346,8 +346,8 @@ func TestRoute(t *testing.T) {
 func TestFilterHideHandler(t *testing.T) {
 	tt := test.WrapTest(t)
 	rt := NewRouter()
-	rt.AddFuncFilter("/user/12:id", EmptyFilterFunc)
-	rt.AddFuncHandler("/user/:id", "GET", EmptyHandlerFunc)
+	rt.Handle("/user/12:id", EmptyFilterFunc)
+	rt.HandleFunc("/user/:id", "GET", EmptyHandlerFunc)
 	h, _, _ := rt.MatchHandlerFilters(&url.URL{Path: "/user/1234"})
 	tt.AssertTrue(h == nil)
 	h, _, _ = rt.MatchHandlerFilters(&url.URL{Path: "/user/2234"})
@@ -357,7 +357,7 @@ func TestFilterHideHandler(t *testing.T) {
 func TestConflictWildcardCatchall(t *testing.T) {
 	tt := test.WrapTest(t)
 	rt := new(router)
-	tt.AssertNil(rt.AddFuncHandler("/:user/:id", "GET", EmptyHandlerFunc))
-	e := rt.AddFuncHandler("/*user", "GET", EmptyHandlerFunc)
+	tt.AssertNil(rt.HandleFunc("/:user/:id", "GET", EmptyHandlerFunc))
+	e := rt.HandleFunc("/*user", "GET", EmptyHandlerFunc)
 	tt.AssertTrue(e != nil)
 }

@@ -12,29 +12,14 @@ func NewGroupRouter(rt Router, prefix string) Router {
 	}
 }
 
-// AddHandleFunc add a function handler, method are defined as constant string
-func (gr groupRouter) AddHandleFunc(pattern string, method string, handler HandleFunc) error {
-	return gr.Router.AddHandleFunc(gr.prefix+pattern, method, handler)
+// HandleFunc add a function handler, method are defined as constant string
+func (gr groupRouter) HandleFunc(pattern string, method string, handler HandleFunc) error {
+	return gr.Router.HandleFunc(gr.prefix+pattern, method, handler)
 }
 
-// AddHandler add a handler
-func (gr groupRouter) AddHandler(pattern string, handler interface{}) error {
-	return gr.Router.AddHandler(gr.prefix+pattern, handler)
-}
-
-// AddFilter add a filter
-func (gr groupRouter) AddFilter(pattern string, filter interface{}) error {
-	return gr.Router.AddFilter(gr.prefix+pattern, filter)
-}
-
-// AddWebSocketHandler add a websocket handler
-func (gr groupRouter) AddWebSocketHandler(pattern string, handler interface{}) error {
-	return gr.Router.AddWebSocketHandler(gr.prefix+pattern, handler)
-}
-
-// AddTaskHandler
-func (gr groupRouter) AddTaskHandler(pattern string, handler interface{}) error {
-	return gr.Router.AddTaskHandler(gr.prefix+pattern, handler)
+// Handle add a handler
+func (gr groupRouter) Handle(pattern string, handler interface{}) error {
+	return gr.Router.Handle(gr.prefix+pattern, handler)
 }
 
 // Get register a function handler process GET request for given pattern

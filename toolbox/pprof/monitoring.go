@@ -27,15 +27,15 @@ func EnableMonitoring(p string, rt zerver.Router, rootFilters zerver.RootFilters
 		return
 	}
 	for subpath, handler := range routes {
-		if err = rt.AddHandleFunc(path+subpath, "GET", handler); err != nil {
+		if err = rt.HandleFunc(path+subpath, "GET", handler); err != nil {
 			return
 		}
 		options = append(options, "GET "+path+subpath+": "+infos[subpath]+"\n")
 	}
 	if rootFilters == nil {
-		err = rt.AddFilter(path, globalFilter)
+		err = rt.Handle(path, globalFilter)
 	} else {
-		rootFilters.AddFilter(globalFilter)
+		rootFilters.Add(globalFilter)
 	}
 	return
 }
