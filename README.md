@@ -51,7 +51,7 @@ func (l logger) Filter(req zerver.Request, resp zerver.Response, chain zerver.Fi
     l(req.RemoteIP(), req.UserAgent(), req.URL())
     chain(req, resp)
 }
-server.AddFilter("/", logger(fmt.Println))
+server.Handle("/", logger(fmt.Println))
 ```
 
 * interceptor
@@ -76,7 +76,7 @@ func AuthHandler(req zerver.Request, resp zerver.Response) {
     resp.SetValue(true)
 }
 
-server.AddHandleFunc("/auth", "POST", zerver.InterceptHandler(
+server.HandleFunc("/auth", "POST", zerver.InterceptHandler(
     AuthHandler,  BasicAuthFilter,  AuthLogFilter,
 ))
 ```

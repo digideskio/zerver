@@ -26,21 +26,9 @@ type (
 		PrintRouteTree(w io.Writer)
 		Group(prefix string, fn func(Router))
 
-		// AddHandleFunc add a function handler, method are defined as constant string,
-		// this will create a MapHandler for it
-		AddHandleFunc(pattern string, method string, handler HandleFunc) error
-		// AddHandler add a handler
-		// handler can be Handler/MapHandler/HandlerFunc/MethodHandler
-		AddHandler(pattern string, handler interface{}) error
-		// AddFilter add a filter
-		// filter can be FilterFunc/literal FilterFunc/Filter
-		AddFilter(pattern string, filter interface{}) error
-		// AddWebSocketHandler add a websocket handler
-		// filter can be WebSocketHandlerFunc/literal WebSocketHandlerFunc/WebSocketHandler
-		AddWebSocketHandler(pattern string, handler interface{}) error
-		// AddTaskHandler
-		// filter can be TaskHandlerFunc/literal TaskHandlerFunc/TaskHandler
-		AddTaskHandler(pattern string, handler interface{}) error
+		HandleFunc(pattern string, method string, handler HandleFunc) error
+
+		Handle(pattern string, handler interface{}) error
 	}
 
 	RouteMatcher interface {
@@ -201,50 +189,41 @@ func (rt *router) routeProcessor() *routeProcessor {
 }
 
 // Get register a function handler process GET request for given pattern
-func (rt *router) Get(pattern string, handleFunc HandleFunc) error {
-	return rt.AddHandleFunc(pattern, GET, handleFunc)
+func (rt *router) Get(pattern string, handler HandleFunc) error {
+	return rt.HandleFunc(pattern, GET, handler)
 }
 
 // Post register a function handler process POST request for given pattern
-func (rt *router) Post(pattern string, handleFunc HandleFunc) error {
-	return rt.AddHandleFunc(pattern, POST, handleFunc)
+func (rt *router) Post(pattern string, handler HandleFunc) error {
+	return rt.HandleFunc(pattern, POST, handler)
 }
 
 // Put register a function handler process PUT request for given pattern
-func (rt *router) Put(pattern string, handleFunc HandleFunc) error {
-	return rt.AddHandleFunc(pattern, PUT, handleFunc)
+func (rt *router) Put(pattern string, handler HandleFunc) error {
+	return rt.HandleFunc(pattern, PUT, handler)
 }
 
 // Delete register a function handler process DELETE request for given pattern
-func (rt *router) Delete(pattern string, handleFunc HandleFunc) error {
-	return rt.AddHandleFunc(pattern, DELETE, handleFunc)
+func (rt *router) Delete(pattern string, handler HandleFunc) error {
+	return rt.HandleFunc(pattern, DELETE, handler)
 }
 
 // Patch register a function handler process PATCH request for given pattern
-func (rt *router) Patch(pattern string, handleFunc HandleFunc) error {
-	return rt.AddHandleFunc(pattern, PATCH, handleFunc)
+func (rt *router) Patch(pattern string, handler HandleFunc) error {
+	return rt.HandleFunc(pattern, PATCH, handler)
 }
 
 func (rt *router) Group(prefix string, fn func(Router)) {
 	fn(NewGroupRouter(rt, prefix))
 }
 
-// AddFilterFunc add filter to router
-func (rt *router) AddFilter(pattern string, filter interface{}) error {
-	rt.noFilter = false
-	return rt.addPattern(pattern, func(rp *routeProcessor, _ map[string]int) error {
-		rp.filters = append(rp.filters, convertFilter(filter))
-		return nil
-	})
-}
-
-// AddHandleFunc add function handler to router for given pattern and method
-func (rt *router) AddHandleFunc(pattern, method string, handler HandleFunc) (err error) {
+// HandleFunc add HandleFunc to router for given pattern and method
+func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) (err error) {
 	method = parseRequestMethod(method)
 	if fHandler := _tmpGetFuncHandler(pattern); fHandler == nil {
 		fHandler = make(MapHandler)
 		fHandler.setMethodHandler(method, handler)
-		if err = rt.AddHandler(pattern, fHandler); err == nil {
+		if err = rt.Handle(pattern, fHandler); err == nil {
 			_tmpSetFuncHandler(pattern, fHandler)
 		}
 	} else {
@@ -253,46 +232,53 @@ func (rt *router) AddHandleFunc(pattern, method string, handler HandleFunc) (err
 	return
 }
 
-// AddHandler add handler to router for given pattern
-func (rt *router) AddHandler(pattern string, handler interface{}) error {
-	return rt.addPattern(pattern, func(rp *routeProcessor, pathVars map[string]int) error {
+// Handle add
+// Handler/HandlerFunc/MapHandler/MethodHandler/literal HandlerFunc
+// Filter/FilterFunc
+// TaskHandler/TaskHandlerFunc
+// WebSocketHandler/WebSocketHandlerFunc
+// to router for given pattern
+func (rt *router) Handle(pattern string, handler interface{}) error {
+	routePath, pathVars, err := compile(pattern)
+	if err != nil {
+		return err
+	}
+	r, success := rt.addPath(routePath)
+	if !success {
+		return ErrConflictPathVar
+	}
+	rp := r.routeProcessor()
+	if h := convertHandler(handler); h != nil {
 		if rp.handlerProcessor != nil {
 			return ErrHandlerExist
 		}
 		rp.handlerProcessor = &handlerProcessor{
 			vars:    pathVars,
-			handler: convertHandler(handler),
+			handler: h,
 		}
-		return nil
-	})
-}
-
-// AddWebSocetHandler add websocket handler to router for given pattern
-func (rt *router) AddWebSocketHandler(pattern string, handler interface{}) error {
-	return rt.addPattern(pattern, func(rp *routeProcessor, pathVars map[string]int) error {
+	} else if f := convertFilter(handler); f != nil {
+		rt.noFilter = false
+		rp.filters = append(rp.filters, convertFilter(f))
+	} else if h := convertWebSocketHandler(handler); h != nil {
 		if rp.wsHandlerProcessor != nil {
 			return ErrHandlerExist
 		}
 		rp.wsHandlerProcessor = &wsHandlerProcessor{
 			vars:      pathVars,
-			wsHandler: convertWebSocketHandler(handler),
+			wsHandler: h,
 		}
-		return nil
-	})
-}
-
-// AddTaskHandler add task handler to router for given pattern
-func (rt *router) AddTaskHandler(pattern string, handler interface{}) error {
-	return rt.addPattern(pattern, func(rp *routeProcessor, pathVars map[string]int) error {
+	} else if h := convertTaskHandler(handler); h != nil {
 		if rp.taskHandlerProcessor != nil {
 			return ErrHandlerExist
 		}
 		rp.taskHandlerProcessor = &taskHandlerProcessor{
 			vars:        pathVars,
-			taskHandler: convertTaskHandler(handler),
+			taskHandler: h,
 		}
-		return nil
-	})
+	} else {
+		panic("Not a Handler/Filter/WebSocketHandler/TaskHandler")
+	}
+	return nil
 }
 
 // addPattern compile pattern, extract all variables, and add it to route tree

@@ -47,10 +47,6 @@ type (
 	MapHandler map[string]HandleFunc
 )
 
-const (
-	errNotHandler = "Not a handler"
-)
-
 // EmptyHandlerFunc is a empty handler function, it do nothing
 // it's useful for test, may be also other conditions
 func EmptyHandlerFunc(Request, Response) {}
@@ -68,7 +64,7 @@ func convertHandler(i interface{}) Handler {
 	case MethodHandler:
 		return standardHandler{MethodHandler: h}
 	}
-	panic(errNotHandler)
+	return nil
 }
 
 func (HandlerFunc) Init(*Server) error {
