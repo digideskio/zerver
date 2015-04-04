@@ -148,16 +148,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	}
 }
 
-// StartTask add a task
-// Task must have corresponding handler, otherwise server will panic
-func (s *Server) StartTask(async bool, path string, value interface{}) {
-	if async {
-		go s.serveTask(path, value)
-	} else {
-		s.serveTask(path, value)
-	}
-}
-
 // SetWebSocketHeaderChecker accept a checker function, checker can get an
 func (s *Server) SetWebSocketHeaderChecker(checker HeaderChecker) {
 	s.checker.Checker = checker
@@ -196,7 +186,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 }
 
 // serveTask serve for task
-func (s *Server) serveTask(path string, value interface{}) {
+func (s *Server) StartTask(path string, value interface{}) {
 	if handler := s.MatchTaskHandler(&url.URL{Path: path}); handler != nil {
 		handler.Handle(value)
 		return

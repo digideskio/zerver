@@ -1,8 +1,6 @@
 package filters
 
 import (
-	"bytes"
-	"encoding/base64"
 	"strings"
 
 	"github.com/cosiner/zerver"
@@ -24,24 +22,15 @@ func (b *BasicAuthFilter) Init(*zerver.Server) error {
 }
 
 func (b *BasicAuthFilter) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-	auth := strings.TrimSpace(req.Header(_HEADER_AUTHRIZATION))
-	if auth == "" {
-		resp.ReportUnauthorized()
+	auth := req.Authorization()
+	index := strings.IndexByte(auth, ':')
+	if index > 0 && index < len(auth)-1 {
+		req.SetAttr(b.AuthUserAttrName, auth[:index])
+		req.SetAttr(b.AuthPassAttrName, auth[index+1:])
+		chain(req, resp)
 		return
 	}
-	authStr, err := base64.URLEncoding.DecodeString(auth)
-	if err != nil {
-		resp.ReportBadRequest()
-		return
-	}
-	index := bytes.IndexByte(authStr, ':')
-	if index <= 0 || index == len(authStr)-1 {
-		resp.ReportBadRequest()
-		return
-	}
-	req.SetAttr(b.AuthUserAttrName, authStr[:index])
-	req.SetAttr(b.AuthPassAttrName, authStr[index+1:])
-	chain(req, resp)
+	resp.ReportBadRequest()
 }
 
 func (b *BasicAuthFilter) Destroy() {}

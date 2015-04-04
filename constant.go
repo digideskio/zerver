@@ -13,18 +13,18 @@ const (
 	HEADER_ACCEPTENCODING  = "Accept-Encoding"
 	HEADER_CACHECONTROL    = "Cache-Control"
 	HEADER_EXPIRES         = "Expires"
+	HEADER_AUTHRIZATION    = "Authorization"
 
 	// ContentEncoding
 	ENCODING_GZIP    = "gzip"
 	ENCODING_DEFLATE = "deflate"
 
 	// Request Method
-	GET            = "GET"
-	POST           = "POST"
-	DELETE         = "DELETE"
-	PUT            = "PUT"
-	PATCH          = "PATCH"
-	UNKNOWN_METHOD = "UNKNOWN"
+	GET    = "GET"
+	POST   = "POST"
+	DELETE = "DELETE"
+	PUT    = "PUT"
+	PATCH  = "PATCH"
 
 	// Content Type
 	CONTNTTYPE_PLAIN = "text/plain;charset=utf-8"

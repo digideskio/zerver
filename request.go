@@ -1,6 +1,7 @@
 package zerver
 
 import (
+	"encoding/base64"
 	"io"
 	"net/http"
 	"net/url"
@@ -18,6 +19,7 @@ type (
 		Method() string
 		ContentType() string
 		AcceptEncodings() string
+		Authorization() string
 		Header(name string) string
 		AttrContainer
 		// Cookie(name string) string
@@ -137,6 +139,23 @@ func (req *request) ContentType() string {
 
 func (req *request) AcceptEncodings() string {
 	return req.Header(HEADER_ACCEPTENCODING)
+}
+
+// Authorization get authorization info from request header,
+// if it isn't basic auth, auth info will be directly returned,
+// otherwise, base64 decode will be peformed, empty string will be returned
+// if error occured when decode
+func (req *request) Authorization() string {
+	auth := req.Header(HEADER_AUTHRIZATION)
+	if strings.HasPrefix(auth, "Basic ") {
+		a, err := base64.URLEncoding.DecodeString(auth[len("Basic "):])
+		if err == nil {
+			auth = string(a)
+		} else {
+			auth = ""
+		}
+	}
+	return auth
 }
 
 // URL return request url
