@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/cosiner/gohper/lib/runtime"
+
 	"github.com/cosiner/gohper/lib/sys"
 
 	. "github.com/cosiner/gohper/lib/errors"
@@ -82,6 +84,8 @@ type (
 		processor *routeProcessor // processor for current route node
 		noFilter  bool
 	}
+
+	HandlerExistError string
 )
 
 const (
@@ -89,8 +93,11 @@ const (
 		" or catchall at the same position, " +
 		"this means one of them will nerver be matched, " +
 		"please check your routes")
-	ErrHandlerExist = Err("handler for this route already exist")
 )
+
+func (e HandlerExistError) Error() string {
+	return "Handler for route " + string(e) + " already exist"
+}
 
 // init init handler and filters hold by routeProcessor
 func (rp *routeProcessor) init(initHandler func(Handler) bool,
@@ -220,11 +227,11 @@ func (rt *router) Group(prefix string, fn func(Router)) {
 // HandleFunc add HandleFunc to router for given pattern and method
 func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) (err error) {
 	method = parseRequestMethod(method)
-	if fHandler := _tmpGetFuncHandler(pattern); fHandler == nil {
+	if fHandler := _tmpGetMapHandler(pattern); fHandler == nil {
 		fHandler = make(MapHandler)
 		fHandler.setMethodHandler(method, handler)
 		if err = rt.Handle(pattern, fHandler); err == nil {
-			_tmpSetFuncHandler(pattern, fHandler)
+			_tmpSetMapHandler(pattern, fHandler)
 		}
 	} else {
 		fHandler.setMethodHandler(method, handler)
@@ -250,7 +257,7 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 	rp := r.routeProcessor()
 	if h := convertHandler(handler); h != nil {
 		if rp.handlerProcessor != nil {
-			return ErrHandlerExist
+			return HandlerExistError(runtime.CallerPosition(1) + ": " + pattern)
 		}
 		rp.handlerProcessor = &handlerProcessor{
 			vars:    pathVars,
@@ -261,7 +268,7 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 		rp.filters = append(rp.filters, convertFilter(f))
 	} else if h := convertWebSocketHandler(handler); h != nil {
 		if rp.wsHandlerProcessor != nil {
-			return ErrHandlerExist
+			return HandlerExistError(runtime.CallerPosition(1) + ": " + pattern)
 		}
 		rp.wsHandlerProcessor = &wsHandlerProcessor{
 			vars:      pathVars,
@@ -269,7 +276,7 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 		}
 	} else if h := convertTaskHandler(handler); h != nil {
 		if rp.taskHandlerProcessor != nil {
-			return ErrHandlerExist
+			return HandlerExistError(runtime.CallerPosition(1) + ": " + pattern)
 		}
 		rp.taskHandlerProcessor = &taskHandlerProcessor{
 			vars:        pathVars,
@@ -714,14 +721,14 @@ func (rt *router) accessAllChilds(fn func(*router) bool) {
 	}
 }
 
-func _tmpGetFuncHandler(pattern string) MapHandler {
-	h := TmpHGet("funcHandlers", pattern)
+func _tmpGetMapHandler(pattern string) MapHandler {
+	h := TmpHGet("mapHandlers", pattern)
 	if h == nil {
 		return nil
 	}
 	return h.(MapHandler)
 }
 
-func _tmpSetFuncHandler(pattern string, handler MapHandler) {
-	TmpHSet("funcHandlers", pattern, handler)
+func _tmpSetMapHandler(pattern string, handler MapHandler) {
+	TmpHSet("mapHandlers", pattern, handler)
 }

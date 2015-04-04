@@ -16,16 +16,14 @@ func TmpSet(key string, value interface{}) {
 
 func TmpHSet(key, key2 string, value interface{}) {
 	_tmpCheck()
-	vs := _tmp[key]
-	values, ok := vs.(map[string]interface{})
-	if !ok {
-		return
+	if vs := _tmp[key]; vs == nil {
+		vs := map[string]interface{}{
+			key2: value,
+		}
+		_tmp[key] = vs
+	} else if values, ok := vs.(map[string]interface{}); ok {
+		values[key2] = value
 	}
-	if values == nil {
-		values := make(map[string]interface{})
-		_tmp[key] = values
-	}
-	values[key2] = value
 }
 
 func TmpGet(key string) interface{} {
@@ -35,10 +33,8 @@ func TmpGet(key string) interface{} {
 
 func TmpHGet(key, key2 string) interface{} {
 	_tmpCheck()
-	values := _tmp[key]
-	if values != nil {
-		vs := values.(map[string]interface{})
-		return vs[key2]
+	if values := _tmp[key]; values != nil {
+		return values.(map[string]interface{})[key2]
 	}
 	return nil
 }
