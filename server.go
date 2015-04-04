@@ -195,19 +195,13 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	recycleFilters(filters)
 }
 
-// serveTask serve for asynchronous task
+// serveTask serve for task
 func (s *Server) serveTask(path string, value interface{}) {
-	u, err := url.Parse(path)
-	if err != nil {
-		PanicServer(err.Error())
+	if handler := s.MatchTaskHandler(&url.URL{Path: path}); handler != nil {
+		handler.Handle(value)
+		return
 	}
-	handler, indexer := s.MatchTaskHandler(u)
-	if handler == nil {
-		PanicServer("No task handler found for " + path)
-	}
-	task := newTask(s, indexer, value)
-	handler.Handle(task)
-	task.destroy()
+	panic("No task handler found for " + path)
 }
 
 // PanicServer create a new goroutine, it force panic whole process

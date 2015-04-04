@@ -37,7 +37,7 @@ type (
 		// MatchWebSocketHandler match given url to find a matched websocket handler
 		MatchWebSocketHandler(url *url.URL) (WebSocketHandler, URLVarIndexer)
 		// MatchTaskHandler
-		MatchTaskHandler(url *url.URL) (TaskHandler, URLVarIndexer)
+		MatchTaskHandler(url *url.URL) TaskHandler
 	}
 
 	MethodRouter interface {
@@ -312,22 +312,16 @@ func (rt *router) MatchWebSocketHandler(url *url.URL) (WebSocketHandler, URLVarI
 	return nil, indexer
 }
 
-// MatchTaskhandler match url to find final websocket handler
-func (rt *router) MatchTaskHandler(url *url.URL) (TaskHandler, URLVarIndexer) {
-	path := url.Path
-	indexer := newVarIndexerFromPool()
-	rt, values := rt.matchOne(path, indexer.values)
-	indexer.values = values
-	if rt != nil {
+// MatchTaskhandler match url to find final task handler
+func (rt *router) MatchTaskHandler(url *url.URL) TaskHandler {
+	if rt = rt.matchOnly(url.Path); rt != nil {
 		if p := rt.processor; p != nil {
 			if thp := p.taskHandlerProcessor; thp != nil {
-				indexer.vars = thp.vars
-				return thp.taskHandler, indexer
+				return thp.taskHandler
 			}
 		}
 	}
-	return nil, indexer
-
+	return nil
 }
 
 // // MatchHandler match url to find final websocket handler
@@ -557,6 +551,52 @@ func (rt *router) matchOne(path string, values []string) (*router, []string) {
 		} /* else { path parse end, node is the last matched node }*/
 	}
 	return rt, values
+}
+
+// matchOnly match one longest route node without parameter values
+func (rt *router) matchOnly(path string) *router {
+	var (
+		str                string
+		strIndex, strLen   int
+		pathIndex, pathLen = 0, len(path)
+		node               = rt
+	)
+	for node != nil {
+		str, strIndex = rt.str, 0
+		strLen = len(str)
+		for strIndex < strLen {
+			if pathIndex != pathLen {
+				c := str[strIndex]
+				strIndex++
+				switch c {
+				case path[pathIndex]: // else check character MatchPath or not
+					pathIndex++
+				case _WILDCARD:
+					for pathIndex < pathLen && path[pathIndex] != '/' {
+						pathIndex++
+					}
+				case _REMAINSALL: // parse end, full matched
+					return rt
+				default:
+					return nil // not matched
+				}
+			} else {
+				return nil // path parse end
+			}
+		}
+		node = nil
+		if pathIndex != pathLen { // path not parse end, must find a child node to continue
+			p := path[pathIndex]
+			for i, c := range rt.chars {
+				if c == p || c >= _WILDCARD {
+					node = rt.childs[i] // child
+					break
+				}
+			}
+			rt = node // child to parse
+		} /* else { path parse end, node is the last matched node }*/
+	}
+	return rt
 }
 
 // isInvalidSection check whether section has the predefined _WILDCARD and match

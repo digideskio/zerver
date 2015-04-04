@@ -1,48 +1,18 @@
 package zerver
 
 type (
-	// Task
-	Task interface {
-		URLVarIndexer
-		Value() interface{}
-		serverGetter
-		destroy()
-	}
-
-	TaskHandlerFunc func(Task)
+	TaskHandlerFunc func(interface{})
 
 	TaskHandler interface {
 		ServerInitializer
 		Destroy()
-		Handle(Task)
-	}
-
-	task struct {
-		serverGetter
-		URLVarIndexer
-		value interface{}
+		Handle(interface{})
 	}
 )
 
-func newTask(s serverGetter, indexer URLVarIndexer, value interface{}) Task {
-	return &task{
-		serverGetter:  s,
-		URLVarIndexer: indexer,
-		value:         value,
-	}
-}
-
-func (t *task) destroy() {
-	t.URLVarIndexer.destroySelf()
-}
-
-func (t *task) Value() interface{} {
-	return t.value
-}
-
 func convertTaskHandler(i interface{}) TaskHandler {
 	switch t := i.(type) {
-	case func(Task):
+	case func(interface{}):
 		return TaskHandlerFunc(t)
 	case TaskHandler:
 		return t
@@ -50,6 +20,6 @@ func convertTaskHandler(i interface{}) TaskHandler {
 	return nil
 }
 
-func (TaskHandlerFunc) Init(*Server) error  { return nil }
-func (fn TaskHandlerFunc) Handle(task Task) { fn(task) }
-func (TaskHandlerFunc) Destroy()            {}
+func (TaskHandlerFunc) Init(*Server) error         { return nil }
+func (fn TaskHandlerFunc) Handle(task interface{}) { fn(task) }
+func (TaskHandlerFunc) Destroy()                   {}

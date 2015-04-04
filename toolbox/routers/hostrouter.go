@@ -83,9 +83,9 @@ func (hr HostRouter) MatchWebSocketHandler(url *url.URL) (handler WebSocketHandl
 }
 
 // MatchTaskHandler
-func (hr HostRouter) MatchTaskHandler(url *url.URL) (handler TaskHandler, indexer URLVarIndexer) {
+func (hr HostRouter) MatchTaskHandler(url *url.URL) (handler TaskHandler) {
 	if router := hr.match(url); router != nil {
-		handler, indexer = router.MatchTaskHandler(url)
+		handler = router.MatchTaskHandler(url)
 	}
 	return
 }
