@@ -21,10 +21,10 @@ var grt = func() Router {
 var u = &url.URL{Path: "/user/123/exist"}
 
 func TestGroup(t *testing.T) {
-	tt := test.WrapTest(t)
+	tt := test.Wrap(t)
 	grt.PrintRouteTree(os.Stdout)
 	h, _, _ := grt.MatchHandlerFilters(u)
-	tt.AssertTrue(h != nil)
+	tt.True(h != nil)
 }
 
 func BenchmarkRouter(b *testing.B) {

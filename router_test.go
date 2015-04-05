@@ -12,7 +12,7 @@ import (
 )
 
 func TestCompile(t *testing.T) {
-	tt := test.WrapTest(t)
+	tt := test.Wrap(t)
 	tt.Log(len(strings.Split("", "/")))
 	tt.Log(compile("/"))
 	tt.Log(compile("/:user/:id/:a"))
@@ -292,7 +292,7 @@ func rt() *router {
 var r = rt()
 
 func BenchmarkMatchRouteOne(b *testing.B) {
-	// tt := test.WrapTest(b)
+	// tt := test.Wrap(b)
 	path := "/repos/julienschmidt/httprouter/stargazers"
 	// path := "/user/repos"
 	// path := "/user/keys"
@@ -310,7 +310,7 @@ func BenchmarkMatchRouteOne(b *testing.B) {
 }
 
 func BenchmarkMatchRouteMultiple(b *testing.B) {
-	// tt := test.WrapTest(b)
+	// tt := test.Wrap(b)
 	// path := "/legacy/issues/search/aaa/bbb/ccc/ddd"
 	// path := "/user/repos"
 	path := "/repos/julienschmidt/httprouter/stargazers"
@@ -344,20 +344,20 @@ func TestRoute(t *testing.T) {
 }
 
 func TestFilterHideHandler(t *testing.T) {
-	tt := test.WrapTest(t)
+	tt := test.Wrap(t)
 	rt := NewRouter()
 	rt.Handle("/user/12:id", EmptyFilterFunc)
 	rt.HandleFunc("/user/:id", "GET", EmptyHandlerFunc)
 	h, _, _ := rt.MatchHandlerFilters(&url.URL{Path: "/user/1234"})
-	tt.AssertTrue(h == nil)
+	tt.True(h == nil)
 	h, _, _ = rt.MatchHandlerFilters(&url.URL{Path: "/user/2234"})
-	tt.AssertTrue(h != nil)
+	tt.True(h != nil)
 }
 
 func TestConflictWildcardCatchall(t *testing.T) {
-	tt := test.WrapTest(t)
+	tt := test.Wrap(t)
 	rt := new(router)
-	tt.AssertNil(rt.HandleFunc("/:user/:id", "GET", EmptyHandlerFunc))
+	tt.Nil(rt.HandleFunc("/:user/:id", "GET", EmptyHandlerFunc))
 	e := rt.HandleFunc("/*user", "GET", EmptyHandlerFunc)
-	tt.AssertTrue(e != nil)
+	tt.True(e != nil)
 }
