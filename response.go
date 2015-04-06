@@ -2,17 +2,24 @@ package zerver
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	. "github.com/cosiner/gohper/lib/errors"
 )
 
 type (
+	// ResponseWrapper wrap response writer, return another writer and a flag specified
+	// whether should close writer on response destroy, the returned writer must be
+	// io.Closer for it should close original writer
+	ResponseWrapper func(http.ResponseWriter, bool) (http.ResponseWriter, bool)
+
 	Response interface {
+		Wrap(ResponseWrapper)
+
 		// These methods should be called before Write
 		SetHeader(name, value string)
 		AddHeader(name, value string)
@@ -49,16 +56,20 @@ type (
 		// operation, restore it
 		Value() interface{}
 		SetValue(interface{})
+
+		Send(string, interface{}) error
 	}
 
 	// response represent a response of request to user
 	response struct {
+		serverGetter
 		http.ResponseWriter
 		header       http.Header
 		status       int
 		statusWrited bool
 		value        interface{}
 		err          error
+		needClose    bool
 	}
 )
 
@@ -67,19 +78,30 @@ const (
 )
 
 // newResponse create a new response, and set default content type to HTML
-func (resp *response) init(w http.ResponseWriter) Response {
+func (resp *response) init(s serverGetter, w http.ResponseWriter) Response {
+	resp.serverGetter = s
 	resp.ResponseWriter = w
 	resp.header = w.Header()
 	resp.status = http.StatusOK
+	resp.needClose = false
 	return resp
 }
 
 func (resp *response) destroy() {
 	resp.flushHeader()
 	resp.statusWrited = false
-	resp.ResponseWriter = nil
 	resp.header = nil
 	resp.err = nil
+	if resp.needClose {
+		resp.needClose = false
+		resp.ResponseWriter.(io.Closer).Close()
+	}
+	resp.ResponseWriter = nil
+}
+
+func (resp *response) Wrap(fn ResponseWrapper) {
+	resp.ResponseWriter, resp.needClose = fn(resp.ResponseWriter, resp.needClose)
+	resp.header = resp.ResponseWriter.Header()
 }
 
 func (resp *response) flushHeader() {
@@ -157,7 +179,7 @@ func (resp *response) SetContentEncoding(enc string) {
 }
 
 func (resp *response) CacheSeconds(secs int) {
-	resp.SetHeader(HEADER_CACHECONTROL, fmt.Sprintf("max-age:%d", secs))
+	resp.SetHeader(HEADER_CACHECONTROL, "max-age:"+strconv.Itoa(secs))
 }
 
 func (resp *response) CacheUntil(t *time.Time) {
@@ -197,4 +219,8 @@ func (resp *response) Value() interface{} {
 
 func (resp *response) SetValue(v interface{}) {
 	resp.value = v
+}
+
+func (resp *response) Send(key string, value interface{}) error {
+	return resp.ResourceMaster().Send(resp, key, value)
 }

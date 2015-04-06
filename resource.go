@@ -40,26 +40,26 @@ var (
 
 // Send send resource to client, if key is empty, just send marshaled value,
 // otherwise send as json object
-func (r ResourceMaster) Send(resp io.Writer, key string, value interface{}) (err error) {
+func (r *ResourceMaster) Send(w io.Writer, key string, value interface{}) (err error) {
 	var bs []byte
 	if key != "" {
-		resp.Write(_jsonHeadStart)
-		resp.Write(types.UnsafeBytes(key))
-		resp.Write(_jsonHeadEnd)
+		w.Write(_jsonHeadStart)
+		w.Write(types.UnsafeBytes(key))
+		w.Write(_jsonHeadEnd)
 		if bs, err = r.Marshal(value); err == nil {
 			r.Pool(bs)
-			resp.Write(bs)
-			_, err = resp.Write(_jsonEnd)
+			w.Write(bs)
+			_, err = w.Write(_jsonEnd)
 		}
 	} else if bs, err = r.Marshal(value); err == nil {
 		r.Pool(bs)
-		_, err = resp.Write(bs)
+		_, err = w.Write(bs)
 	}
 	return err
 }
 
-func (r ResourceMaster) Recieve(req io.Reader, v interface{}) error {
-	bs, err := ioutil.ReadAll(req)
+func (r *ResourceMaster) Recieve(rd io.Reader, v interface{}) error {
+	bs, err := ioutil.ReadAll(rd)
 	if err == nil {
 		err = r.Unmarshal(bs, v)
 	}

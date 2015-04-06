@@ -3,45 +3,76 @@ package filters
 import (
 	"compress/flate"
 	"compress/gzip"
+	"fmt"
+	"io"
+	"net/http"
 	"strings"
 
 	"github.com/cosiner/zerver"
 )
 
-type gzipResponse struct {
-	gzipWriter *gzip.Writer
-	zerver.Response
+type gzipWriter struct {
+	gw *gzip.Writer
+	http.ResponseWriter
+	needClose bool
 }
 
-type flateResponse struct {
-	flateWriter *flate.Writer
-	zerver.Response
+func (w *gzipWriter) Write(data []byte) (int, error) {
+	fmt.Println("-----------------")
+
+	return w.gw.Write(data)
 }
 
-func (gr *gzipResponse) Write(data []byte) (int, error) {
-	return gr.gzipWriter.Write(data)
+func (w *gzipWriter) Close() error {
+	err := w.gw.Close()
+	if w.needClose {
+		err = w.ResponseWriter.(io.Closer).Close()
+	}
+	return err
 }
 
-func (fr *flateResponse) Write(data []byte) (int, error) {
-	return fr.flateWriter.Write(data)
+type flateWriter struct {
+	fw *flate.Writer
+	http.ResponseWriter
+	needClose bool
+}
+
+func (w *flateWriter) Write(data []byte) (int, error) {
+	return w.fw.Write(data)
+}
+
+func (w *flateWriter) Close() error {
+	err := w.fw.Close()
+	if w.needClose {
+		err = w.ResponseWriter.(io.Closer).Close()
+	}
+	return err
+}
+
+func wrapGzipResponseWriter(w http.ResponseWriter, needClose bool) (http.ResponseWriter, bool) {
+	return &gzipWriter{
+		gw:             gzip.NewWriter(w),
+		ResponseWriter: w,
+		needClose:      needClose,
+	}, true
+}
+func wrapFlateResponseWriter(w http.ResponseWriter, needClose bool) (http.ResponseWriter, bool) {
+	fw, _ := flate.NewWriter(w, flate.DefaultCompression)
+	return &flateWriter{
+		fw:             fw,
+		ResponseWriter: w,
+		needClose:      needClose,
+	}, true
 }
 
 func CompressFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	encoding := req.AcceptEncodings()
 	if strings.Contains(encoding, zerver.ENCODING_GZIP) {
-		gzw := gzip.NewWriter(resp)
-		gresp := gzipResponse{gzw, resp}
 		resp.SetContentEncoding(zerver.ENCODING_GZIP)
-		defer gzw.Close()
-		chain(req, &gresp)
-		gzw.Close()
+		resp.Wrap(wrapGzipResponseWriter)
 	} else if strings.Contains(encoding, zerver.ENCODING_DEFLATE) {
-		flw, _ := flate.NewWriter(resp, flate.DefaultCompression)
-		fresp := flateResponse{flw, resp}
 		resp.SetContentEncoding(zerver.ENCODING_DEFLATE)
-		defer flw.Close()
-		chain(req, &fresp)
-	} else {
-		chain(req, resp)
+		resp.Wrap(wrapFlateResponseWriter)
 	}
+	chain(req, resp)
 }

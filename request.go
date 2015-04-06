@@ -9,7 +9,13 @@ import (
 )
 
 type (
+	// RequestWrapper wrap a request, then return another one and a flag specified
+	// whether should close request.Body on request destroy, it should close
+	// original request.Body if need
+	RequestWrapper func(*http.Request, bool) (*http.Request, bool)
+
 	Request interface {
+		Wrap(RequestWrapper)
 		RemoteAddr() string
 		RemoteIP() string
 		Param(name string) string
@@ -27,6 +33,8 @@ type (
 		serverGetter
 		io.Reader
 		URLVarIndexer
+
+		Recieve(interface{}) error
 		destroy()
 	}
 
@@ -39,6 +47,7 @@ type (
 		header  http.Header
 		params  url.Values
 		AttrContainer
+		needClose bool
 	}
 )
 
@@ -60,12 +69,22 @@ func (req *request) init(s serverGetter, requ *http.Request, varIndexer URLVarIn
 
 func (req *request) destroy() {
 	req.AttrContainer.Clear()
-	req.request = nil
 	req.serverGetter = nil
 	req.header = nil
 	req.URLVarIndexer.destroySelf() // who owns resource, who releases resource
 	req.URLVarIndexer = nil
 	req.params = nil
+	if req.needClose {
+		req.needClose = false
+		req.request.Body.Close()
+	}
+	req.request = nil
+}
+
+func (req *request) Wrap(fn RequestWrapper) {
+	req.request, req.needClose = fn(req.request, req.needClose)
+	req.header = req.request.Header
+	req.method = req.request.Method
 }
 
 func (req *request) Read(data []byte) (int, error) {
@@ -166,4 +185,8 @@ func (req *request) URL() *url.URL {
 // Header return header value with name
 func (req *request) Header(name string) string {
 	return req.header.Get(name)
+}
+
+func (req *request) Recieve(v interface{}) error {
+	return req.ResourceMaster().Recieve(req, v)
 }

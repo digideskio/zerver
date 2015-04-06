@@ -20,20 +20,26 @@ type (
 		ListenAddr       string        // default :4000
 		CertFile         string        // default not enable tls
 		KeyFile          string
+		RequestWrapper   //  wrapper for each request
+		ResponseWrapper  // wrapper for each response
+		*ResourceMaster
 	}
 
 	// Server represent a web server
 	Server struct {
 		Router
 		AttrContainer
-		RootFilters RootFilters // Match Every Routes
-		checker     websocket.HeaderChecker
-		contentType string // default content type
+		RootFilters  RootFilters // Match Every Routes
+		checker      websocket.HandshakeChecker
+		contentType  string // default content type
+		wrapRequest  RequestWrapper
+		wrapResponse ResponseWrapper
+		resMaster    *ResourceMaster
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
 	// any httper's value, it there is something wrong, throw an error
-	HeaderChecker func(header func(string) string) error
+	HeaderChecker websocket.HeaderChecker
 
 	// ServerInitializer is a Object which will automaticlly initialed by server if
 	// it's added to server, else it should initialed manually
@@ -44,6 +50,7 @@ type (
 	// serverGetter is a server getter
 	serverGetter interface {
 		Server() *Server
+		ResourceMaster() *ResourceMaster
 	}
 )
 
@@ -87,10 +94,18 @@ func (s *Server) Server() *Server {
 	return s
 }
 
+func (s *Server) ResourceMaster() *ResourceMaster {
+	return s.resMaster
+}
+
 // Start start server
 func (s *Server) start(o *ServerOption) {
 	o.init()
 	s.contentType = o.ContentType
+	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
+	s.wrapRequest = o.RequestWrapper
+	s.wrapResponse = o.ResponseWrapper
+	s.resMaster = o.ResourceMaster
 	pathVarCount = o.PathVarCount
 	filterCount = o.FilterCount
 
@@ -148,17 +163,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	}
 }
 
-// SetWebSocketHeaderChecker accept a checker function, checker can get an
-func (s *Server) SetWebSocketHeaderChecker(checker HeaderChecker) {
-	s.checker.Checker = checker
-}
-
 // serveWebSocket serve for websocket protocal
 func (s *Server) serveWebSocket(w http.ResponseWriter, request *http.Request) {
 	handler, indexer := s.MatchWebSocketHandler(request.URL)
 	if handler == nil {
 		w.WriteHeader(http.StatusNotFound)
-	} else if conn, err := websocket.UpgradeWebsocket(w, request, s.checker.HandshakeCheck); err == nil {
+	} else if conn, err := websocket.UpgradeWebsocket(w, request, s.checker); err == nil {
 		handler.Handle(newWebSocketConn(s, conn, indexer))
 		indexer.destroySelf()
 	}
@@ -170,7 +180,13 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	url.Host = request.Host
 	handler, indexer, filters := s.MatchHandlerFilters(url)
 	requestEnv := newRequestEnvFromPool()
-	req, resp := requestEnv.req.init(s, request, indexer), requestEnv.resp.init(w)
+	req, resp := requestEnv.req.init(s, request, indexer), requestEnv.resp.init(s, w)
+	if s.wrapRequest != nil {
+		req.Wrap(s.wrapRequest)
+	}
+	if s.wrapResponse != nil {
+		resp.Wrap(s.wrapResponse)
+	}
 	resp.SetContentType(s.contentType)
 	var chain FilterChain
 	if handler == nil {
