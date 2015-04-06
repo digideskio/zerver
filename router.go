@@ -333,17 +333,17 @@ func (rt *router) MatchTaskHandler(url *url.URL) TaskHandler {
 
 // // MatchHandler match url to find final websocket handler
 // func (rt *router) MatchHandler(url *url.URL) (handler Handler, indexer URLVarIndexer) {
-// 	path := url.Path
-// 	indexer = newVarIndexerFromPool()
-// 	rt, values := rt.matchOne(path, indexer.values)
-// 	indexer.values = values
-// 	if rt != nil && rt.processor != nil {
-// 		if hp := p.handlerProcessor; hp != nil {
-// 			indexer.vars = hp.vars
-// 			handler = hp.handler
-// 		}
-// 	}
-// 	return
+//  path := url.Path
+//  indexer = newVarIndexerFromPool()
+//  rt, values := rt.matchOne(path, indexer.values)
+//  indexer.values = values
+//  if rt != nil && rt.processor != nil {
+//      if hp := p.handlerProcessor; hp != nil {
+//          indexer.vars = hp.vars
+//          handler = hp.handler
+//      }
+//  }
+//  return
 // }
 
 // MatchHandlerFilters match url to fin final handler and each filters
@@ -492,22 +492,16 @@ func (rt *router) matchMultiple(path string, pathIndex int, values []string) (in
 			return -1, nil, nil, false // path parse end
 		}
 	}
-	var continu bool
 	if pathIndex != pathLen { // path not parse end, to find a child node to continue
-		var node *router
 		p := path[pathIndex]
 		for i, c := range rt.chars {
 			if c == p || c >= _WILDCARD {
-				node = rt.childs[i] // child
-				break
+				return pathIndex, values, rt.childs[i], true
 			}
 		}
-		rt = node
-		if node != nil {
-			continu = true
-		}
+		rt = nil
 	}
-	return pathIndex, values, rt, continu
+	return pathIndex, values, rt, false
 }
 
 // matchOne match one longest route node and return values of path variable
@@ -516,47 +510,44 @@ func (rt *router) matchOne(path string, values []string) (*router, []string) {
 		str                string
 		strIndex, strLen   int
 		pathIndex, pathLen = 0, len(path)
-		node               = rt
 	)
-	for node != nil {
-		str, strIndex = rt.str, 0
-		strLen = len(str)
-		for strIndex < strLen {
-			if pathIndex != pathLen {
-				c := str[strIndex]
-				strIndex++
-				switch c {
-				case path[pathIndex]: // else check character MatchPath or not
+AGAIN:
+	str, strIndex = rt.str, 0
+	strLen = len(str)
+	for strIndex < strLen {
+		if pathIndex != pathLen {
+			c := str[strIndex]
+			strIndex++
+			switch c {
+			case path[pathIndex]: // else check character MatchPath or not
+				pathIndex++
+			case _WILDCARD:
+				// if read '*', MatchPath until next '/'
+				start := pathIndex
+				for pathIndex < pathLen && path[pathIndex] != '/' {
 					pathIndex++
-				case _WILDCARD:
-					// if read '*', MatchPath until next '/'
-					start := pathIndex
-					for pathIndex < pathLen && path[pathIndex] != '/' {
-						pathIndex++
-					}
-					values = append(values, path[start:pathIndex])
-				case _REMAINSALL: // parse end, full matched
-					values = append(values, path[pathIndex:pathLen])
-					return rt, values
-				default:
-					return nil, nil // not matched
 				}
-			} else {
-				return nil, nil // path parse end
+				values = append(values, path[start:pathIndex])
+			case _REMAINSALL: // parse end, full matched
+				values = append(values, path[pathIndex:pathLen])
+				return rt, values
+			default:
+				return nil, nil // not matched
+			}
+		} else {
+			return nil, nil // path parse end
+		}
+	}
+	if pathIndex != pathLen { // path not parse end, must find a child node to continue
+		p := path[pathIndex]
+		for i, c := range rt.chars {
+			if c == p || c >= _WILDCARD {
+				rt = rt.childs[i] // child
+				goto AGAIN
 			}
 		}
-		node = nil
-		if pathIndex != pathLen { // path not parse end, must find a child node to continue
-			p := path[pathIndex]
-			for i, c := range rt.chars {
-				if c == p || c >= _WILDCARD {
-					node = rt.childs[i] // child
-					break
-				}
-			}
-			rt = node // child to parse
-		} /* else { path parse end, node is the last matched node }*/
-	}
+		rt = nil // child to parse
+	} /* else { path parse end, node is the last matched node }*/
 	return rt, values
 }
 
@@ -566,43 +557,40 @@ func (rt *router) matchOnly(path string) *router {
 		str                string
 		strIndex, strLen   int
 		pathIndex, pathLen = 0, len(path)
-		node               = rt
 	)
-	for node != nil {
-		str, strIndex = rt.str, 0
-		strLen = len(str)
-		for strIndex < strLen {
-			if pathIndex != pathLen {
-				c := str[strIndex]
-				strIndex++
-				switch c {
-				case path[pathIndex]: // else check character MatchPath or not
+AGAIN:
+	str, strIndex = rt.str, 0
+	strLen = len(str)
+	for strIndex < strLen {
+		if pathIndex != pathLen {
+			c := str[strIndex]
+			strIndex++
+			switch c {
+			case path[pathIndex]: // else check character MatchPath or not
+				pathIndex++
+			case _WILDCARD:
+				for pathIndex < pathLen && path[pathIndex] != '/' {
 					pathIndex++
-				case _WILDCARD:
-					for pathIndex < pathLen && path[pathIndex] != '/' {
-						pathIndex++
-					}
-				case _REMAINSALL: // parse end, full matched
-					return rt
-				default:
-					return nil // not matched
 				}
-			} else {
-				return nil // path parse end
+			case _REMAINSALL: // parse end, full matched
+				return rt
+			default:
+				return nil // not matched
+			}
+		} else {
+			return nil // path parse end
+		}
+	}
+	if pathIndex != pathLen { // path not parse end, must find a child node to continue
+		p := path[pathIndex]
+		for i, c := range rt.chars {
+			if c == p || c >= _WILDCARD {
+				rt = rt.childs[i] // found child
+				goto AGAIN
 			}
 		}
-		node = nil
-		if pathIndex != pathLen { // path not parse end, must find a child node to continue
-			p := path[pathIndex]
-			for i, c := range rt.chars {
-				if c == p || c >= _WILDCARD {
-					node = rt.childs[i] // child
-					break
-				}
-			}
-			rt = node // child to parse
-		} /* else { path parse end, node is the last matched node }*/
-	}
+		rt = nil // not found
+	} /* else { path parse end, node is the last matched node }*/
 	return rt
 }
 

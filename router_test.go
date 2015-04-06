@@ -339,7 +339,8 @@ func TestRoute(t *testing.T) {
 	rt.PrintRouteTree(os.Stdout)
 	_, value := rt.matchOne("/user.json", nil)
 	t.Log(value)
-	_, value = rt.matchOne("/vbc", nil)
+	rt, value = rt.matchOne("/vbc", nil)
+	test.True(t, rt != nil)
 	t.Log(value)
 }
 
