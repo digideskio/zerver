@@ -24,21 +24,24 @@ type (
 		SetHeader(name, value string)
 		AddHeader(name, value string)
 		RemoveHeader(name string)
+
 		SetContentEncoding(enc string)
 		SetContentType(typ string)
+
 		SetAdvancedCookie(c *http.Cookie)
+		SetCookie(name, value string, lifetime int)
+		DeleteClientCookie(name string)
+
 		CacheSeconds(secs int)
 		CacheUntil(*time.Time)
 		NoCache()
 
-		// SetCookie(name, value string, lifetime int)
-		// SetSecureCookie(name, value string, lifetime int)
-		// DeleteClientCookie(name string)
 		Status() int
 		// ReportStatus report status code, it will not immediately write the status
 		// to response, unless response is destroyed or Write was called
 		ReportStatus(statusCode int)
 		StatusResponse
+
 		http.Hijacker
 		http.Flusher
 
@@ -50,14 +53,16 @@ type (
 		// ClearError clear error stored in response
 		ClearError()
 
-		destroy()
 		// Value/SetValue provide a approach to transmit value between filter/handler
-		// there is only one instance, if necessary first save origin value, after
-		// operation, restore it
+		// there is only one instance, if necessary, save origin value first,
+		// restore it when operation is done
 		Value() interface{}
 		SetValue(interface{})
 
+		// Send send marshaled value to client
 		Send(string, interface{}) error
+
+		destroy()
 	}
 
 	// response represent a response of request to user
@@ -202,7 +207,7 @@ func (resp *response) SetCookie(name, value string, lifetime int) {
 	})
 }
 
-// DeleteClientCookie delete user briwser's cookie by name
+// DeleteClientCookie delete user browser's cookie by name
 func (resp *response) DeleteClientCookie(name string) {
 	resp.SetCookie(name, "", -1)
 }

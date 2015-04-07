@@ -16,19 +16,25 @@ type (
 
 	Request interface {
 		Wrap(RequestWrapper)
-		RemoteAddr() string
-		RemoteIP() string
-		Param(name string) string
-		Params(name string) []string
-		UserAgent() string
+
 		URL() *url.URL
 		Method() string
+
+		Header(name string) string
+
+		RemoteAddr() string
+		RemoteIP() string
+		UserAgent() string
 		ContentType() string
 		AcceptEncodings() string
 		Authorization() string
-		Header(name string) string
-		AttrContainer
 		Cookie(name string) string
+
+		Param(name string) string
+		Params(name string) []string
+
+		AttrContainer
+
 		serverGetter
 		io.Reader
 		URLVarIndexer
