@@ -20,8 +20,7 @@ type (
 		ListenAddr       string        // default :4000
 		CertFile         string        // default not enable tls
 		KeyFile          string
-		RequestWrapper   //  wrapper for each request
-		ResponseWrapper  // wrapper for each response
+
 		*ResourceMaster
 	}
 
@@ -29,12 +28,10 @@ type (
 	Server struct {
 		Router
 		AttrContainer
-		RootFilters  RootFilters // Match Every Routes
-		checker      websocket.HandshakeChecker
-		contentType  string // default content type
-		wrapRequest  RequestWrapper
-		wrapResponse ResponseWrapper
-		resMaster    *ResourceMaster
+		RootFilters RootFilters // Match Every Routes
+		checker     websocket.HandshakeChecker
+		contentType string // default content type
+		resMaster   *ResourceMaster
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -103,8 +100,6 @@ func (s *Server) start(o *ServerOption) {
 	o.init()
 	s.contentType = o.ContentType
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
-	s.wrapRequest = o.RequestWrapper
-	s.wrapResponse = o.ResponseWrapper
 	s.resMaster = o.ResourceMaster
 	pathVarCount = o.PathVarCount
 	filterCount = o.FilterCount
@@ -180,13 +175,8 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	url.Host = request.Host
 	handler, indexer, filters := s.MatchHandlerFilters(url)
 	requestEnv := newRequestEnvFromPool()
-	req, resp := requestEnv.req.init(s, request, indexer), requestEnv.resp.init(s, w)
-	if s.wrapRequest != nil {
-		req.Wrap(s.wrapRequest)
-	}
-	if s.wrapResponse != nil {
-		resp.Wrap(s.wrapResponse)
-	}
+	req := requestEnv.req.init(s, request, indexer)
+	resp := requestEnv.resp.init(s.resMaster, w)
 	resp.SetContentType(s.contentType)
 	var chain FilterChain
 	if handler == nil {

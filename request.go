@@ -28,8 +28,7 @@ type (
 		Authorization() string
 		Header(name string) string
 		AttrContainer
-		// Cookie(name string) string
-		// SecureCookie(name string) string
+		Cookie(name string) string
 		serverGetter
 		io.Reader
 		URLVarIndexer
@@ -59,7 +58,7 @@ func (req *request) init(s serverGetter, requ *http.Request, varIndexer URLVarIn
 	req.URLVarIndexer = varIndexer
 	method := requ.Method
 	if method == POST {
-		if m := requ.Header.Get("X-HTTP-Method-Override"); m != "" {
+		if m := requ.Header.Get(HEADER_METHODOVERRIDE); m != "" {
 			method = m
 		}
 	}
@@ -96,20 +95,13 @@ func (req *request) Method() string {
 	return req.method
 }
 
-// // Cookie return cookie value with given name
-// func (req *request) Cookie(name string) string {
-// 	if c, err := req.request.Cookie(name); err == nil {
-// 		return c.Value
-// 	}
-// 	return ""
-// }
-
-// // SecureCookie return secure cookie, currently it's just call Cookie without
-// // 'Secure', if need this feture, just put an filter before handler
-// // and override this method
-// func (req *request) SecureCookie(name string) (value string) {
-// 	return req.Cookie(name)
-// }
+// Cookie return cookie value with given name
+func (req *request) Cookie(name string) string {
+	if c, err := req.request.Cookie(name); err == nil {
+		return c.Value
+	}
+	return ""
+}
 
 // RemoteAddr return remote address
 func (req *request) RemoteAddr() string {

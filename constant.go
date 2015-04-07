@@ -14,6 +14,7 @@ const (
 	HEADER_CACHECONTROL    = "Cache-Control"
 	HEADER_EXPIRES         = "Expires"
 	HEADER_AUTHRIZATION    = "Authorization"
+	HEADER_METHODOVERRIDE  = "X-HTTP-Method-Override"
 
 	// ContentEncoding
 	ENCODING_GZIP    = "gzip"

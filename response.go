@@ -62,7 +62,7 @@ type (
 
 	// response represent a response of request to user
 	response struct {
-		serverGetter
+		resMaster *ResourceMaster
 		http.ResponseWriter
 		header       http.Header
 		status       int
@@ -78,12 +78,11 @@ const (
 )
 
 // newResponse create a new response, and set default content type to HTML
-func (resp *response) init(s serverGetter, w http.ResponseWriter) Response {
-	resp.serverGetter = s
+func (resp *response) init(r *ResourceMaster, w http.ResponseWriter) Response {
+	resp.resMaster = r
 	resp.ResponseWriter = w
 	resp.header = w.Header()
 	resp.status = http.StatusOK
-	resp.needClose = false
 	return resp
 }
 
@@ -194,24 +193,19 @@ func (resp *response) SetAdvancedCookie(c *http.Cookie) {
 	resp.AddHeader(HEADER_SETCOOKIE, c.String())
 }
 
-// // SetCookie setup response cookie
-// func (resp *response) SetCookie(name, value string, lifetime int) {
-// 	resp.SetAdvancedCookie(&http.Cookie{
-// 		Name:   name,
-// 		Value:  value,
-// 		MaxAge: lifetime,
-// 	})
-// }
+// SetCookie setup response cookie
+func (resp *response) SetCookie(name, value string, lifetime int) {
+	resp.SetAdvancedCookie(&http.Cookie{
+		Name:   name,
+		Value:  value,
+		MaxAge: lifetime,
+	})
+}
 
-// // SetSecureCookie setup response cookie with secureity
-// func (resp *response) SetSecureCookie(name, value string, lifetime int) {
-// 	resp.SetCookie(name, value, lifetime)
-// }
-
-// // DeleteClientCookie delete user briwser's cookie by name
-// func (resp *response) DeleteClientCookie(name string) {
-// 	resp.SetCookie(name, "", -1)
-// }
+// DeleteClientCookie delete user briwser's cookie by name
+func (resp *response) DeleteClientCookie(name string) {
+	resp.SetCookie(name, "", -1)
+}
 
 func (resp *response) Value() interface{} {
 	return resp.value
@@ -222,5 +216,5 @@ func (resp *response) SetValue(v interface{}) {
 }
 
 func (resp *response) Send(key string, value interface{}) error {
-	return resp.ResourceMaster().Send(resp, key, value)
+	return resp.resMaster.Send(resp, key, value)
 }

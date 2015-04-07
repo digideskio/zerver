@@ -293,7 +293,7 @@ var r = rt()
 
 func BenchmarkMatchRouteOne(b *testing.B) {
 	// tt := test.Wrap(b)
-	path := "/repos/julienschmidt/httprouter/stargazers"
+	path := "/repos/cosiner/zerver/stargazers"
 	// path := "/user/repos"
 	// path := "/user/keys"
 	// path := "/user/aa/exist"
@@ -313,7 +313,7 @@ func BenchmarkMatchRouteMultiple(b *testing.B) {
 	// tt := test.Wrap(b)
 	// path := "/legacy/issues/search/aaa/bbb/ccc/ddd"
 	// path := "/user/repos"
-	path := "/repos/julienschmidt/httprouter/stargazers"
+	path := "/repos/cosiner/zerver/stargazers"
 	// path := "/user/aa/exist"
 	for i := 0; i < b.N; i++ {
 		pathIndex := 0
@@ -340,7 +340,7 @@ func TestRoute(t *testing.T) {
 	_, value := rt.matchOne("/user.json", nil)
 	t.Log(value)
 	rt, value = rt.matchOne("/vbc", nil)
-	test.True(t, rt != nil)
+	test.NNil(t, rt)
 	t.Log(value)
 }
 
@@ -350,9 +350,9 @@ func TestFilterHideHandler(t *testing.T) {
 	rt.Handle("/user/12:id", EmptyFilterFunc)
 	rt.HandleFunc("/user/:id", "GET", EmptyHandlerFunc)
 	h, _, _ := rt.MatchHandlerFilters(&url.URL{Path: "/user/1234"})
-	tt.True(h == nil)
+	tt.Nil(h)
 	h, _, _ = rt.MatchHandlerFilters(&url.URL{Path: "/user/2234"})
-	tt.True(h != nil)
+	tt.NNil(h)
 }
 
 func TestConflictWildcardCatchall(t *testing.T) {
@@ -360,5 +360,5 @@ func TestConflictWildcardCatchall(t *testing.T) {
 	rt := new(router)
 	tt.Nil(rt.HandleFunc("/:user/:id", "GET", EmptyHandlerFunc))
 	e := rt.HandleFunc("/*user", "GET", EmptyHandlerFunc)
-	tt.True(e != nil)
+	tt.NNil(e)
 }

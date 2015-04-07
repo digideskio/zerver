@@ -3,7 +3,6 @@ package filters
 import (
 	"compress/flate"
 	"compress/gzip"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -18,8 +17,6 @@ type gzipWriter struct {
 }
 
 func (w *gzipWriter) Write(data []byte) (int, error) {
-	fmt.Println("-----------------")
-
 	return w.gw.Write(data)
 }
 
@@ -49,14 +46,15 @@ func (w *flateWriter) Close() error {
 	return err
 }
 
-func wrapGzipResponseWriter(w http.ResponseWriter, needClose bool) (http.ResponseWriter, bool) {
+func gzipWrapper(w http.ResponseWriter, needClose bool) (http.ResponseWriter, bool) {
 	return &gzipWriter{
 		gw:             gzip.NewWriter(w),
 		ResponseWriter: w,
 		needClose:      needClose,
 	}, true
 }
-func wrapFlateResponseWriter(w http.ResponseWriter, needClose bool) (http.ResponseWriter, bool) {
+
+func flateWrapper(w http.ResponseWriter, needClose bool) (http.ResponseWriter, bool) {
 	fw, _ := flate.NewWriter(w, flate.DefaultCompression)
 	return &flateWriter{
 		fw:             fw,
@@ -69,10 +67,10 @@ func CompressFilter(req zerver.Request, resp zerver.Response, chain zerver.Filte
 	encoding := req.AcceptEncodings()
 	if strings.Contains(encoding, zerver.ENCODING_GZIP) {
 		resp.SetContentEncoding(zerver.ENCODING_GZIP)
-		resp.Wrap(wrapGzipResponseWriter)
+		resp.Wrap(gzipWrapper)
 	} else if strings.Contains(encoding, zerver.ENCODING_DEFLATE) {
 		resp.SetContentEncoding(zerver.ENCODING_DEFLATE)
-		resp.Wrap(wrapFlateResponseWriter)
+		resp.Wrap(flateWrapper)
 	}
 	chain(req, resp)
 }

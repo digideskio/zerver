@@ -22,11 +22,10 @@ type requestEnv struct {
 }
 
 type ServerPool struct {
-	requestEnvPool  sync.Pool
-	varIndexerPool  sync.Pool
-	filtersPool     sync.Pool
-	filterChainPool sync.Pool
-	otherPools      map[string]*sync.Pool
+	requestEnvPool sync.Pool
+	varIndexerPool sync.Pool
+	filtersPool    sync.Pool
+	otherPools     map[string]*sync.Pool
 }
 
 var _defaultPool *ServerPool
@@ -43,9 +42,6 @@ func init() {
 	}
 	_defaultPool.filtersPool.New = func() interface{} {
 		return make([]Filter, 0, filterCount)
-	}
-	_defaultPool.filterChainPool.New = func() interface{} {
-		return new(filterChain)
 	}
 }
 
@@ -74,10 +70,6 @@ func newFiltersFromPool() []Filter {
 	return _defaultPool.filtersPool.Get().([]Filter)
 }
 
-func newFilterChainFromPool() *filterChain {
-	return _defaultPool.filterChainPool.Get().(*filterChain)
-}
-
 func recycleRequestEnv(req *requestEnv) {
 	_defaultPool.requestEnvPool.Put(req)
 }
@@ -91,10 +83,6 @@ func recycleFilters(filters []Filter) {
 		filters = filters[:0]
 		_defaultPool.filtersPool.Put(filters)
 	}
-}
-
-func recycleFilterChain(chain *filterChain) {
-	_defaultPool.filterChainPool.Put(chain)
 }
 
 func RecycleTo(poolName string, value interface{}) {
