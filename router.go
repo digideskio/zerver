@@ -246,6 +246,9 @@ func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) (err er
 // WebSocketHandler/WebSocketHandlerFunc
 // to router for given pattern
 func (rt *router) Handle(pattern string, handler interface{}) error {
+	if handler == nil {
+		panic("Nil handler is not allowed")
+	}
 	routePath, pathVars, err := compile(pattern)
 	if err != nil {
 		return err

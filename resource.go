@@ -24,13 +24,13 @@ type (
 	}
 )
 
-var DefaultResourceMaster = ResourceMaster{
+func (m MarshalFunc) Marshal(v interface{}) ([]byte, error) { return m(v) }
+func (MarshalFunc) Pool([]byte)                             {}
+
+var JSONResource = ResourceMaster{
 	Marshaler: MarshalFunc(json.Marshal),
 	Unmarshal: json.Unmarshal,
 }
-
-func (m MarshalFunc) Marshal(v interface{}) ([]byte, error) { return m(v) }
-func (MarshalFunc) Pool([]byte)                             {}
 
 var (
 	_jsonHeadStart = []byte(`{"`)

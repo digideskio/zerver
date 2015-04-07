@@ -1,21 +1,22 @@
 # Zerver
 __Zerver__ is a simple, scalable, restful api framework for [golang](http://golang.org).
 
-It's mainly designed for restful api service, without session, template, cookie support, etc.. But you can still use it as a web framework by easily hack it. Documentation can be found at [godoc.org](godoc.org/github.com/cosiner/zerver), and each file contains a component, all api about this component is defined there.
+It's mainly designed for restful api service, without session, template support, etc.. But you can still use it as a web framework by easily hack it. Documentation can be found at [godoc.org](godoc.org/github.com/cosiner/zerver), and each file contains a component, all api about this component is defined there.
 
-### Install
+##### Install
 `go get github.com/cosiner/zerver`
 
-### Features
+##### Features
 * RESTFul Route
 * Tree-based mux/router, support route group
-* Filter(also known as middleware) Chain supported
+* Filter(also known as middleware) Chain support
 * Interceptor supported
-* Builtin WebSocket supported
-* Builtin Task supported
-* Resource Marshaler/Unmarshaler
+* Builtin WebSocket support
+* Builtin Task support
+* Resource Marshal/Unmarshal
+* Request/Response Wrap
 
-### Getting Started
+##### Getting Started
 ```Go
 package main
 
@@ -30,8 +31,37 @@ func main() {
 }
 ```
 
+##### Config
+```Go
+ServerOption struct {
+    // check for websocket header
+    WebSocketChecker HeaderChecker // default nil
+    // automiclly set for each response
+    ContentType      string        // default application/json;charset=utf-8
+    // average variable count at each route
+    PathVarCount     int           // default 2
+    // average filter count for of filters at each route
+    FilterCount      int           // default 2
+    // server listening address
+    ListenAddr       string        // default :4000
+    // TLS config
+    CertFile         string        // default not enable tls
+    KeyFile          string
+    *ResourceMaster                // for resource marshal/unmarshal
+                                   // used for Request.Recieve, Response.Send,
+                                   // Request.ResourceMaster(), default use
+                                   // zerver.JSONResource
+}
+```
+Example:
+```
+server.Start(&ServerOption{
+    ContentType:"text/plain;charset=utf-8",
+    ListenAddr:":8000",
+})
+```
 
-# Exampels
+### Exampels
 * url variables
 ```Go
 server.Get("/user/:id", func(req zerver.Request, resp zerver.Response) {
@@ -57,8 +87,8 @@ server.Handle("/", logger(fmt.Println))
 * interceptor
 ```Go
 func BasicAuthFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-    auth := req.Header("Authorization")
-    if auth == "" {
+    auth := req.Authorization()
+    if auth == "" || auth != "abc:123" {
         resp.ReportUnAuthorized()
         return
     }
@@ -82,34 +112,19 @@ server.HandleFunc("/auth", "POST", zerver.InterceptHandler(
 ```
 
 
-### Config
-```Go
-ServerOption struct {
-    // check for websocket header
-    WebSocketChecker HeaderChecker // default nil
-    // automiclly set for each response
-    ContentType      string        // default application/json;charset=utf-8
-    // average variable count at each route
-    PathVarCount     int           // default 2
-    // average filter count for of filters at each route
-    FilterCount      int           // default 2
-    // server listening address
-    ListenAddr       string        // default :4000
-    // TLS config
-    CertFile         string        // default not enable tls
-    KeyFile          string
-}
-```
-Example:
-```
-server.Start(&ServerOption{
-    ContentType:"text/plain;charset=utf-8",
-    ListenAddr:":8000",
-})
-```
+### Handler/Filter/WebSocketHandler/TaskHandler
+There is only one method `Handle(pattern string, i interface{})` to add component to server(router), first parameter is the url pattern the handler process, second can be:
+* `Handler/HandlerFunc/Literal HandlerFunc/MapHandler/MethodHandler`
+* `Filter/FilterFunc/Literal FilterFunc`
+* `WebSocketHandler/WebSocketHandlerFunc/Literal WebSocketHandler`
+* `TaskHandler/TaskHandlerFunc/Literal TaskHandlerFunc`  
+
+If it's `Filter`, it will be add to filters collection for this pattern, otherwise. For handlers, per __route__ should have only one handlers.  
+Note: in zerver, the pattern will compile to route, they are not equal,
+`/user/:id/info` and `/user/:name/info` is two pattern, but the same route.
 
 ### ResourceMaster
-ResourceMaster responsible for marshal/unmarshal data, it's indenpendent from any other components, create it yourself.
+ResourceMaster responsible for marshal/unmarshal data, you can use it dependently or intergrate to Server.
 ```
 MarshalFunc func(interface{}) ([]byte, error)
 UnmarshalFunc func([]byte, interface{}) error
@@ -123,7 +138,8 @@ ResourceMaster struct {
 }
 func (m MarshalFunc) Marshal(v interface{}) ([]byte, error) { return m(v) }
 func (MarshalFunc) Pool([]byte)                             {}
-var DefaultResourceMaster = ResourceMaster{
+
+var JSONResource = ResourceMaster{
     Marshaler: MarshalFunc(json.Marshal),
     Unmarshal: json.Unmarshal,
 }
@@ -146,7 +162,8 @@ response.Value()
 response.SetValue(value)
 ```
 
-More detail please see [wiki page](https://github.com/cosiner/zerver/wiki).
+### Contribution
+Feedbacks or Pull Request is welcome.
 
 ### License
 MIT.
