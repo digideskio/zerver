@@ -111,19 +111,7 @@ func (s *Server) start(o *ServerOption) {
 
 	OnErrPanic(s.RootFilters.Init(s))
 	log.Println("Init Handlers and Filters")
-	s.Router.Init(func(handler Handler) bool {
-		OnErrPanic(handler.Init(s))
-		return true
-	}, func(filter Filter) bool {
-		OnErrPanic(filter.Init(s))
-		return true
-	}, func(websocketHandler WebSocketHandler) bool {
-		OnErrPanic(websocketHandler.Init(s))
-		return true
-	}, func(taskHandler TaskHandler) bool {
-		OnErrPanic(taskHandler.Init(s))
-		return true
-	})
+	OnErrPanic(s.Router.Init(s))
 	log.Println("Server Start")
 	// destroy temporary data store
 	tmpDestroy()

@@ -21,7 +21,7 @@ func NewHostRouter() *HostRouter {
 	return &HostRouter{}
 }
 
-func (hr HostRouter) AddRouter(host string, rt Router) {
+func (hr *HostRouter) AddRouter(host string, rt Router) {
 	l := len(hr.hosts) + 1
 	hosts, routers := make([]string, l), make([]Router, l)
 	copy(hosts, hr.hosts)
@@ -32,7 +32,7 @@ func (hr HostRouter) AddRouter(host string, rt Router) {
 
 // Implement RouterMatcher
 
-func (hr HostRouter) match(url *url.URL) Router {
+func (hr *HostRouter) match(url *url.URL) Router {
 	host, hosts := url.Host, hr.hosts
 	for i := range hosts {
 		if hosts[i] == host {
@@ -42,32 +42,24 @@ func (hr HostRouter) match(url *url.URL) Router {
 	return nil
 }
 
-func (hr HostRouter) iterate(fn func(string, Router)) {
-	hosts, routers := hr.hosts, hr.routers
-	for i := range routers {
-		fn(hosts[i], routers[i])
-	}
-}
-
 // Init init handlers and filters, websocket handlers
-func (hr HostRouter) Init(initHandler func(Handler) bool,
-	initFilter func(Filter) bool,
-	initWebSocket func(WebSocketHandler) bool,
-	initTask func(TaskHandler) bool) {
-	hr.iterate(func(_ string, rt Router) {
-		rt.Init(initHandler, initFilter, initWebSocket, initTask)
-	})
+func (hr *HostRouter) Init(s *Server) (err error) {
+	for i := 0; i < len(hr.routers) && err == nil; i++ {
+		err = hr.routers[i].Init(s)
+	}
+	return
 }
 
 // Destroy destroy router, also responsible for destroy all handlers and filters
-func (hr HostRouter) Destroy() {
-	hr.iterate(func(_ string, rt Router) {
-		rt.Destroy()
-	})
+func (hr *HostRouter) Destroy() {
+	for i := 0; i < len(hr.routers); i++ {
+		hr.routers[i].Destroy()
+	}
+	return
 }
 
 // MatchHandlerFilters match given url to find all matched filters and final handler
-func (hr HostRouter) MatchHandlerFilters(url *url.URL) (handler Handler, indexer URLVarIndexer, filters []Filter) {
+func (hr *HostRouter) MatchHandlerFilters(url *url.URL) (handler Handler, indexer URLVarIndexer, filters []Filter) {
 	if router := hr.match(url); router != nil {
 		handler, indexer, filters = router.MatchHandlerFilters(url)
 	}
@@ -75,7 +67,7 @@ func (hr HostRouter) MatchHandlerFilters(url *url.URL) (handler Handler, indexer
 }
 
 // MatchWebSocketHandler match given url to find a matched websocket handler
-func (hr HostRouter) MatchWebSocketHandler(url *url.URL) (handler WebSocketHandler, indexer URLVarIndexer) {
+func (hr *HostRouter) MatchWebSocketHandler(url *url.URL) (handler WebSocketHandler, indexer URLVarIndexer) {
 	if router := hr.match(url); router != nil {
 		handler, indexer = router.MatchWebSocketHandler(url)
 	}
@@ -83,7 +75,7 @@ func (hr HostRouter) MatchWebSocketHandler(url *url.URL) (handler WebSocketHandl
 }
 
 // MatchTaskHandler
-func (hr HostRouter) MatchTaskHandler(url *url.URL) (handler TaskHandler) {
+func (hr *HostRouter) MatchTaskHandler(url *url.URL) (handler TaskHandler) {
 	if router := hr.match(url); router != nil {
 		handler = router.MatchTaskHandler(url)
 	}
@@ -106,10 +98,9 @@ func (w indentWriter) Write(data []byte) (int, error) {
 	return c, e
 }
 
-func (hr HostRouter) PrintRouteTree(w io.Writer) {
-	hr.iterate(func(ident string, rt Router) {
-		if _, e := sys.WriteStrln(w, ident); e == nil {
-			rt.PrintRouteTree(indentWriter{w})
-		}
-	})
+func (hr *HostRouter) PrintRouteTree(w io.Writer) {
+	for i := range hr.routers {
+		sys.WriteStrln(w, hr.hosts[i])
+		hr.routers[i].PrintRouteTree(w)
+	}
 }

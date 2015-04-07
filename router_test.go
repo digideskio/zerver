@@ -22,12 +22,8 @@ func TestCompile(t *testing.T) {
 
 // routes is copy from github.com/julienschmidt/go-http-routing-benchmark
 func rt() *router {
-	processor := new(routeProcessor)
-	node := &router{str: "/user/id", processor: processor}
+	node := &router{}
 	fn := func(n *router, success bool) {
-		if success {
-			n.processor = processor
-		}
 	}
 	fn(node.addPath("/user/i"))
 	fn(node.addPath("/user/ie"))
