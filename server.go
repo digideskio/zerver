@@ -31,7 +31,7 @@ type (
 		RootFilters RootFilters // Match Every Routes
 		checker     websocket.HandshakeChecker
 		contentType string // default content type
-		resMaster   ResourceMaster
+		resMaster   *ResourceMaster
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -92,7 +92,7 @@ func (s *Server) Server() *Server {
 }
 
 func (s *Server) ResourceMaster() *ResourceMaster {
-	return &s.resMaster
+	return s.resMaster
 }
 
 // Start start server
@@ -100,12 +100,7 @@ func (s *Server) start(o *ServerOption) {
 	o.init()
 	s.contentType = o.ContentType
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
-	if o.ResourceMaster == nil {
-		s.resMaster = JSONResource
-	} else {
-		s.resMaster.Marshaler = o.ResourceMaster.Marshaler
-		s.resMaster.Unmarshal = o.ResourceMaster.Unmarshal
-	}
+	s.resMaster = o.ResourceMaster.Init()
 	pathVarCount = o.PathVarCount
 	filterCount = o.FilterCount
 
@@ -169,7 +164,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	handler, indexer, filters := s.MatchHandlerFilters(url)
 	requestEnv := newRequestEnvFromPool()
 	req := requestEnv.req.init(s, request, indexer)
-	resp := requestEnv.resp.init(&s.resMaster, w)
+	resp := requestEnv.resp.init(s.resMaster, w)
 	resp.SetContentType(s.contentType)
 	var chain FilterChain
 	if handler == nil {

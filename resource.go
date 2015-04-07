@@ -18,7 +18,9 @@ type (
 		Pool([]byte)
 	}
 
+	// if use your own
 	ResourceMaster struct {
+		WriteKV func(w ErrorWriter, key, value []byte) error
 		Marshaler
 		Unmarshal UnmarshalFunc
 	}
@@ -27,9 +29,26 @@ type (
 func (m MarshalFunc) Marshal(v interface{}) ([]byte, error) { return m(v) }
 func (MarshalFunc) Pool([]byte)                             {}
 
-var JSONResource = ResourceMaster{
+var JSONResource = &ResourceMaster{
+	WriteKV:   WriteJSONKV,
 	Marshaler: MarshalFunc(json.Marshal),
 	Unmarshal: json.Unmarshal,
+}
+
+func (r *ResourceMaster) Init() *ResourceMaster {
+	if r == nil {
+		return JSONResource
+	}
+	if r.WriteKV == nil {
+		r.WriteKV = JSONResource.WriteKV
+	}
+	if r.Marshaler == nil {
+		r.Marshaler = JSONResource.Marshaler
+	}
+	if r.Unmarshal == nil {
+		r.Unmarshal = JSONResource.Unmarshal
+	}
+	return r
 }
 
 var (
@@ -38,18 +57,24 @@ var (
 	_jsonEnd       = []byte("}")
 )
 
+func WriteJSONKV(w ErrorWriter, key, value []byte) (err error) {
+	w.Write(_jsonHeadStart)
+	w.Write(key)
+	w.Write(_jsonHeadEnd)
+	w.Write(value)
+	_, err = w.Write(_jsonEnd)
+	return
+}
+
 // Send send resource to client, if key is empty, just send marshaled value,
 // otherwise send as json object
-func (r *ResourceMaster) Send(w io.Writer, key string, value interface{}) (err error) {
+func (r *ResourceMaster) Send(w ErrorWriter, key string, value interface{}) (err error) {
 	var bs []byte
 	if key != "" {
-		w.Write(_jsonHeadStart)
-		w.Write(types.UnsafeBytes(key))
-		w.Write(_jsonHeadEnd)
-		if bs, err = r.Marshal(value); err == nil {
+		bs, err = r.Marshal(value)
+		if err == nil {
+			err = r.WriteKV(w, types.UnsafeBytes(key), bs)
 			r.Pool(bs)
-			w.Write(bs)
-			_, err = w.Write(_jsonEnd)
 		}
 	} else if bs, err = r.Marshal(value); err == nil {
 		r.Pool(bs)

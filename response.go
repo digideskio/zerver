@@ -49,9 +49,7 @@ type (
 		// status and header should be performed before Write
 		// if there is a previous error, operation will not be performed, just
 		// return this error, and any error will be stored
-		io.Writer
-		// ClearError clear error stored in response
-		ClearError()
+		ErrorWriter
 
 		// Value/SetValue provide a approach to transmit value between filter/handler
 		// there is only one instance, if necessary, save origin value first,
@@ -63,6 +61,11 @@ type (
 		Send(string, interface{}) error
 
 		destroy()
+	}
+
+	ErrorWriter interface {
+		io.Writer
+		ClearError()
 	}
 
 	// response represent a response of request to user
