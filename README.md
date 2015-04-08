@@ -13,7 +13,7 @@ It's mainly designed for restful api service, without session, template support,
 * Interceptor supported
 * Builtin WebSocket support
 * Builtin Task support
-* Resource Marshal/Unmarshal
+* Resource Marshal/Unmarshal, Pool marshaled bytes(if marshaler support)
 * Request/Response Wrap
 
 ##### Getting Started
@@ -52,9 +52,7 @@ ServerOption struct {
                                    // Request.ResourceMaster(), default use
                                    // zerver.JSONResource
 }
-```
-Example:
-```
+
 server.Start(&ServerOption{
     ContentType:"text/plain;charset=utf-8",
     ListenAddr:":8000",
@@ -62,6 +60,18 @@ server.Start(&ServerOption{
 ```
 
 ### Exampels
+* resource
+```Go
+type User struct {
+    Id int `json:"id"`
+    Name string `json:"name"`
+}
+func Handle(req zerver.Request, resp zerver.Response) {
+    u := &User{}
+    req.Read(u)
+    resp.Send("user", u)
+}
+```
 * url variables
 ```Go
 server.Get("/user/:id", func(req zerver.Request, resp zerver.Response) {
@@ -110,6 +120,8 @@ server.HandleFunc("/auth", "POST", zerver.InterceptHandler(
     AuthHandler,  BasicAuthFilter,  AuthLogFilter,
 ))
 ```
+
+
 
 
 ### Handler/Filter/WebSocketHandler/TaskHandler
