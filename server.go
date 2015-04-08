@@ -35,8 +35,9 @@ type (
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
-	// any httper's value, it there is something wrong, throw an error
-	HeaderChecker websocket.HeaderChecker
+	// http header's value by name , if there is something wrong, throw an error
+	// to terminate this request
+	HeaderChecker func(func(string) string) error
 
 	// ServerInitializer is a Object which will automaticlly initialed by server if
 	// it's added to server, else it should initialed manually
@@ -44,8 +45,9 @@ type (
 		Init(s *Server) error
 	}
 
-	// serverGetter is a server getter
-	serverGetter interface {
+	// Enviroment is a server enviroment, real implementation is the Server itself.
+	// it can be accessed from Request/WebsocketConn
+	Enviroment interface {
 		Server() *Server
 		ResourceMaster() *ResourceMaster
 	}
@@ -86,7 +88,7 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 	}
 }
 
-// Implement serverGetter
+// ent ServerEnviroment
 func (s *Server) Server() *Server {
 	return s
 }
@@ -188,7 +190,7 @@ func (s *Server) StartTask(path string, value interface{}) {
 	panic("No task handler found for " + path)
 }
 
-// PanicServer create a new goroutine, it force panic whole process
-func PanicServer(s string) {
-	go panic(s)
-}
+// // PanicServer create a new goroutine, it force panic whole process
+// func PanicServer(s string) {
+// 	go panic(s)
+// }

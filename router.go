@@ -25,6 +25,9 @@ type (
 		HandleFunc(pattern string, method string, handler HandleFunc) error
 		Handle(pattern string, handler interface{}) error
 
+		// Notice: once use one of these five method for a route, other method
+		// should also use these for a Handler(MapHandler) has been created for it.
+		// And only one Handler is allowed per route.
 		Get(string, HandleFunc) error
 		Post(string, HandleFunc) error
 		Put(string, HandleFunc) error

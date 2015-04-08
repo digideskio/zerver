@@ -10,7 +10,12 @@ type (
 
 	// Handler is an common interface of request handler
 	// it will be inited on server started, destroyed on server stopped
-	// and use it's method to process income request
+	// and use it's method to dispatch which function to handle the request
+	//
+	// Handler represent a resource, method menas operation,
+	// if handler was not found, 404 is default status, if handler found, but
+	// Handler.Handler return nil, 405 is default status.
+	// The meaning of 'default status' is that filters can change the status
 	Handler interface {
 		ServerInitializer
 		Destroy()
@@ -38,12 +43,7 @@ type (
 		MethodHandler
 	}
 
-	// MapHandler is a handler that use user customed handler function
-	// it a MapHandler is defined after a normal handler with same pattern,
-	// regardless of only one method is used in MapHandler like Get, it's impossible
-	// to use the Post of normal handler, whole normal handler is hidded by this
-	// MapHandler, and if other method handler like Post, Put is not set,
-	// user access of these method is forbiddened
+	// MapHandler is a handler that use user customed handler function.
 	MapHandler map[string]HandleFunc
 )
 

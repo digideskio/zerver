@@ -35,7 +35,8 @@ type (
 
 		AttrContainer
 
-		serverGetter
+		Enviroment
+
 		io.Reader
 		URLVarIndexer
 
@@ -46,7 +47,7 @@ type (
 	// request represent an income request
 	request struct {
 		URLVarIndexer
-		serverGetter
+		Enviroment
 		request *http.Request
 		method  string
 		header  http.Header
@@ -57,8 +58,8 @@ type (
 )
 
 // newRequest create a new request
-func (req *request) init(s serverGetter, requ *http.Request, varIndexer URLVarIndexer) Request {
-	req.serverGetter = s
+func (req *request) init(e Enviroment, requ *http.Request, varIndexer URLVarIndexer) Request {
+	req.Enviroment = e
 	req.request = requ
 	req.header = requ.Header
 	req.URLVarIndexer = varIndexer
@@ -74,7 +75,7 @@ func (req *request) init(s serverGetter, requ *http.Request, varIndexer URLVarIn
 
 func (req *request) destroy() {
 	req.AttrContainer.Clear()
-	req.serverGetter = nil
+	req.Enviroment = nil
 	req.header = nil
 	req.URLVarIndexer.destroySelf() // who owns resource, who releases resource
 	req.URLVarIndexer = nil

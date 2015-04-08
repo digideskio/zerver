@@ -24,12 +24,12 @@ type (
 		RemoteIP() string
 		UserAgent() string
 		URL() *url.URL
-		serverGetter
+		Enviroment
 	}
 
 	// webSocketConn is the actual websocket connection
 	webSocketConn struct {
-		serverGetter
+		Enviroment
 		*websocket.Conn
 		URLVarIndexer
 		request *http.Request
@@ -48,9 +48,9 @@ type (
 
 // newWebSocketConn wrap a exist websocket connection and url variables to a
 // new webSocketConn
-func newWebSocketConn(s serverGetter, conn *websocket.Conn, varIndexer URLVarIndexer) *webSocketConn {
+func newWebSocketConn(e Enviroment, conn *websocket.Conn, varIndexer URLVarIndexer) *webSocketConn {
 	return &webSocketConn{
-		serverGetter:  s,
+		Enviroment:    e,
 		Conn:          conn,
 		URLVarIndexer: varIndexer,
 		request:       conn.Request(),

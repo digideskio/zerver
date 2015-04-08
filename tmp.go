@@ -45,6 +45,6 @@ func tmpDestroy() {
 
 func _tmpCheck() {
 	if _tmp == nil {
-		PanicServer(fmt.Sprintf("Temporary data store has been destroyed: %s", runtime.CallerPosition(2)))
+		panic(fmt.Sprintf("Temporary data store has been destroyed: %s", runtime.CallerPosition(2)))
 	}
 }
