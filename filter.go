@@ -67,6 +67,13 @@ func convertFilter(i interface{}) Filter {
 	return nil
 }
 
+func panicConvertFilter(i interface{}) Filter {
+	if f := convertFilter(i); f != nil {
+		return f
+	}
+	panic("Not a filter")
+}
+
 // FilterFunc is a function Filter
 func (FilterFunc) Init(*Server) error { return nil }
 func (FilterFunc) Destroy()           {}
@@ -99,7 +106,7 @@ func (rfs *rootFilters) Filters(*url.URL) []Filter {
 
 // Add add root filter
 func (rfs *rootFilters) Add(filter interface{}) {
-	*rfs = append(*rfs, convertFilter(filter))
+	*rfs = append(*rfs, panicConvertFilter(filter))
 }
 
 func (rfs *rootFilters) Destroy() {
@@ -160,7 +167,7 @@ func InterceptHandler(handler func(Request, Response), filters ...interface{}) f
 	if len(filters) == 0 {
 		return handler
 	}
-	return newInterceptHandler(InterceptHandler(handler, filters[1:]...), convertFilter(filters[0]))
+	return newInterceptHandler(InterceptHandler(handler, filters[1:]...), panicConvertFilter(filters[0]))
 }
 
 func newInterceptHandler(handler func(Request, Response), filter Filter) func(Request, Response) {
