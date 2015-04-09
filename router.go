@@ -1,6 +1,7 @@
 package zerver
 
 import (
+	"fmt"
 	"io"
 	"net/url"
 	"strings"
@@ -62,7 +63,11 @@ type (
 		routeProcessor
 	}
 
-	HandlerExistError string
+	existError struct {
+		pos     string
+		typ     string
+		pattern string
+	}
 )
 
 const (
@@ -72,8 +77,8 @@ const (
 		"please check your routes")
 )
 
-func (e HandlerExistError) Error() string {
-	return "Handler for route " + string(e) + " already exist"
+func (e existError) Error() string {
+	return fmt.Sprintf("%s: %s for this route: %s already exist", e.pos, e.typ, e.pattern)
 }
 
 // NewRouter create a new Router
@@ -81,6 +86,14 @@ func NewRouter() Router {
 	rt := new(router)
 	rt.noFilter = true
 	return rt
+}
+
+func (*router) reportExistError(typ, pattern string) error {
+	return existError{
+		pos:     runtime.CallerPosition(2),
+		typ:     typ,
+		pattern: pattern,
+	}
 }
 
 // Init init all handlers, filters, websocket handlers in route tree
@@ -154,11 +167,11 @@ func (rt *router) Group(prefix string, fn func(Router)) {
 // HandleFunc add HandleFunc to router for given pattern and method
 func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) (err error) {
 	method = parseRequestMethod(method)
-	if fHandler := _tmpGetMapHandler(pattern); fHandler == nil {
+	if fHandler := _tmpGetMapHandler(rt, pattern); fHandler == nil {
 		fHandler = make(MapHandler)
 		fHandler.setMethodHandler(method, handler)
 		if err = rt.Handle(pattern, fHandler); err == nil {
-			_tmpSetMapHandler(pattern, fHandler)
+			_tmpSetMapHandler(rt, pattern, fHandler)
 		}
 	} else {
 		fHandler.setMethodHandler(method, handler)
@@ -166,16 +179,17 @@ func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) (err er
 	return
 }
 
-func (*router) handlerExistError(pattern string) error {
-	return HandlerExistError(runtime.CallerPosition(2) + ": " + pattern)
-}
-
 // Handle add
+//
+// Router(must use NewRouter to create)
 // Handler/HandlerFunc/MapHandler/MethodHandler/literal HandlerFunc
 // Filter/FilterFunc
 // TaskHandler/TaskHandlerFunc
 // WebSocketHandler/WebSocketHandlerFunc
+//
 // to router for given pattern
+//
+// TaskHandler, Router, Filter will not catch url variable values.
 func (rt *router) Handle(pattern string, handler interface{}) error {
 	if handler == nil {
 		panic("Nil handler is not allowed")
@@ -184,13 +198,19 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 	if err != nil {
 		return err
 	}
+	if r, is := handler.(*router); is {
+		if !rt.addPathRouter(routePath, r) {
+			return rt.reportExistError("Router", pattern)
+		}
+		return nil
+	}
 	rt, success := rt.addPath(routePath)
 	if !success {
 		return ErrConflictPathVar
 	}
 	if h := convertHandler(handler); h != nil {
 		if rt.handler != nil {
-			return rt.handlerExistError(pattern)
+			return rt.reportExistError("Handler", pattern)
 		}
 		rt.handler = h
 		rt.handlerVars = pathVars
@@ -199,13 +219,13 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 		rt.filters = append(rt.filters, convertFilter(f))
 	} else if h := convertWebSocketHandler(handler); h != nil {
 		if rt.wsHandler != nil {
-			return rt.handlerExistError(pattern)
+			return rt.reportExistError("WebSocketHandler", pattern)
 		}
 		rt.wsHandler = h
 		rt.wsHandlerVars = pathVars
 	} else if h := convertTaskHandler(handler); h != nil {
 		if rt.taskHandler != nil {
-			return rt.handlerExistError(pattern)
+			return rt.reportExistError("TaskHandler", pattern)
 		}
 		rt.taskHandler = h
 		rt.taskHandlerVars = pathVars
@@ -316,6 +336,46 @@ func (rt *router) addPath(path string) (*router, bool) {
 		}
 	}
 	return rt, true
+}
+
+// addPath add an new path to route, use given function to operate the final
+// route node for this path
+func (rt *router) addPathRouter(path string, r *router) bool {
+	first, str := byte('/'), rt.str
+	if str == "" && len(rt.chars) == 0 {
+		rt.str = path
+	} else {
+		diff, pathLen, strLen := 0, len(path), len(str)
+		for diff != pathLen && diff != strLen && path[diff] == str[diff] {
+			diff++
+		}
+		if diff < pathLen {
+			first := path[diff]
+			if diff == strLen {
+				for i, c := range rt.chars {
+					if c == first {
+						return rt.childs[i].addPathRouter(path[diff:], r)
+					}
+				}
+			} else { // diff < strLen
+				rt.moveAllToChild(str[diff:], str[:diff])
+			}
+			r.str = path[diff:] + r.str
+		} else if diff < strLen {
+			if str[diff] == '/' {
+				return false
+			}
+			rt.moveAllToChild(str[diff:], path)
+		} else {
+			for _, c := range rt.chars {
+				if c == '/' {
+					return false
+				}
+			}
+		}
+	}
+	rt.addChild(first, r)
+	return true
 }
 
 // moveAllToChild move all attributes to a new node, and make this new node
@@ -611,14 +671,14 @@ func (rt *router) accessAllChilds(fn func(*router) bool) {
 	}
 }
 
-func _tmpGetMapHandler(pattern string) MapHandler {
-	h := TmpHGet("mapHandlers", pattern)
+func _tmpGetMapHandler(rt *router, pattern string) MapHandler {
+	h := TmpHGet(rt, pattern)
 	if h == nil {
 		return nil
 	}
 	return h.(MapHandler)
 }
 
-func _tmpSetMapHandler(pattern string, handler MapHandler) {
-	TmpHSet("mapHandlers", pattern, handler)
+func _tmpSetMapHandler(rt *router, pattern string, handler MapHandler) {
+	TmpHSet(rt, pattern, handler)
 }

@@ -336,7 +336,7 @@ func TestRoute(t *testing.T) {
 	_, value := rt.matchOne("/user.json", nil)
 	t.Log(value)
 	rt, value = rt.matchOne("/vbc", nil)
-	test.NNil(t, rt)
+	test.True(t, rt != nil)
 	t.Log(value)
 }
 
@@ -344,17 +344,35 @@ func TestFilterHideHandler(t *testing.T) {
 	tt := test.Wrap(t)
 	rt := NewRouter()
 	rt.Handle("/user/12:id", EmptyFilterFunc)
-	rt.HandleFunc("/user/:id", "GET", EmptyHandlerFunc)
+	rt.HandleFunc("/user/:id", GET, EmptyHandlerFunc)
 	h, _, _ := rt.MatchHandlerFilters(&url.URL{Path: "/user/1234"})
-	tt.Nil(h)
+	tt.True(h == nil)
 	h, _, _ = rt.MatchHandlerFilters(&url.URL{Path: "/user/2234"})
-	tt.NNil(h)
+	tt.True(h == nil)
 }
 
 func TestConflictWildcardCatchall(t *testing.T) {
 	tt := test.Wrap(t)
 	rt := new(router)
-	tt.Nil(rt.HandleFunc("/:user/:id", "GET", EmptyHandlerFunc))
-	e := rt.HandleFunc("/*user", "GET", EmptyHandlerFunc)
-	tt.NNil(e)
+	tt.True(rt.HandleFunc("/:user/:id", GET, EmptyHandlerFunc) == nil)
+	e := rt.HandleFunc("/*user", GET, EmptyHandlerFunc)
+	tt.True(e == nil)
+}
+
+func TestSubRouter(t *testing.T) {
+	tt := test.Wrap(t)
+	userRt := NewRouter()
+	userRt.HandleFunc("/info/:id", GET, EmptyHandlerFunc)
+	userRt.HandleFunc("/posts/:id", GET, EmptyHandlerFunc)
+
+	bookRt := NewRouter()
+	bookRt.HandleFunc("/info/:id", GET, EmptyHandlerFunc)
+	bookRt.HandleFunc("/count/:name", GET, EmptyHandlerFunc)
+
+	rt := new(router)
+	rt.Handle("/user", userRt)
+	rt.Handle("/book", bookRt)
+
+	tt.True(rt.matchOnly("/user/info/123") != nil)
+	tt.True(rt.matchOnly("/bkko/info/123") == nil)
 }

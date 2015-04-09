@@ -7,34 +7,34 @@ import (
 )
 
 // Tmp* provide a temporary data store, it should not be used after server start
-var _tmp = make(map[string]interface{})
+var _tmp = make(map[interface{}]interface{})
 
-func TmpSet(key string, value interface{}) {
+func TmpSet(key, value interface{}) {
 	_tmpCheck()
 	_tmp[key] = value
 }
 
-func TmpHSet(key, key2 string, value interface{}) {
+func TmpHSet(key, key2, value interface{}) {
 	_tmpCheck()
 	if vs := _tmp[key]; vs == nil {
-		vs := map[string]interface{}{
+		vs := map[interface{}]interface{}{
 			key2: value,
 		}
 		_tmp[key] = vs
-	} else if values, ok := vs.(map[string]interface{}); ok {
+	} else if values, ok := vs.(map[interface{}]interface{}); ok {
 		values[key2] = value
 	}
 }
 
-func TmpGet(key string) interface{} {
+func TmpGet(key interface{}) interface{} {
 	_tmpCheck()
 	return _tmp[key]
 }
 
-func TmpHGet(key, key2 string) interface{} {
+func TmpHGet(key, key2 interface{}) interface{} {
 	_tmpCheck()
 	if values := _tmp[key]; values != nil {
-		return values.(map[string]interface{})[key2]
+		return values.(map[interface{}]interface{})[key2]
 	}
 	return nil
 }
