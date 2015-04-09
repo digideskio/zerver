@@ -12,7 +12,7 @@ type (
 	// to modify or check request and response
 	// it will be inited on server started, destroyed on server stopped
 	Filter interface {
-		ServerInitializer
+		Component
 		Filter(Request, Response, FilterChain)
 	}
 
@@ -39,7 +39,7 @@ type (
 
 	// MatchAll routes
 	RootFilters interface {
-		ServerInitializer
+		Component
 		// Filters return all root filters
 		Filters(url *url.URL) []Filter
 		// Add add root filter for "/"
@@ -73,8 +73,8 @@ func panicConvertFilter(i interface{}) Filter {
 }
 
 // FilterFunc is a function Filter
-func (FilterFunc) Init(*Server) error { return nil }
-func (FilterFunc) Destroy()           {}
+func (FilterFunc) Init(Enviroment) error { return nil }
+func (FilterFunc) Destroy()              {}
 func (fn FilterFunc) Filter(req Request, resp Response, chain FilterChain) {
 	fn(req, resp, chain)
 }
@@ -88,9 +88,9 @@ func NewRootFilters(filters []Filter) RootFilters {
 	return &rfs
 }
 
-func (rfs *rootFilters) Init(s *Server) error {
+func (rfs *rootFilters) Init(e Enviroment) error {
 	for _, f := range *rfs {
-		if err := f.Init(s); err != nil {
+		if err := f.Init(e); err != nil {
 			return err
 		}
 	}

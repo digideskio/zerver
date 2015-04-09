@@ -8,7 +8,7 @@ type (
 	TaskHandlerFunc func(interface{})
 
 	TaskHandler interface {
-		ServerInitializer
+		Component
 		Handle(interface{})
 	}
 )
@@ -23,7 +23,7 @@ func convertTaskHandler(i interface{}) TaskHandler {
 	return nil
 }
 
-func (TaskHandlerFunc) Init(*Server) error         { return nil }
+func (TaskHandlerFunc) Init(Enviroment) error      { return nil }
 func (fn TaskHandlerFunc) Handle(task interface{}) { fn(task) }
 func (TaskHandlerFunc) Destroy()                   {}
 
@@ -38,7 +38,7 @@ type MessageQueue struct {
 	MessageProcessor
 }
 
-func (m *MessageQueue) Init(*Server) error {
+func (m *MessageQueue) Init(Enviroment) error {
 	if m.Bufsize == 0 {
 		m.Bufsize = 1024
 	}

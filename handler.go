@@ -17,7 +17,7 @@ type (
 	// Handler.Handler return nil, 405 is default status.
 	// The meaning of 'default status' is that filters can change the status
 	Handler interface {
-		ServerInitializer
+		Component
 		// Handler return an method handle function by method name
 		// if nill returned, means method not allowed
 		Handler(method string) HandleFunc
@@ -29,7 +29,7 @@ type (
 	// MethodHandler will apply standard handler mapping rule,
 	// each method is correspond to it's handler
 	MethodHandler interface {
-		ServerInitializer
+		Component
 		Get(Request, Response)
 		Post(Request, Response)
 		Delete(Request, Response)
@@ -65,7 +65,7 @@ func convertHandler(i interface{}) Handler {
 	return nil
 }
 
-func (HandlerFunc) Init(*Server) error {
+func (HandlerFunc) Init(Enviroment) error {
 	return nil
 }
 
@@ -91,7 +91,7 @@ func (s standardHandler) Handler(method string) HandleFunc {
 	return nil
 }
 
-func (fh MapHandler) Init(*Server) error {
+func (fh MapHandler) Init(Enviroment) error {
 	for m, h := range fh {
 		delete(fh, m)
 		fh[strings.ToUpper(m)] = h

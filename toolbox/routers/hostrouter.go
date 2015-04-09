@@ -43,9 +43,9 @@ func (hr *HostRouter) match(url *url.URL) Router {
 }
 
 // Init init handlers and filters, websocket handlers
-func (hr *HostRouter) Init(s *Server) (err error) {
+func (hr *HostRouter) Init(env Enviroment) (err error) {
 	for i := 0; i < len(hr.routers) && err == nil; i++ {
-		err = hr.routers[i].Init(s)
+		err = hr.routers[i].Init(env)
 	}
 	return
 }

@@ -16,7 +16,7 @@ import (
 type (
 	Router interface {
 		// Init init handlers and filters, websocket handlers
-		ServerInitializer
+		Component
 
 		PrintRouteTree(w io.Writer)
 
@@ -95,21 +95,21 @@ func (*router) reportExistError(typ, pattern string) error {
 }
 
 // Init init all handlers, filters, websocket handlers in route tree
-func (rt *router) Init(s *Server) (err error) {
+func (rt *router) Init(env Enviroment) (err error) {
 	if rt.handler != nil {
-		err = rt.handler.Init(s)
+		err = rt.handler.Init(env)
 	}
 	for i := 0; i < len(rt.filters) && err == nil; i++ {
-		err = rt.filters[i].Init(s)
+		err = rt.filters[i].Init(env)
 	}
 	if err == nil && rt.wsHandler != nil {
-		err = rt.wsHandler.Init(s)
+		err = rt.wsHandler.Init(env)
 	}
 	if err == nil && rt.taskHandler != nil {
-		err = rt.taskHandler.Init(s)
+		err = rt.taskHandler.Init(env)
 	}
 	for i := 0; i < len(rt.childs) && err == nil; i++ {
-		err = rt.childs[i].Init(s)
+		err = rt.childs[i].Init(env)
 	}
 	return
 }

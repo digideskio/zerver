@@ -344,7 +344,7 @@ func TestFilterHideHandler(t *testing.T) {
 	h, _, _ := rt.MatchHandlerFilters(&url.URL{Path: "/user/1234"})
 	tt.True(h == nil)
 	h, _, _ = rt.MatchHandlerFilters(&url.URL{Path: "/user/2234"})
-	tt.True(h == nil)
+	tt.True(h != nil)
 }
 
 func TestConflictWildcardCatchall(t *testing.T) {
@@ -352,7 +352,7 @@ func TestConflictWildcardCatchall(t *testing.T) {
 	rt := new(router)
 	tt.True(rt.HandleFunc("/:user/:id", GET, EmptyHandlerFunc) == nil)
 	e := rt.HandleFunc("/*user", GET, EmptyHandlerFunc)
-	tt.True(e == nil)
+	tt.True(e != nil)
 }
 
 func TestSubRouter(t *testing.T) {

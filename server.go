@@ -24,11 +24,14 @@ type (
 		*ResourceMaster // default JSONResource
 	}
 
+	components map[string]Component
+
 	// Server represent a web server
 	Server struct {
 		Router
 		AttrContainer
 		RootFilters RootFilters // Match Every Routes
+		components
 		checker     websocket.HandshakeChecker
 		contentType string // default content type
 		resMaster   *ResourceMaster
@@ -39,10 +42,10 @@ type (
 	// to terminate this request
 	HeaderChecker func(func(string) string) error
 
-	// ServerInitializer is a Object which will automaticlly initialed by server if
-	// it's added to server, else it should initialed manually
-	ServerInitializer interface {
-		Init(s *Server) error
+	// Component is a Object which will automaticlly initialed/destroyed by server
+	// if it's added to server, else it should initialed manually
+	Component interface {
+		Init(Enviroment) error
 		Destroy()
 	}
 
@@ -50,6 +53,8 @@ type (
 	// it can be accessed from Request/WebsocketConn
 	Enviroment interface {
 		Server() *Server
+		StartTask(path string, value interface{})
+		Component(name string) Component
 		ResourceMaster() *ResourceMaster
 	}
 )
@@ -66,6 +71,21 @@ func (o *ServerOption) init() {
 	}
 	if o.PathVarCount == 0 {
 		o.PathVarCount = 2
+	}
+}
+
+func (is components) init(env Enviroment) error {
+	for _, i := range is {
+		if e := i.Init(env); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+func (is components) destroy() {
+	for _, i := range is {
+		i.Destroy()
 	}
 }
 
@@ -86,6 +106,7 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 		Router:        rt,
 		AttrContainer: NewLockedAttrContainer(),
 		RootFilters:   filters,
+		components:    make(components),
 	}
 }
 
@@ -98,6 +119,16 @@ func (s *Server) ResourceMaster() *ResourceMaster {
 	return s.resMaster
 }
 
+func (s *Server) Component(name string) Component {
+	return s.components[name]
+}
+
+func (s *Server) AddComponent(name string, c Component) {
+	if name != "" && c != nil {
+		s.components[name] = c
+	}
+}
+
 // Start start server
 func (s *Server) start(o *ServerOption) {
 	o.init()
@@ -107,6 +138,7 @@ func (s *Server) start(o *ServerOption) {
 	pathVarCount = o.PathVarCount
 	filterCount = o.FilterCount
 
+	OnErrPanic(s.components.init(s))
 	OnErrPanic(s.RootFilters.Init(s))
 	log.Println("Init Handlers and Filters")
 	OnErrPanic(s.Router.Init(s))
@@ -133,6 +165,9 @@ func (s *Server) Start(options *ServerOption) error {
 func (s *Server) Destroy() {
 	s.RootFilters.Destroy()
 	s.Router.Destroy()
+	if s.components != nil {
+		s.components.destroy()
+	}
 }
 
 // ServHttp serve for http reuest
