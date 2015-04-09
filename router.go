@@ -18,8 +18,6 @@ type (
 		// Init init handlers and filters, websocket handlers
 		ServerInitializer
 
-		// Destroy destroy router, also responsible for destroy all handlers and filters
-		Destroy()
 		PrintRouteTree(w io.Writer)
 
 		Group(prefix string, fn func(Router))

@@ -13,7 +13,6 @@ type (
 	// it will be inited on server started, destroyed on server stopped
 	Filter interface {
 		ServerInitializer
-		Destroy()
 		Filter(Request, Response, FilterChain)
 	}
 
@@ -45,7 +44,6 @@ type (
 		Filters(url *url.URL) []Filter
 		// Add add root filter for "/"
 		Add(interface{})
-		Destroy()
 	}
 
 	rootFilters []Filter

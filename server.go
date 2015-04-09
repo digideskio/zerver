@@ -43,6 +43,7 @@ type (
 	// it's added to server, else it should initialed manually
 	ServerInitializer interface {
 		Init(s *Server) error
+		Destroy()
 	}
 
 	// Enviroment is a server enviroment, real implementation is the Server itself.

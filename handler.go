@@ -18,7 +18,6 @@ type (
 	// The meaning of 'default status' is that filters can change the status
 	Handler interface {
 		ServerInitializer
-		Destroy()
 		// Handler return an method handle function by method name
 		// if nill returned, means method not allowed
 		Handler(method string) HandleFunc
@@ -31,7 +30,6 @@ type (
 	// each method is correspond to it's handler
 	MethodHandler interface {
 		ServerInitializer
-		Destroy()
 		Get(Request, Response)
 		Post(Request, Response)
 		Delete(Request, Response)

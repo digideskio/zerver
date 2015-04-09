@@ -41,7 +41,6 @@ type (
 	// WebSocketHandler is the handler of websocket connection
 	WebSocketHandler interface {
 		ServerInitializer
-		Destroy()
 		Handle(WebSocketConn)
 	}
 )
