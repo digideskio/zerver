@@ -87,7 +87,7 @@ server.Get("/home/*subpath", func(req zerver.Request, resp zerver.Response) {
 * filter
 ```Go
 type logger func(v ...interface{})
-func (l logger) Init(*zerver.Server) error {return nil}
+func (l logger) Init(zerver.Enviroment) error {return nil}
 func (l logger) Destroy() {}
 func (l logger) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
     l(req.RemoteIP(), req.UserAgent(), req.URL())
