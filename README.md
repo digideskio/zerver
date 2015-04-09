@@ -8,7 +8,7 @@ It's mainly designed for restful api service, without session, template support,
 
 ##### Features
 * RESTFul Route
-* Tree-based mux/router, support route group
+* Tree-based mux/router, support route group, subrouter
 * Filter(also known as middleware) Chain support
 * Interceptor supported
 * Builtin WebSocket support
@@ -125,19 +125,24 @@ server.HandleFunc("/auth", "POST", zerver.InterceptHandler(
 
 
 ### Handler/Filter/WebSocketHandler/TaskHandler
-There is only one method `Handle(pattern string, i interface{})` to add component to server(router), first parameter is the url pattern the handler process, second can be:
+There is only one method `Handle(pattern string, i interface{})` to add component 
+to server(router), first parameter is the url pattern the handler process, second can be:
+* `Router` (Created through `NewRouter()`)
 * `Handler/HandlerFunc/Literal HandlerFunc/MapHandler/MethodHandler`
 * `Filter/FilterFunc/Literal FilterFunc`
 * `WebSocketHandler/WebSocketHandlerFunc/Literal WebSocketHandler`
 * `TaskHandler/TaskHandlerFunc/Literal TaskHandlerFunc`  
 
-If it's `Filter`, it will be add to filters collection for this pattern, otherwise. For handlers, per __route__ should have only one handlers.  
-Note: in zerver, the pattern will compile to route, they are not equal,
+For filter, it will be add to filters collection for this pattern.
+For handlers, per __route__ should have only one handlers.
+For router, all routes under this section should be managed by it, you can't use Handler/Router both with same prefix.
+
+Note: in zerver, the pattern will compile to route, they are not equal. 
 `/user/:id/info` and `/user/:name/info` is two pattern, but the same route.
 
 ### ResourceMaster
 ResourceMaster responsible for marshal/unmarshal data, you can use it dependently or intergrate to Server.
-```
+```Go
 MarshalFunc func(interface{}) ([]byte, error)
 UnmarshalFunc func([]byte, interface{}) error
 Marshaler interface {
@@ -163,7 +168,7 @@ container, response has only a `interface{}` to store value, both used to share 
 The server's container should be used to store global attributes. The request's container should be used to pass down values between filter/filter or filter/handler. The response's container should be used to pass up value.
 
 Example:
-```
+```Go
 server.Attr(name)
 server.SetAttr(name, value)
 
