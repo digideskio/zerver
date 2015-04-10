@@ -5,15 +5,20 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"sync"
 
 	. "github.com/cosiner/gohper/lib/errors"
 	"github.com/cosiner/gohper/lib/types"
-	"github.com/cosiner/zerver_websocket"
+	websocket "github.com/cosiner/zerver_websocket"
 )
 
 var (
 	Bytes  func(string) []byte = types.UnsafeBytes
 	String func([]byte) string = types.UnsafeString
+)
+
+const (
+	ErrComponentNotFound = Err("The required component is not found")
 )
 
 type (
@@ -34,7 +39,12 @@ type (
 		*ResourceMaster
 	}
 
-	components map[string]Component
+	ComponentState struct {
+		Initialized bool
+		NoLazy      bool
+		Component
+	}
+	components map[string]ComponentState
 
 	// Server represent a web server
 	Server struct {
@@ -42,6 +52,7 @@ type (
 		AttrContainer
 		RootFilters RootFilters // Match Every Routes
 		components
+		sync.RWMutex
 		checker     websocket.HandshakeChecker
 		contentType string // default content type
 		resMaster   *ResourceMaster
@@ -52,8 +63,8 @@ type (
 	// to terminate this request
 	HeaderChecker func(func(string) string) error
 
-	// Component is a Object which will automaticlly initialed/destroyed by server
-	// if it's added to server, else it should initialed manually
+	// Component is a Object which will automaticlly initial/destroyed by server
+	// if it's added to server, else it should initial manually
 	Component interface {
 		Init(Enviroment) error
 		Destroy()
@@ -64,7 +75,7 @@ type (
 	Enviroment interface {
 		Server() *Server
 		StartTask(path string, value interface{})
-		Component(name string) Component
+		Component(name string) (Component, error)
 		ResourceMaster() *ResourceMaster
 	}
 )
@@ -82,15 +93,6 @@ func (o *ServerOption) init() {
 	if o.FilterCount == 0 {
 		o.FilterCount = 5
 	}
-}
-
-func (is components) init(env Enviroment) error {
-	for _, i := range is {
-		if e := i.Init(env); e != nil {
-			return e
-		}
-	}
-	return nil
 }
 
 func (is components) destroy() {
@@ -129,13 +131,52 @@ func (s *Server) ResourceMaster() *ResourceMaster {
 	return s.resMaster
 }
 
-func (s *Server) Component(name string) Component {
-	return s.components[name]
+func (s *Server) Component(name string) (Component, error) {
+	s.RLock()
+	if cs, has := s.components[name]; has {
+		var err error
+		if !cs.Initialized {
+			defer s.RUnlock()
+			if err = cs.Component.Init(s); err == nil {
+				cs.Initialized = true
+			}
+		} else {
+			s.RUnlock()
+		}
+		return cs.Component, err
+	}
+	s.RUnlock()
+	return nil, ErrComponentNotFound
 }
 
-func (s *Server) AddComponent(name string, c Component) {
-	if name != "" && c != nil {
+func (s *Server) AddComponent(name string, c ComponentState) error {
+	if name != "" && c.Component != nil {
+		if !c.Initialized && c.NoLazy {
+			if err := c.Init(s); err != nil {
+				return err
+			}
+		}
+		s.Lock()
 		s.components[name] = c
+		s.Unlock()
+		return nil
+	}
+	panic("empty name or nil component is not allowed")
+}
+
+func (s *Server) RemoveComponent(name string) {
+	if name != "" {
+		s.Lock()
+		if cs, has := s.components[name]; has {
+			if cs.Initialized {
+				defer s.Unlock()
+				cs.Destroy()
+				delete(s.components, name)
+				return
+			}
+		}
+		delete(s.components, name)
+		s.Unlock()
 	}
 }
 
@@ -148,7 +189,6 @@ func (s *Server) start(o *ServerOption) {
 	pathVarCount = o.PathVarCount
 	filterCount = o.FilterCount
 
-	OnErrPanic(s.components.init(s))
 	OnErrPanic(s.RootFilters.Init(s))
 	log.Println("Init Handlers and Filters")
 	OnErrPanic(s.Router.Init(s))
@@ -175,9 +215,7 @@ func (s *Server) Start(options *ServerOption) error {
 func (s *Server) Destroy() {
 	s.RootFilters.Destroy()
 	s.Router.Destroy()
-	if s.components != nil {
-		s.components.destroy()
-	}
+	s.components.destroy()
 }
 
 // ServHttp serve for http reuest

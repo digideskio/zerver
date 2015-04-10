@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cosiner/zerver_websocket"
+	websocket "github.com/cosiner/zerver_websocket"
 )
 
 type (
