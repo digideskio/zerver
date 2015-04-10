@@ -6,9 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cosiner/gohper/lib/test"
-
 	. "github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/test"
 )
 
 func TestCompile(t *testing.T) {

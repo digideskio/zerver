@@ -5,8 +5,6 @@ import (
 	"net/url"
 
 	. "github.com/cosiner/zerver"
-
-	"github.com/cosiner/gohper/lib/sys"
 )
 
 type (
@@ -100,7 +98,7 @@ func (w indentWriter) Write(data []byte) (int, error) {
 
 func (hr *HostRouter) PrintRouteTree(w io.Writer) {
 	for i := range hr.routers {
-		sys.WriteStrln(w, hr.hosts[i])
+		w.Write(Bytes(hr.hosts[i] + "\n"))
 		hr.routers[i].PrintRouteTree(w)
 	}
 }

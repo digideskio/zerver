@@ -11,7 +11,7 @@ type BasicAuthFilter struct {
 	AuthPassAttrName string
 }
 
-func (b *BasicAuthFilter) Init(*zerver.Server) error {
+func (b *BasicAuthFilter) Init(zerver.Enviroment) error {
 	if b.AuthUserAttrName == "" {
 		b.AuthUserAttrName = "AuthUser"
 	}

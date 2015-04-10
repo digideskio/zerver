@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-
-	"github.com/cosiner/gohper/lib/types"
 )
 
 type (
@@ -73,7 +71,7 @@ func (r *ResourceMaster) Send(w ErrorWriter, key string, value interface{}) (err
 	if key != "" {
 		bs, err = r.Marshal(value)
 		if err == nil {
-			err = r.WriteKV(w, types.UnsafeBytes(key), bs)
+			err = r.WriteKV(w, Bytes(key), bs)
 			r.Pool(bs)
 		}
 	} else if bs, err = r.Marshal(value); err == nil {

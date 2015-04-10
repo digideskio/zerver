@@ -50,6 +50,7 @@ type (
 		// if there is a previous error, operation will not be performed, just
 		// return this error, and any error will be stored
 		ErrorWriter
+		WriteString(s string) (int, error)
 
 		// Value/SetValue provide a approach to transmit value between filter/handler
 		// there is only one instance, if necessary, save origin value first,
@@ -126,6 +127,10 @@ func (resp *response) Write(data []byte) (i int, err error) {
 		resp.err = err
 	}
 	return
+}
+
+func (resp *response) WriteString(s string) (int, error) {
+	return resp.Write(Bytes(s))
 }
 
 func (resp *response) ClearError() {

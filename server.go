@@ -6,22 +6,32 @@ import (
 	"net/url"
 	"runtime"
 
-	websocket "github.com/cosiner/zerver_websocket"
-
 	. "github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/types"
+	"github.com/cosiner/zerver_websocket"
+)
+
+var (
+	Bytes  func(string) []byte = types.UnsafeBytes
+	String func([]byte) string = types.UnsafeString
 )
 
 type (
 	ServerOption struct {
-		WebSocketChecker HeaderChecker // default nil
-		ContentType      string        // default application/json;charset=utf-8
-		PathVarCount     int           // default 2
-		FilterCount      int           // default 2
-		ListenAddr       string        // default :4000
-		CertFile         string        // default not enable tls
-		KeyFile          string
-
-		*ResourceMaster // default JSONResource
+		// check websocket header, default nil
+		WebSocketChecker HeaderChecker
+		// content type for each request, default application/json;charset=utf-8
+		ContentType string
+		// path variables count, suggest set as max or average, default 3
+		PathVarCount int
+		// filters count for each route, RootFilters is not include, default 5
+		FilterCount int
+		// server listening address, default :4000
+		ListenAddr string
+		// ssl config, default not enable tls
+		CertFile, KeyFile string
+		// resource marshal/pool/unmarshal, default use JSONResource
+		*ResourceMaster
 	}
 
 	components map[string]Component
@@ -66,11 +76,11 @@ func (o *ServerOption) init() {
 	if o.ContentType == "" {
 		o.ContentType = CONTENTTYPE_JSON
 	}
-	if o.FilterCount == 0 {
-		o.FilterCount = 2
-	}
 	if o.PathVarCount == 0 {
-		o.PathVarCount = 2
+		o.PathVarCount = 3
+	}
+	if o.FilterCount == 0 {
+		o.FilterCount = 5
 	}
 }
 
@@ -225,8 +235,3 @@ func (s *Server) StartTask(path string, value interface{}) {
 	}
 	panic("No task handler found for " + path)
 }
-
-// // PanicServer create a new goroutine, it force panic whole process
-// func PanicServer(s string) {
-// 	go panic(s)
-// }

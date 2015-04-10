@@ -4,7 +4,6 @@ import (
 	"reflect"
 
 	. "github.com/cosiner/gohper/lib/errors"
-
 	ref "github.com/cosiner/gohper/lib/reflect"
 )
 

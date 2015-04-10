@@ -11,7 +11,7 @@ type CORSFilter struct {
 	allowAll bool
 }
 
-func (c *CORSFilter) Init(*zerver.Server) error {
+func (c *CORSFilter) Init(zerver.Enviroment) error {
 	l := len(c.Allows)
 	if l == 0 || (l == 1 && c.Allows[0] == "*") {
 		c.allowAll = true

@@ -6,11 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cosiner/gohper/lib/runtime"
-
-	"github.com/cosiner/gohper/lib/sys"
-
 	. "github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/runtime"
 )
 
 type (
@@ -652,7 +649,7 @@ func (rt *router) printRouteTree(w io.Writer, parentPath string) {
 		}
 	}
 	cur := parentPath + string(s)
-	if _, e := sys.WriteStrln(w, cur); e == nil {
+	if _, e := w.Write(Bytes(cur + "\n")); e == nil {
 		rt.accessAllChilds(func(n *router) bool {
 			n.printRouteTree(w, cur)
 			return true

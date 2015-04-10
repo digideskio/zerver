@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cosiner/gohper/lib/sys"
-	"github.com/cosiner/gohper/lib/types"
 	"github.com/cosiner/zerver"
 )
 
@@ -72,7 +70,7 @@ func globalFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterC
 		resp.SetHeader("Location", path+"/options?from="+url.QueryEscape(req.URL().Path))
 		resp.ReportMovedPermanently()
 	} else if resp.Status() == http.StatusMethodNotAllowed {
-		sys.WriteStrln(resp, "The pprof interface only support GET request")
+		resp.WriteString("The pprof interface only support GET request\n")
 	} else {
 		chain(req, resp)
 	}
@@ -102,7 +100,7 @@ func initRoutes() bool {
 			var err error
 			if t, err = strconv.Atoi(secs); err != nil {
 				resp.ReportBadRequest()
-				sys.WriteStrln(resp, secs+" is not a integer number")
+				resp.WriteString(secs + " is not a integer number\n")
 				return
 			}
 		}
@@ -129,10 +127,10 @@ func initRoutes() bool {
 	infos["/options"] = "Get all pprof options"
 	routes["/options"] = func(req zerver.Request, resp zerver.Response) {
 		if from := req.Param("from"); from != "" {
-			resp.Write(types.UnsafeBytes("There is no this pprof option: " + from + "\n"))
+			resp.Write(zerver.Bytes("There is no this pprof option: " + from + "\n"))
 		}
 		for i := range options {
-			resp.Write(types.UnsafeBytes(options[i]))
+			resp.Write(zerver.Bytes(options[i]))
 		}
 	}
 
