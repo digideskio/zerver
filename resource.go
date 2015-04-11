@@ -7,6 +7,7 @@ import (
 
 type (
 	ResourceMaster interface {
+		Component
 		Marshal(interface{}) ([]byte, error)
 		Pool([]byte)
 		Unmarshal([]byte, interface{}) error
@@ -17,6 +18,9 @@ type (
 	// if use your own
 	JSONResource struct{}
 )
+
+func (JSONResource) Init(Enviroment) error { return nil }
+func (JSONResource) Destroy()              {}
 
 func (JSONResource) Marshal(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
@@ -30,11 +34,11 @@ func (JSONResource) Pool([]byte) {}
 
 func (JSONResource) Send(w io.Writer, key string, value interface{}) error {
 	if key != "" {
-		w.Write(_jsonHeadStart)
+		w.Write(JSONObjStart)
 		w.Write(Bytes(key))
-		w.Write(_jsonHeadEnd)
+		w.Write(JSONObjMid)
 		json.NewEncoder(w).Encode(value)
-		_, err := w.Write(_jsonEnd)
+		_, err := w.Write(JSONObjEnd)
 		return err
 	} else {
 		return json.NewEncoder(w).Encode(value)
@@ -48,7 +52,7 @@ func (JSONResource) Recieve(r io.Reader, value interface{}) error {
 }
 
 var (
-	_jsonHeadStart = []byte(`{"`)
-	_jsonHeadEnd   = []byte(`":`)
-	_jsonEnd       = []byte("}")
+	JSONObjStart = []byte(`{"`)
+	JSONObjMid   = []byte(`":`)
+	JSONObjEnd   = []byte("}")
 )

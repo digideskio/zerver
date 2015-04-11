@@ -21,17 +21,17 @@ type requestEnv struct {
 	resp response
 }
 
-type ServerPool struct {
+type serverPool struct {
 	requestEnvPool sync.Pool
 	varIndexerPool sync.Pool
 	filtersPool    sync.Pool
-	otherPools     map[string]*sync.Pool
+	otherPools     map[int]*sync.Pool
 }
 
-var _defaultPool *ServerPool
+var _defaultPool *serverPool
 
 func init() {
-	_defaultPool = &ServerPool{otherPools: make(map[string]*sync.Pool)}
+	_defaultPool = &serverPool{otherPools: make(map[int]*sync.Pool)}
 	_defaultPool.requestEnvPool.New = func() interface{} {
 		env := &requestEnv{}
 		env.req.AttrContainer = NewAttrContainer()
@@ -45,17 +45,17 @@ func init() {
 	}
 }
 
-func ReigisterPool(name string, newFunc func() interface{}) error {
+func ReigisterPool(id int, newFunc func() interface{}) error {
 	op := _defaultPool.otherPools
-	if _, has := op[name]; has {
-		return Err("Pool for " + name + " already exist")
+	if _, has := op[id]; has {
+		return Error("Pool for ", id, " already exist")
 	}
-	op[name] = &sync.Pool{New: newFunc}
+	op[id] = &sync.Pool{New: newFunc}
 	return nil
 }
 
-func NewFrom(poolName string) interface{} {
-	return _defaultPool.otherPools[poolName].Get()
+func NewFrom(id int) interface{} {
+	return _defaultPool.otherPools[id].Get()
 }
 
 func newRequestEnvFromPool() *requestEnv {
@@ -85,6 +85,6 @@ func recycleFilters(filters []Filter) {
 	}
 }
 
-func RecycleTo(poolName string, value interface{}) {
-	_defaultPool.otherPools[poolName].Put(value)
+func RecycleTo(id int, value interface{}) {
+	_defaultPool.otherPools[id].Put(value)
 }

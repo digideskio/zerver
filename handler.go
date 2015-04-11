@@ -65,15 +65,11 @@ func convertHandler(i interface{}) Handler {
 	return nil
 }
 
-func (HandlerFunc) Init(Enviroment) error {
-	return nil
-}
+func (HandlerFunc) Init(Enviroment) error { return nil }
 
 func (HandlerFunc) Destroy() {}
 
-func (h HandlerFunc) Handler(method string) HandleFunc {
-	return h(method)
-}
+func (h HandlerFunc) Handler(method string) HandleFunc { return h(method) }
 
 func (s standardHandler) Handler(method string) HandleFunc {
 	switch method {

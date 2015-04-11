@@ -186,13 +186,10 @@ func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) (err er
 //
 // TaskHandler, Router, Filter will not catch url variable values.
 func (rt *router) Handle(pattern string, handler interface{}) error {
-	if handler == nil {
-		panic("Nil handler is not allowed")
+	if handler == nil || pattern == "" {
+		panic("Nil handler or empty pattern is not allowed")
 	}
-	routePath, pathVars, err := compile(pattern)
-	if err != nil {
-		return err
-	}
+	routePath, pathVars := compile(pattern)
 	if r, is := handler.(*router); is {
 		if !rt.addPathRouter(routePath, r) {
 			return rt.reportExistError("Router", pattern)
@@ -225,7 +222,7 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 		rt.taskHandler = h
 		rt.taskHandlerVars = pathVars
 	} else {
-		panic("Not a Handler/Filter/WebSocketHandler/TaskHandler")
+		panic("Not a Router/Handler/Filter/WebSocketHandler/TaskHandler")
 	}
 	return nil
 }
@@ -573,11 +570,11 @@ var (
 // for ':', it will catch the single section of url path seperated by '/'
 // for '*', it will catch all remains url path, it should appear in the last
 // of pattern for variables behind it will all be ignored
-func compile(path string) (newPath string, vars map[string]int, err error) {
+func compile(path string) (newPath string, vars map[string]int) {
 	path = strings.TrimSpace(path)
 	l := len(path)
-	if l == 0 || path[0] != '/' {
-		return "", nil, Errorf("Invalid url pattern: %s, must start with '/'", path)
+	if path[0] != '/' {
+		panic("Invalid pattern, must start with '/': " + path)
 	}
 	if l != 1 && path[l-1] == '/' {
 		path = path[:l-1]
@@ -600,7 +597,8 @@ func compile(path string) (newPath string, vars map[string]int, err error) {
 			}
 			if name := s[i+1:]; len(name) > 0 {
 				if isInvalidSection(name) {
-					goto ERROR
+					panic(Errorf("path %s has pre-defined characters %c or %c",
+						path, _WILDCARD, _REMAINSALL))
 				}
 				if vars == nil {
 					vars = make(map[string]int)
@@ -623,10 +621,6 @@ func compile(path string) (newPath string, vars map[string]int, err error) {
 		vars = nilVars
 	}
 	return
-ERROR:
-	return "", nil,
-		Errorf("path %s has pre-defined characters %c or %c",
-			path, _WILDCARD, _REMAINSALL)
 }
 
 // PrintRouteTree print an route tree
