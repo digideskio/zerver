@@ -17,6 +17,7 @@ It's mainly designed for restful api service, without session, template support,
 * Builtin Task support
 * Resource Marshal/Unmarshal, Pool marshaled bytes(if marshaler support)
 * Request/Response Wrap
+* Pluggable, lazy-initializable global components
 
 ##### Getting Started
 ```Go

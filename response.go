@@ -71,7 +71,7 @@ type (
 
 	// response represent a response of request to user
 	response struct {
-		resMaster *ResourceMaster
+		resMaster ResourceMaster
 		http.ResponseWriter
 		header       http.Header
 		status       int
@@ -87,7 +87,7 @@ const (
 )
 
 // newResponse create a new response, and set default content type to HTML
-func (resp *response) init(r *ResourceMaster, w http.ResponseWriter) Response {
+func (resp *response) init(r ResourceMaster, w http.ResponseWriter) Response {
 	resp.resMaster = r
 	resp.ResponseWriter = w
 	resp.header = w.Header()

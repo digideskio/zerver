@@ -3,50 +3,48 @@ package zerver
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
 )
 
 type (
-	MarshalFunc func(interface{}) ([]byte, error)
-
-	UnmarshalFunc func([]byte, interface{}) error
-
-	Marshaler interface {
+	ResourceMaster interface {
 		Marshal(interface{}) ([]byte, error)
 		Pool([]byte)
+		Unmarshal([]byte, interface{}) error
+		Send(w io.Writer, key string, value interface{}) error
+		Recieve(r io.Reader, v interface{}) error
 	}
 
 	// if use your own
-	ResourceMaster struct {
-		WriteKV func(w ErrorWriter, key, value []byte) error
-		Marshaler
-		Unmarshal UnmarshalFunc
-	}
+	JSONResource struct{}
 )
 
-func (m MarshalFunc) Marshal(v interface{}) ([]byte, error) { return m(v) }
-func (MarshalFunc) Pool([]byte)                             {}
-
-var JSONResource = &ResourceMaster{
-	WriteKV:   WriteJSONKV,
-	Marshaler: MarshalFunc(json.Marshal),
-	Unmarshal: json.Unmarshal,
+func (JSONResource) Marshal(v interface{}) ([]byte, error) {
+	return json.Marshal(v)
 }
 
-func (r *ResourceMaster) Init() *ResourceMaster {
-	if r == nil {
-		return JSONResource
+func (JSONResource) Unmarshal(data []byte, v interface{}) error {
+	return json.Unmarshal(data, v)
+}
+
+func (JSONResource) Pool([]byte) {}
+
+func (JSONResource) Send(w io.Writer, key string, value interface{}) error {
+	if key != "" {
+		w.Write(_jsonHeadStart)
+		w.Write(Bytes(key))
+		w.Write(_jsonHeadEnd)
+		json.NewEncoder(w).Encode(value)
+		_, err := w.Write(_jsonEnd)
+		return err
+	} else {
+		return json.NewEncoder(w).Encode(value)
 	}
-	if r.WriteKV == nil {
-		r.WriteKV = JSONResource.WriteKV
-	}
-	if r.Marshaler == nil {
-		r.Marshaler = JSONResource.Marshaler
-	}
-	if r.Unmarshal == nil {
-		r.Unmarshal = JSONResource.Unmarshal
-	}
-	return r
+}
+
+func (JSONResource) Recieve(r io.Reader, value interface{}) error {
+	d := json.NewDecoder(r)
+	d.UseNumber()
+	return d.Decode(value)
 }
 
 var (
@@ -54,37 +52,3 @@ var (
 	_jsonHeadEnd   = []byte(`":`)
 	_jsonEnd       = []byte("}")
 )
-
-func WriteJSONKV(w ErrorWriter, key, value []byte) (err error) {
-	w.Write(_jsonHeadStart)
-	w.Write(key)
-	w.Write(_jsonHeadEnd)
-	w.Write(value)
-	_, err = w.Write(_jsonEnd)
-	return
-}
-
-// Send send resource to client, if key is empty, just send marshaled value,
-// otherwise send as json object
-func (r *ResourceMaster) Send(w ErrorWriter, key string, value interface{}) (err error) {
-	var bs []byte
-	if key != "" {
-		bs, err = r.Marshal(value)
-		if err == nil {
-			err = r.WriteKV(w, Bytes(key), bs)
-			r.Pool(bs)
-		}
-	} else if bs, err = r.Marshal(value); err == nil {
-		r.Pool(bs)
-		_, err = w.Write(bs)
-	}
-	return err
-}
-
-func (r *ResourceMaster) Recieve(rd io.Reader, v interface{}) error {
-	bs, err := ioutil.ReadAll(rd)
-	if err == nil {
-		err = r.Unmarshal(bs, v)
-	}
-	return err
-}

@@ -36,7 +36,7 @@ type (
 		// ssl config, default not enable tls
 		CertFile, KeyFile string
 		// resource marshal/pool/unmarshal, default use JSONResource
-		*ResourceMaster
+		ResourceMaster
 	}
 
 	ComponentState struct {
@@ -55,7 +55,7 @@ type (
 		sync.RWMutex
 		checker     websocket.HandshakeChecker
 		contentType string // default content type
-		resMaster   *ResourceMaster
+		resMaster   ResourceMaster
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -76,7 +76,7 @@ type (
 		Server() *Server
 		StartTask(path string, value interface{})
 		Component(name string) (Component, error)
-		ResourceMaster() *ResourceMaster
+		ResourceMaster() ResourceMaster
 	}
 )
 
@@ -127,7 +127,7 @@ func (s *Server) Server() *Server {
 	return s
 }
 
-func (s *Server) ResourceMaster() *ResourceMaster {
+func (s *Server) ResourceMaster() ResourceMaster {
 	return s.resMaster
 }
 
@@ -185,7 +185,10 @@ func (s *Server) start(o *ServerOption) {
 	o.init()
 	s.contentType = o.ContentType
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
-	s.resMaster = o.ResourceMaster.Init()
+	s.resMaster = o.ResourceMaster
+	if s.resMaster == nil {
+		s.resMaster = JSONResource{}
+	}
 	pathVarCount = o.PathVarCount
 	filterCount = o.FilterCount
 
