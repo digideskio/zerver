@@ -6,12 +6,12 @@ import (
 
 const _HEADER_CORS_ALLOWSORIGIN = "Access-Control-Allow-Origin"
 
-type CORSFilter struct {
+type CORS struct {
 	Allows   []string
 	allowAll bool
 }
 
-func (c *CORSFilter) Init(zerver.Enviroment) error {
+func (c *CORS) Init(zerver.Enviroment) error {
 	l := len(c.Allows)
 	if l == 0 || (l == 1 && c.Allows[0] == "*") {
 		c.allowAll = true
@@ -20,9 +20,9 @@ func (c *CORSFilter) Init(zerver.Enviroment) error {
 	return nil
 }
 
-func (c *CORSFilter) Destroy() {}
+func (c *CORS) Destroy() {}
 
-func (c *CORSFilter) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
+func (c *CORS) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	if c.allowAll {
 		resp.SetHeader(_HEADER_CORS_ALLOWSORIGIN, "*")
 		chain(req, resp)

@@ -63,7 +63,7 @@ func flateWrapper(w http.ResponseWriter, needClose bool) (http.ResponseWriter, b
 	}, true
 }
 
-func CompressFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
+func Compress(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	encoding := req.AcceptEncodings()
 	if strings.Contains(encoding, zerver.ENCODING_GZIP) {
 		resp.SetContentEncoding(zerver.ENCODING_GZIP)

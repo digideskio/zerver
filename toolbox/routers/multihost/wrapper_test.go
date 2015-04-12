@@ -7,6 +7,6 @@ import (
 )
 
 func TestInterfaceMatch(t *testing.T) {
-	var _ zerver.Router = HostRouter{}
-	var _ zerver.RootFilters = HostRootFilters{}
+	var _ zerver.Router = NewRouter()
+	var _ zerver.RootFilters = NewRootFilters()
 }

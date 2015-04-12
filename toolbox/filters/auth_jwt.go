@@ -13,12 +13,12 @@ const (
 	ErrNilKeyFunc        = Err("jwt secret key getter can't be nil")
 )
 
-type JWTAuthFilter struct {
+type JWTAuth struct {
 	JWT               *jwt.JWT
 	AuthTokenAttrName string
 }
 
-func (j *JWTAuthFilter) Init(s *zerver.Server) error {
+func (j *JWTAuth) Init(s *zerver.Server) error {
 	if j.JWT == nil {
 		return ErrNilJWT
 	}
@@ -34,7 +34,7 @@ func (j *JWTAuthFilter) Init(s *zerver.Server) error {
 	return nil
 }
 
-func (j *JWTAuthFilter) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
+func (j *JWTAuth) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	if tokstr := req.Authorization(); tokstr != "" {
 		if tok, err := j.JWT.Parse(tokstr); err == nil {
 			req.SetAttr(j.AuthTokenAttrName, tok)
@@ -45,4 +45,4 @@ func (j *JWTAuthFilter) Filter(req zerver.Request, resp zerver.Response, chain z
 	resp.ReportUnauthorized()
 }
 
-func (j *JWTAuthFilter) Destroy() {}
+func (j *JWTAuth) Destroy() {}

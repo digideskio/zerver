@@ -6,12 +6,12 @@ import (
 	"github.com/cosiner/zerver"
 )
 
-type BasicAuthFilter struct {
+type BasicAuth struct {
 	AuthUserAttrName string
 	AuthPassAttrName string
 }
 
-func (b *BasicAuthFilter) Init(zerver.Enviroment) error {
+func (b *BasicAuth) Init(zerver.Enviroment) error {
 	if b.AuthUserAttrName == "" {
 		b.AuthUserAttrName = "AuthUser"
 	}
@@ -21,7 +21,7 @@ func (b *BasicAuthFilter) Init(zerver.Enviroment) error {
 	return nil
 }
 
-func (b *BasicAuthFilter) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
+func (b *BasicAuth) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	auth := req.Authorization()
 	index := strings.IndexByte(auth, ':')
 	if index > 0 && index < len(auth)-1 {
@@ -33,4 +33,4 @@ func (b *BasicAuthFilter) Filter(req zerver.Request, resp zerver.Response, chain
 	resp.ReportBadRequest()
 }
 
-func (b *BasicAuthFilter) Destroy() {}
+func (b *BasicAuth) Destroy() {}

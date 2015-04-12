@@ -10,7 +10,7 @@ import (
 var notFound = []byte("<h1>404 Not Found</h1>")
 var methodNotAllowed = []byte("<h1>405 Method Not Allowed</h1>")
 
-func ErrorToBrowserFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
+func ErrorToBrowser(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	defer func() {
 		if e := recover(); e != nil {
 			resp.Write(zerver.Bytes(fmt.Sprint(e)))

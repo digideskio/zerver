@@ -4,11 +4,11 @@ import (
 	"github.com/cosiner/zerver"
 )
 
-type LogFilter func(v ...interface{})
+type Log func(v ...interface{})
 
-func (l LogFilter) Init(zerver.Enviroment) error { return nil }
+func (l Log) Init(zerver.Enviroment) error { return nil }
 
-func (l LogFilter) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
+func (l Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	status := resp.Status()
 	chain(req, resp)
 	newStatus := status
@@ -19,4 +19,4 @@ func (l LogFilter) Filter(req zerver.Request, resp zerver.Response, chain zerver
 	}
 }
 
-func (l LogFilter) Destroy() {}
+func (l Log) Destroy() {}

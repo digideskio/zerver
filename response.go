@@ -99,6 +99,7 @@ func (resp *response) destroy() {
 	resp.flushHeader()
 	resp.statusWrited = false
 	resp.header = nil
+	resp.value = nil
 	resp.err = nil
 	if resp.needClose {
 		resp.needClose = false
