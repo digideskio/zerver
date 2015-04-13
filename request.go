@@ -40,7 +40,7 @@ type (
 		io.Reader
 		URLVarIndexer
 
-		Recieve(interface{}) error
+		Receive(interface{}) error
 		destroy()
 	}
 
@@ -186,6 +186,6 @@ func (req *request) Header(name string) string {
 	return req.header.Get(name)
 }
 
-func (req *request) Recieve(v interface{}) error {
-	return req.ResourceMaster().Recieve(req, v)
+func (req *request) Receive(v interface{}) error {
+	return req.ResourceMaster().Receive(req, v)
 }

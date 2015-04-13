@@ -12,7 +12,7 @@ type (
 		Pool([]byte)
 		Unmarshal([]byte, interface{}) error
 		Send(w io.Writer, key string, value interface{}) error
-		Recieve(r io.Reader, v interface{}) error
+		Receive(r io.Reader, v interface{}) error
 	}
 
 	// if use your own
@@ -45,7 +45,7 @@ func (JSONResource) Send(w io.Writer, key string, value interface{}) error {
 	}
 }
 
-func (JSONResource) Recieve(r io.Reader, value interface{}) error {
+func (JSONResource) Receive(r io.Reader, value interface{}) error {
 	d := json.NewDecoder(r)
 	d.UseNumber()
 	return d.Decode(value)
