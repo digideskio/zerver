@@ -7,6 +7,8 @@ import (
 )
 
 // Tmp* provide a temporary data store, it should not be used after server start
+// because of this, lazy-initialied component should not use these functions in
+// in their Init method unless it was initialized by Handler/Filter...'s Init
 var _tmp = make(map[interface{}]interface{})
 
 func TmpSet(key, value interface{}) {

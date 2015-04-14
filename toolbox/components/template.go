@@ -1,7 +1,7 @@
-package template
+package components
 
 import (
-	htmpl "html/template"
+	tmpl "html/template"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,26 +10,19 @@ import (
 	"github.com/cosiner/zerver"
 )
 
+const TEMPLATE_OPTION = "TemplateOption"
+
 type (
 	TemplateOption struct {
 		DelimLeft  string
 		DelimRight string
 		Suffixes   []string
 		Path       []string
-		htmpl.FuncMap
-	}
-	// Template is a template engine which support set delimiters, add file suffix name,
-	// add template file and dirs, add template functions, compile template, and
-	// render template
-	Template interface {
-		zerver.Component
-		Lookup(name string) Template
-		Render(w io.Writer, data interface{}) error
-		RenderTmpl(w io.Writer, name string, data interface{}) error
+		tmpl.FuncMap
 	}
 
 	// template implements Template interface use standard html/template package
-	template htmpl.Template
+	Template tmpl.Template
 )
 
 func (t *TemplateOption) init() {
@@ -44,38 +37,41 @@ func (t *TemplateOption) init() {
 	}
 }
 
-func NewTemplate(o *TemplateOption) (Template, error) {
-	if o == nil {
+func NewTemplate() *Template {
+	return (*Template)(tmpl.New("_tmpl_"))
+}
+
+func (t *Template) Init(env zerver.Enviroment) error {
+	var o *TemplateOption
+	if op := env.Server().Attr(TEMPLATE_OPTION); op == nil {
 		o = &TemplateOption{}
+	} else {
+		o = op.(*TemplateOption)
+		env.Server().RemoveAttr(TEMPLATE_OPTION)
 	}
 	o.init()
 	files, err := filenames(o.Path, o.Suffixes)
 	if err == nil {
-		tmpl, e := htmpl.New("tmpl").Delims(o.DelimLeft, o.DelimRight).Funcs(o.FuncMap).ParseFiles(files...)
-		if e == nil {
-			return (*template)(tmpl), nil
-		}
-		err = e
+		_, err = (*tmpl.Template)(t).
+			Delims(o.DelimLeft, o.DelimRight).
+			Funcs(o.FuncMap).
+			ParseFiles(files...)
 	}
-	return nil, err
+	return err
 }
 
-func (t *template) Init(zerver.Enviroment) error {
-	return nil
+func (t *Template) Destroy() {}
+
+func (t *Template) Render(w io.Writer, data interface{}) error {
+	return (*tmpl.Template)(t).Execute(w, data)
 }
 
-func (t *template) Destroy() {}
-
-func (t *template) Render(w io.Writer, data interface{}) error {
-	return (*htmpl.Template)(t).Execute(w, data)
+func (t *Template) RenderTmpl(w io.Writer, name string, values interface{}) error {
+	return (*tmpl.Template)(t).ExecuteTemplate(w, name, values)
 }
 
-func (t *template) RenderTmpl(w io.Writer, name string, values interface{}) error {
-	return (*htmpl.Template)(t).ExecuteTemplate(w, name, values)
-}
-
-func (t *template) Lookup(name string) Template {
-	return (*template)((*htmpl.Template)(t).Lookup(name))
+func (t *Template) Lookup(name string) *Template {
+	return (*Template)((*tmpl.Template)(t).Lookup(name))
 }
 
 func filenames(path []string, suffixes []string) (files []string, err error) {
