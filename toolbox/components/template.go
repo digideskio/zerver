@@ -10,7 +10,10 @@ import (
 	"github.com/cosiner/zerver"
 )
 
-const TEMPLATE_OPTION = "TemplateOption"
+const (
+	OPT_TEMPLATE  = "TemplateOption"
+	COMP_TEMPLATE = "TemplateComponent"
+)
 
 type (
 	TemplateOption struct {
@@ -43,11 +46,11 @@ func NewTemplate() *Template {
 
 func (t *Template) Init(env zerver.Enviroment) error {
 	var o *TemplateOption
-	if op := env.Server().Attr(TEMPLATE_OPTION); op == nil {
+	if op := env.Server().Attr(OPT_TEMPLATE); op == nil {
 		o = &TemplateOption{}
 	} else {
 		o = op.(*TemplateOption)
-		env.Server().RemoveAttr(TEMPLATE_OPTION)
+		env.Server().RemoveAttr(OPT_TEMPLATE)
 	}
 	o.init()
 	files, err := filenames(o.Path, o.Suffixes)
@@ -72,6 +75,10 @@ func (t *Template) RenderTmpl(w io.Writer, name string, values interface{}) erro
 
 func (t *Template) Lookup(name string) *Template {
 	return (*Template)((*tmpl.Template)(t).Lookup(name))
+}
+
+func (t *Template) Template() *tmpl.Template {
+	return (*tmpl.Template)(t)
 }
 
 func filenames(path []string, suffixes []string) (files []string, err error) {

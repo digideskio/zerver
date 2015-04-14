@@ -5,6 +5,10 @@ import (
 	"io"
 )
 
+const (
+	COMP_RESOURCE = "ResourceComponent"
+)
+
 type (
 	ResourceMaster interface {
 		Component

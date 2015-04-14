@@ -7,7 +7,10 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
-const REDIS_OPTION = "RedisOption"
+const (
+	OPT_REDIS  = "RedisOption"
+	COMP_REDIS = "RedisComponent"
+)
 
 var ErrNoItem = redis.ErrNil
 
@@ -52,11 +55,11 @@ func NewRedis() *Redis {
 
 func (r *Redis) Init(env zerver.Enviroment) error {
 	var o *RedisOption
-	if op := env.Server().Attr(REDIS_OPTION); op == nil {
+	if op := env.Server().Attr(OPT_REDIS); op == nil {
 		o = &RedisOption{}
 	} else {
 		o = op.(*RedisOption)
-		env.Server().RemoveAttr(REDIS_OPTION)
+		env.Server().RemoveAttr(OPT_REDIS)
 	}
 	o.init()
 	pool := (*redis.Pool)(r)
@@ -90,6 +93,10 @@ func (r *Redis) Update(cmd string, args ...interface{}) error {
 	_, err := c.Do(cmd, args...)
 	c.Close()
 	return err
+}
+
+func (r *Redis) Pool() *redis.Pool {
+	return (*redis.Pool)(r)
 }
 
 func (r *Redis) Destroy() {

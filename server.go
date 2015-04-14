@@ -35,7 +35,8 @@ type (
 		ListenAddr string
 		// ssl config, default not enable tls
 		CertFile, KeyFile string
-		// resource marshal/pool/unmarshal, default use JSONResource
+		// resource marshal/pool/unmarshal
+		// first search by Server.Component, if not found, use JSONResource
 		ResourceMaster
 	}
 
@@ -134,14 +135,16 @@ func (s *Server) ResourceMaster() ResourceMaster {
 func (s *Server) Component(name string) (Component, error) {
 	s.RLock()
 	if cs, has := s.components[name]; has {
+		s.RUnlock()
 		var err error
 		if !cs.Initialized {
-			defer s.RUnlock()
-			if err = cs.Component.Init(s); err == nil {
-				cs.Initialized = true
+			s.Lock()
+			if !cs.Initialized {
+				if err = cs.Component.Init(s); err == nil {
+					cs.Initialized = true
+				}
 			}
-		} else {
-			s.RUnlock()
+			s.Unlock()
 		}
 		return cs.Component, err
 	}
@@ -149,17 +152,11 @@ func (s *Server) Component(name string) (Component, error) {
 	return nil, ErrComponentNotFound
 }
 
-func (s *Server) AddComponent(name string, c ComponentState) error {
+func (s *Server) AddComponent(name string, c ComponentState) {
 	if name != "" && c.Component != nil {
-		if !c.Initialized && c.NoLazy {
-			if err := c.Init(s); err != nil {
-				return err
-			}
-		}
 		s.Lock()
 		s.components[name] = c
 		s.Unlock()
-		return nil
 	}
 	panic("empty name or nil component is not allowed")
 }
@@ -187,11 +184,25 @@ func (s *Server) start(o *ServerOption) {
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 	s.resMaster = o.ResourceMaster
 	if s.resMaster == nil {
-		s.resMaster = JSONResource{}
+		c, err := s.Component(COMP_RESOURCE)
+		if err == nil {
+			s.resMaster = c.(ResourceMaster)
+		} else if err == ErrComponentNotFound {
+			s.resMaster = JSONResource{}
+		} else {
+			panic(err)
+		}
 	}
 	pathVarCount = o.PathVarCount
 	filterCount = o.FilterCount
-
+	// init components
+	for name, c := range s.components {
+		if !c.Initialized && c.NoLazy {
+			if err := c.Init(s); err != nil {
+				panic(Error(name+":", err))
+			}
+		}
+	}
 	OnErrPanic(s.RootFilters.Init(s))
 	log.Println("Init Handlers and Filters")
 	OnErrPanic(s.Router.Init(s))
@@ -243,7 +254,7 @@ func (s *Server) serveWebSocket(w http.ResponseWriter, request *http.Request) {
 	} else if conn, err := websocket.UpgradeWebsocket(w, request, s.checker); err == nil {
 		handler.Handle(newWebSocketConn(s, conn, indexer))
 		indexer.destroySelf()
-	}
+	} // else connecion will be auto-closed when error occoured,
 }
 
 // serveHTTP serve for http protocal
@@ -255,12 +266,14 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	req := requestEnv.req.init(s, request, indexer)
 	resp := requestEnv.resp.init(s.resMaster, w)
 	resp.SetContentType(s.contentType)
+
 	var chain FilterChain
 	if handler == nil {
 		resp.ReportNotFound()
 	} else if chain = FilterChain(handler.Handler(req.Method())); chain == nil {
 		resp.ReportMethodNotAllowed()
 	}
+
 	newFilterChain(s.RootFilters.Filters(url), newFilterChain(filters, chain))(req, resp)
 	req.destroy()
 	resp.destroy()

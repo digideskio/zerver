@@ -53,7 +53,11 @@ func (v Values) IsAttrExist(key string) bool {
 }
 
 func (v Values) Attr(key string) interface{} {
-	return v[key]
+	val, has := v[key]
+	if !has {
+		return nil
+	}
+	return val
 }
 
 func (v Values) RemoveAttr(key string) {
