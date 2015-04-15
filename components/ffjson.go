@@ -23,17 +23,30 @@ func (Ffjson) Pool(data []byte)                      { ffjson.Pool(data) }
 func (Ffjson) Unmarshal(data []byte, v interface{}) error { return ffjson.Unmarshal(data, v) }
 
 func (Ffjson) Send(w io.Writer, key string, value interface{}) error {
+	if key == "" {
+		data, err := ffjson.Marshal(value)
+		if err == nil {
+			_, err = w.Write(data)
+			ffjson.Pool(data)
+		}
+		return err
+	}
+
+	w.Write(zerver.JSONObjStart)
+	w.Write(zerver.Bytes(key))
+
+	if s, is := value.(string); is {
+		w.Write(zerver.JSONQuoteMid)
+		w.Write(zerver.Bytes(s))
+		_, err := w.Write(zerver.JSONQuoteEnd)
+		return err
+	}
+
 	data, err := ffjson.Marshal(value)
 	if err == nil {
-		if key == "" {
-			_, err = w.Write(data)
-		} else {
-			w.Write(zerver.JSONObjStart)
-			w.Write(zerver.Bytes(key))
-			w.Write(zerver.JSONObjMid)
-			w.Write(data)
-			_, err = w.Write(zerver.JSONObjEnd)
-		}
+		w.Write(zerver.JSONObjMid)
+		w.Write(data)
+		_, err = w.Write(zerver.JSONObjEnd)
 		ffjson.Pool(data)
 	}
 	return err
