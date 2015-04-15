@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/cosiner/gohper/lib/types"
 )
 
 type (
@@ -27,7 +29,8 @@ type (
 		UserAgent() string
 		ContentType() string
 		AcceptEncodings() string
-		Authorization() string
+		Authorization() (string, bool)
+		BasicAuth() (string, string)
 		Cookie(name string) string
 
 		Param(name string) string
@@ -163,9 +166,11 @@ func (req *request) AcceptEncodings() string {
 // if it isn't basic auth, auth info will be directly returned,
 // otherwise, base64 decode will be peformed, empty string will be returned
 // if error occured when decode
-func (req *request) Authorization() string {
-	auth := req.Header(HEADER_AUTHRIZATION)
-	if strings.HasPrefix(auth, "Basic ") {
+//
+// the bool value identity whether it is basic auth
+func (req *request) Authorization() (string, bool) {
+	basic, auth := false, req.Header(HEADER_AUTHRIZATION)
+	if basic = strings.HasPrefix(auth, "Basic "); basic {
 		a, err := base64.URLEncoding.DecodeString(auth[len("Basic "):])
 		if err == nil {
 			auth = string(a)
@@ -173,7 +178,16 @@ func (req *request) Authorization() string {
 			auth = ""
 		}
 	}
-	return auth
+	return auth, basic
+}
+
+// BasicAuth used for http basic auth, the returned value will be
+// user,password, if any wrong, "", "" was returned
+func (req *request) BasicAuth() (string, string) {
+	if auth, basic := req.Authorization(); basic {
+		return types.Seperate(auth, ':')
+	}
+	return "", ""
 }
 
 // URL return request url

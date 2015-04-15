@@ -35,7 +35,7 @@ func (j *JWTAuth) Init(s *zerver.Server) error {
 }
 
 func (j *JWTAuth) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-	if tokstr := req.Authorization(); tokstr != "" {
+	if tokstr, basic := req.Authorization(); !basic && tokstr != "" {
 		if tok, err := j.JWT.Parse(tokstr); err == nil {
 			req.SetAttr(j.AuthTokenAttrName, tok)
 			chain(req, resp)

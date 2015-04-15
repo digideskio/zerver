@@ -53,6 +53,7 @@ type (
 		AttrContainer
 		RootFilters RootFilters // Match Every Routes
 		components
+		managedComponents []Component
 		sync.RWMutex
 		checker     websocket.HandshakeChecker
 		contentType string // default content type
@@ -181,6 +182,7 @@ func (s *Server) RemoveComponent(name string) {
 // Start start server
 func (s *Server) start(o *ServerOption) {
 	o.init()
+	log.Println("ContentType:", o.ContentType)
 	s.contentType = o.ContentType
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 	s.resMaster = o.ResourceMaster
@@ -188,15 +190,19 @@ func (s *Server) start(o *ServerOption) {
 		c, err := s.Component(COMP_RESOURCE)
 		if err == nil {
 			s.resMaster = c.(ResourceMaster)
+			log.Println("Search ResourceMaster: customed")
 		} else if err == ErrComponentNotFound {
 			s.resMaster = JSONResource{}
+			log.Println("Search ResourceMaster: default JSONResource")
 		} else {
 			panic(err)
 		}
 	}
+	log.Println("VarCountPerRoute:", o.PathVarCount)
 	pathVarCount = o.PathVarCount
+	log.Println("FilterCountPerRoute:", o.FilterCount)
 	filterCount = o.FilterCount
-	// init components
+	log.Println("Init global components")
 	for name, c := range s.components {
 		if !c.Initialized && c.NoLazy {
 			if err := c.Init(s); err != nil {
@@ -204,10 +210,15 @@ func (s *Server) start(o *ServerOption) {
 			}
 		}
 	}
+	log.Println("Init managed components")
+	for i := range s.managedComponents {
+		OnErrPanic(s.managedComponents[i].Init(s))
+	}
+	log.Println("Init root filters")
 	OnErrPanic(s.RootFilters.Init(s))
 	log.Println("Init Handlers and Filters")
 	OnErrPanic(s.Router.Init(s))
-	log.Println("Server Start")
+	log.Println("Server Start:", o.ListenAddr)
 	// destroy temporary data store
 	tmpDestroy()
 	runtime.GC()
@@ -231,6 +242,9 @@ func (s *Server) Destroy() {
 	s.RootFilters.Destroy()
 	s.Router.Destroy()
 	s.components.destroy()
+	for i := range s.managedComponents {
+		s.managedComponents[i].Destroy()
+	}
 }
 
 // ServHttp serve for http reuest
@@ -275,7 +289,9 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 		resp.ReportMethodNotAllowed()
 	}
 
-	newFilterChain(s.RootFilters.Filters(url), newFilterChain(filters, chain))(req, resp)
+	newFilterChain(s.RootFilters.Filters(url),
+		newFilterChain(filters, chain),
+	)(req, resp)
 	req.destroy()
 	resp.destroy()
 	recycleRequestEnv(requestEnv)
@@ -289,4 +305,11 @@ func (s *Server) StartTask(path string, value interface{}) {
 		return
 	}
 	panic("No task handler found for " + path)
+}
+
+// ManageComponent manage those filters used in InterceptHandler, or those added to
+// multiple routes, for first condition, ManageComponent used to Init them;
+// for second condition, ManageComponent used to avoid multiple call of Init
+func (s *Server) ManageComponent(c Component) {
+	s.managedComponents = append(s.managedComponents, c)
 }
