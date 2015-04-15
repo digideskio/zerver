@@ -12,8 +12,6 @@ const (
 	COMP_REDIS = "RedisComponent"
 )
 
-var ErrNoItem = redis.ErrNil
-
 type (
 	RedisOption struct {
 		// Maximum number of idle connections in the pool.

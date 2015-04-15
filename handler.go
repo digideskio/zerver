@@ -27,7 +27,7 @@ type (
 	HandlerFunc func(method string) HandleFunc
 
 	// MethodHandler will apply standard handler mapping rule,
-	// each method is correspond to it's handler
+	// each method is correspond to it's handle function
 	MethodHandler interface {
 		Component
 		Get(Request, Response)

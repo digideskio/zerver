@@ -65,7 +65,9 @@ func (v Values) RemoveAttr(key string) {
 }
 
 func (v Values) SetAttr(key string, val interface{}) {
-	v[key] = val
+	if val != nil {
+		v[key] = val
+	}
 }
 
 func (v Values) UpdateAttr(key string, val interface{}) (s bool) {

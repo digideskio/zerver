@@ -157,6 +157,7 @@ func (s *Server) AddComponent(name string, c ComponentState) {
 		s.Lock()
 		s.components[name] = c
 		s.Unlock()
+		return
 	}
 	panic("empty name or nil component is not allowed")
 }

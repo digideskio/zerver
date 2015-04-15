@@ -11,6 +11,10 @@ import (
 // Ffjson is a implementation of zerver.ResourceMaster
 type Ffjson struct{}
 
+func NewFfjsonResource() zerver.ResourceMaster {
+	return Ffjson{}
+}
+
 func (Ffjson) Init(zerver.Enviroment) error          { return nil }
 func (Ffjson) Destroy()                              {}
 func (Ffjson) Marshal(v interface{}) ([]byte, error) { return ffjson.Marshal(v) }
