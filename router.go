@@ -39,13 +39,18 @@ type (
 	}
 
 	routeProcessor struct {
-		handlerVars     map[string]int
-		handler         Handler
-		wsHandlerVars   map[string]int
-		wsHandler       WebSocketHandler
+		handlerPattern string
+		handlerVars    map[string]int
+		handler        Handler
+
+		wsHandlerPattern string
+		wsHandlerVars    map[string]int
+		wsHandler        WebSocketHandler
+
 		taskHandlerVars map[string]int
 		taskHandler     TaskHandler
-		filters         []Filter
+
+		filters []Filter
 	}
 
 	// router is a actual url router, it only process path of url, other section is
@@ -206,6 +211,7 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 		}
 		rt.handler = h
 		rt.handlerVars = pathVars
+		rt.handlerPattern = pattern
 	} else if f := convertFilter(handler); f != nil {
 		rt.noFilter = false
 		rt.filters = append(rt.filters, convertFilter(f))
@@ -215,6 +221,7 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 		}
 		rt.wsHandler = h
 		rt.wsHandlerVars = pathVars
+		rt.wsHandlerPattern = pattern
 	} else if h := convertTaskHandler(handler); h != nil {
 		if rt.taskHandler != nil {
 			return rt.reportExistError("TaskHandler", pattern)
@@ -236,6 +243,7 @@ func (rt *router) MatchWebSocketHandler(url *url.URL) (WebSocketHandler, URLVarI
 	if rt != nil {
 		if ws := rt.wsHandler; ws != nil {
 			indexer.vars = rt.wsHandlerVars
+			indexer.pattern = rt.wsHandlerPattern
 			return ws, indexer
 		}
 	}
@@ -277,10 +285,12 @@ func (rt *router) MatchHandlerFilters(url *url.URL) (Handler,
 	if rt.noFilter {
 		rt, values = rt.matchOne(path, indexer.values)
 	} else {
-		filters = newFiltersFromPool()
 		pathIndex, continu := 0, true
 		for continu {
 			if fs := rt.filters; len(fs) != 0 {
+				if filters == nil {
+					filters = newFiltersFromPool()
+				}
 				filters = append(filters, fs...)
 			}
 			pathIndex, values, rt, continu = rt.matchMultiple(path, pathIndex, values)
@@ -290,6 +300,7 @@ func (rt *router) MatchHandlerFilters(url *url.URL) (Handler,
 	if rt != nil {
 		if h := rt.handler; h != nil {
 			indexer.vars = rt.handlerVars
+			indexer.pattern = rt.handlerPattern
 			return h, indexer, filters
 		}
 	}
@@ -302,30 +313,30 @@ func (rt *router) addPath(path string) (*router, bool) {
 	str := rt.str
 	if str == "" && len(rt.chars) == 0 {
 		rt.str = path
-	} else {
-		diff, pathLen, strLen := 0, len(path), len(str)
-		for diff != pathLen && diff != strLen && path[diff] == str[diff] {
-			diff++
-		}
-		if diff < pathLen {
-			first := path[diff]
-			if diff == strLen {
-				for i, c := range rt.chars {
-					if c == first {
-						return rt.childs[i].addPath(path[diff:])
-					}
+		return rt, true
+	}
+	diff, pathLen, strLen := 0, len(path), len(str)
+	for diff != pathLen && diff != strLen && path[diff] == str[diff] {
+		diff++
+	}
+	if diff < pathLen {
+		first := path[diff]
+		if diff == strLen {
+			for i, c := range rt.chars {
+				if c == first {
+					return rt.childs[i].addPath(path[diff:])
 				}
-			} else { // diff < strLen
-				rt.moveAllToChild(str[diff:], str[:diff])
 			}
-			newNode := &router{str: path[diff:]}
-			if !rt.addChild(first, newNode) {
-				return nil, false
-			}
-			rt = newNode
-		} else if diff < strLen {
-			rt.moveAllToChild(str[diff:], path)
+		} else { // diff < strLen
+			rt.moveAllToChild(str[diff:], str[:diff])
 		}
+		newNode := &router{str: path[diff:]}
+		if !rt.addChild(first, newNode) {
+			return nil, false
+		}
+		rt = newNode
+	} else if diff < strLen {
+		rt.moveAllToChild(str[diff:], path)
 	}
 	return rt, true
 }
