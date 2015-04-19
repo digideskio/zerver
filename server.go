@@ -153,12 +153,17 @@ func (s *Server) Component(name string) (Component, error) {
 	return nil, ErrComponentNotFound
 }
 
-func (s *Server) AddComponent(name string, c ComponentState) {
+func (s *Server) AddComponent(name string, c ComponentState) error {
 	if name != "" && c.Component != nil {
+		if !c.Initialized && c.NoLazy {
+			if err := c.Init(s); err != nil {
+				return err
+			}
+		}
 		s.Lock()
 		s.components[name] = c
 		s.Unlock()
-		return
+		return nil
 	}
 	panic("empty name or nil component is not allowed")
 }
@@ -202,14 +207,6 @@ func (s *Server) start(o *ServerOption) {
 	pathVarCount = o.PathVarCount
 	log.Println("FilterCountPerRoute:", o.FilterCount)
 	filterCount = o.FilterCount
-	log.Println("Init global components")
-	for name, c := range s.components {
-		if !c.Initialized && c.NoLazy {
-			if err := c.Init(s); err != nil {
-				panic(Error(name+":", err))
-			}
-		}
-	}
 	log.Println("Init managed components")
 	for i := range s.managedComponents {
 		OnErrPanic(s.managedComponents[i].Init(s))

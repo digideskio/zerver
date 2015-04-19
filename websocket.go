@@ -17,6 +17,7 @@ type (
 	WebSocketConn interface {
 		URLVarIndexer
 		io.ReadWriteCloser
+		WriteString(string) (int, error)
 		SetDeadline(t time.Time) error
 		SetReadDeadline(t time.Time) error
 		SetWriteDeadline(t time.Time) error
@@ -54,6 +55,10 @@ func newWebSocketConn(e Enviroment, conn *websocket.Conn, varIndexer URLVarIndex
 		URLVarIndexer: varIndexer,
 		request:       conn.Request(),
 	}
+}
+
+func (wsc *webSocketConn) WriteString(s string) (int, error) {
+	return wsc.Write(Bytes(s))
 }
 
 func (wsc *webSocketConn) URL() *url.URL {
