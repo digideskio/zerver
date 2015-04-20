@@ -38,6 +38,8 @@ type (
 		// resource marshal/pool/unmarshal
 		// first search by Server.Component, if not found, use JSONResource
 		ResourceMaster
+		// error logger, default use log.Println
+		ErrorLogger func(...interface{})
 	}
 
 	ComponentState struct {
@@ -52,6 +54,8 @@ type (
 		Router
 		AttrContainer
 		RootFilters RootFilters // Match Every Routes
+		Errorln     func(...interface{})
+
 		components
 		managedComponents []Component
 		sync.RWMutex
@@ -94,6 +98,9 @@ func (o *ServerOption) init() {
 	}
 	if o.FilterCount == 0 {
 		o.FilterCount = 5
+	}
+	if o.ErrorLogger == nil {
+		o.ErrorLogger = log.Println
 	}
 }
 
@@ -187,7 +194,8 @@ func (s *Server) RemoveComponent(name string) {
 // Start start server
 func (s *Server) start(o *ServerOption) {
 	o.init()
-	log.Println("ContentType:", o.ContentType)
+	s.Errorln = o.ErrorLogger
+	s.Errorln("ContentType:", o.ContentType)
 	s.contentType = o.ContentType
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 	s.resMaster = o.ResourceMaster
@@ -195,27 +203,27 @@ func (s *Server) start(o *ServerOption) {
 		c, err := s.Component(COMP_RESOURCE)
 		if err == nil {
 			s.resMaster = c.(ResourceMaster)
-			log.Println("Search ResourceMaster: customed")
+			s.Errorln("Search ResourceMaster: customed")
 		} else if err == ErrComponentNotFound {
 			s.resMaster = JSONResource{}
-			log.Println("Search ResourceMaster: default JSONResource")
+			s.Errorln("Search ResourceMaster: default JSONResource")
 		} else {
 			panic(err)
 		}
 	}
-	log.Println("VarCountPerRoute:", o.PathVarCount)
+	s.Errorln("VarCountPerRoute:", o.PathVarCount)
 	pathVarCount = o.PathVarCount
-	log.Println("FilterCountPerRoute:", o.FilterCount)
+	s.Errorln("FilterCountPerRoute:", o.FilterCount)
 	filterCount = o.FilterCount
-	log.Println("Init managed components")
+	s.Errorln("Init managed components")
 	for i := range s.managedComponents {
 		errors.OnErrPanic(s.managedComponents[i].Init(s))
 	}
-	log.Println("Init root filters")
+	s.Errorln("Init root filters")
 	errors.OnErrPanic(s.RootFilters.Init(s))
-	log.Println("Init Handlers and Filters")
+	s.Errorln("Init Handlers and Filters")
 	errors.OnErrPanic(s.Router.Init(s))
-	log.Println("Server Start:", o.ListenAddr)
+	s.Errorln("Server Start:", o.ListenAddr)
 	// destroy temporary data store
 	tmpDestroy()
 	runtime.GC()
