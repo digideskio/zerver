@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"sync"
 
-	. "github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/errors"
 	"github.com/cosiner/gohper/lib/types"
 	websocket "github.com/cosiner/zerver_websocket"
 )
@@ -18,7 +18,7 @@ var (
 )
 
 const (
-	ErrComponentNotFound = Err("The required component is not found")
+	ErrComponentNotFound = errors.Err("The required component is not found")
 )
 
 type (
@@ -209,12 +209,12 @@ func (s *Server) start(o *ServerOption) {
 	filterCount = o.FilterCount
 	log.Println("Init managed components")
 	for i := range s.managedComponents {
-		OnErrPanic(s.managedComponents[i].Init(s))
+		errors.OnErrPanic(s.managedComponents[i].Init(s))
 	}
 	log.Println("Init root filters")
-	OnErrPanic(s.RootFilters.Init(s))
+	errors.OnErrPanic(s.RootFilters.Init(s))
 	log.Println("Init Handlers and Filters")
-	OnErrPanic(s.Router.Init(s))
+	errors.OnErrPanic(s.Router.Init(s))
 	log.Println("Server Start:", o.ListenAddr)
 	// destroy temporary data store
 	tmpDestroy()
