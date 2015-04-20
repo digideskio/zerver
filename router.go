@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	. "github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/errors"
 	"github.com/cosiner/gohper/lib/runtime"
 )
 
@@ -71,7 +71,7 @@ type (
 )
 
 const (
-	ErrConflictPathVar = Err("There is a similar route pattern which use same wildcard" +
+	ErrConflictPathVar = errors.Err("There is a similar route pattern which use same wildcard" +
 		" or catchall at the same position, " +
 		"this means one of them will nerver be matched, " +
 		"please check your routes")
@@ -608,7 +608,7 @@ func compile(path string) (newPath string, vars map[string]int) {
 			}
 			if name := s[i+1:]; len(name) > 0 {
 				if isInvalidSection(name) {
-					panic(Errorf("path %s has pre-defined characters %c or %c",
+					panic(errors.Errorf("path %s has pre-defined characters %c or %c",
 						path, _WILDCARD, _REMAINSALL))
 				}
 				if vars == nil {

@@ -1,7 +1,7 @@
 package zerver
 
 import (
-	. "github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/errors"
 
 	"sync"
 )
@@ -48,7 +48,7 @@ func init() {
 func ReigisterPool(id int, newFunc func() interface{}) error {
 	op := _defaultPool.otherPools
 	if _, has := op[id]; has {
-		return Error("Pool for ", id, " already exist")
+		return errors.Error("Pool for ", id, " already exist")
 	}
 	op[id] = &sync.Pool{New: newFunc}
 	return nil

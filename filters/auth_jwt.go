@@ -1,7 +1,7 @@
 package filters
 
 import (
-	. "github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/errors"
 
 	"github.com/cosiner/zerver"
 	jwt "github.com/cosiner/zerver_jwt"
@@ -9,8 +9,8 @@ import (
 
 const (
 	_HEADER_AUTHRIZATION = "Authorization"
-	ErrNilJWT            = Err("jwt token generator/validator can't be nil")
-	ErrNilKeyFunc        = Err("jwt secret key getter can't be nil")
+	ErrNilJWT            = errors.Err("jwt token generator/validator can't be nil")
+	ErrNilKeyFunc        = errors.Err("jwt secret key getter can't be nil")
 )
 
 type JWTAuth struct {

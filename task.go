@@ -1,7 +1,7 @@
 package zerver
 
 import (
-	. "github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/errors"
 )
 
 type (
@@ -45,7 +45,7 @@ func (m *MessageQueue) Init(Enviroment) error {
 	m.queue = make(chan interface{}, m.Bufsize)
 	m.signal = make(chan byte)
 	if m.MessageProcessor == nil {
-		return Err("message processor shouldn't be nil")
+		return errors.Err("message processor shouldn't be nil")
 	}
 	go func() {
 		for {

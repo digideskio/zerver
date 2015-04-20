@@ -88,7 +88,6 @@ func convertWebSocketHandler(i interface{}) WebSocketHandler {
 	return nil
 }
 
-// WebSocketHandlerFunc is a function WebSocketHandler
 func (WebSocketHandlerFunc) Init(Enviroment) error        { return nil }
 func (fn WebSocketHandlerFunc) Handle(conn WebSocketConn) { fn(conn) }
 func (WebSocketHandlerFunc) Destroy()                     {}

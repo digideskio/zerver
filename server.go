@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	Bytes  func(string) []byte = types.UnsafeBytes
-	String func([]byte) string = types.UnsafeString
+	Bytes  = types.UnsafeBytes
+	String = types.UnsafeString
 )
 
 const (

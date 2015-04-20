@@ -3,7 +3,7 @@ package zerver
 import (
 	"reflect"
 
-	. "github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/errors"
 	ref "github.com/cosiner/gohper/lib/reflect"
 )
 
@@ -60,5 +60,5 @@ func (v *urlVarIndexer) ScanURLVar(name string, addr interface{}) error {
 	if index, has := v.vars[name]; has {
 		return ref.UnmarshalPrimitive(v.values[index], reflect.ValueOf(addr))
 	}
-	return Err("No this variable: " + name)
+	return errors.Err("No this variable: " + name)
 }

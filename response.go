@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	. "github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/errors"
 )
 
 type (
@@ -83,7 +83,7 @@ type (
 )
 
 const (
-	ErrHijack = Err("Connection not support hijack")
+	ErrHijack = errors.Err("Connection not support hijack")
 )
 
 // newResponse create a new response, and set default content type to HTML
