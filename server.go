@@ -47,7 +47,6 @@ type (
 		NoLazy      bool
 		Component
 	}
-	components map[string]ComponentState
 
 	// Server represent a web server
 	Server struct {
@@ -56,7 +55,7 @@ type (
 		RootFilters RootFilters // Match Every Routes
 		Errorln     func(...interface{})
 
-		components
+		components        map[string]ComponentState
 		managedComponents []Component
 		sync.RWMutex
 		checker     websocket.HandshakeChecker
@@ -104,12 +103,6 @@ func (o *ServerOption) init() {
 	}
 }
 
-func (is components) destroy() {
-	for _, i := range is {
-		i.Destroy()
-	}
-}
-
 // NewServer create a new server
 func NewServer() *Server {
 	return NewServerWith(nil, nil)
@@ -127,7 +120,7 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 		Router:        rt,
 		AttrContainer: NewLockedAttrContainer(),
 		RootFilters:   filters,
-		components:    make(components),
+		components:    make(map[string]ComponentState),
 	}
 }
 
@@ -142,19 +135,19 @@ func (s *Server) ResourceMaster() ResourceMaster {
 
 func (s *Server) Component(name string) (Component, error) {
 	s.RLock()
-	if cs, has := s.components[name]; has {
+	if c, has := s.components[name]; has {
 		s.RUnlock()
 		var err error
-		if !cs.Initialized {
+		if !c.Initialized {
 			s.Lock()
-			if !cs.Initialized {
-				if err = cs.Component.Init(s); err == nil {
-					cs.Initialized = true
+			if !c.Initialized {
+				if err = c.Component.Init(s); err == nil {
+					c.Initialized = true
 				}
 			}
 			s.Unlock()
 		}
-		return cs.Component, err
+		return c.Component, err
 	}
 	s.RUnlock()
 	return nil, ErrComponentNotFound
@@ -246,7 +239,9 @@ func (s *Server) Start(options *ServerOption) error {
 func (s *Server) Destroy() {
 	s.RootFilters.Destroy()
 	s.Router.Destroy()
-	s.components.destroy()
+	for _, c := range s.components {
+		c.Destroy()
+	}
 	for i := range s.managedComponents {
 		s.managedComponents[i].Destroy()
 	}

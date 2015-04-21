@@ -31,7 +31,10 @@ type (
 		Dial func() (redis.Conn, error)
 	}
 
-	Redis redis.Pool
+	Redis struct {
+		redis.Pool
+		errorLogger func(...interface{})
+	}
 )
 
 func (o *RedisOption) init() {
@@ -60,43 +63,45 @@ func (r *Redis) Init(env zerver.Enviroment) error {
 		env.Server().RemoveAttr(OPT_REDIS)
 	}
 	o.init()
-	pool := (*redis.Pool)(r)
-	pool.MaxIdle = o.MaxIdle
-	pool.MaxActive = o.MaxActive
-	pool.IdleTimeout = time.Duration(o.IdleTimeout) * time.Second
-	pool.Dial = o.Dial
+	r.MaxIdle = o.MaxIdle
+	r.MaxActive = o.MaxActive
+	r.IdleTimeout = time.Duration(o.IdleTimeout) * time.Second
+	r.Dial = o.Dial
+	r.errorLogger = env.Server().Errorln // use server error logger
 	return r.Update("PING")
 }
 
 func (r *Redis) Conn() redis.Conn {
-	return (*redis.Pool)(r).Get()
+	return r.Get()
 }
 
 func (r *Redis) Exec(cmd string, args ...interface{}) (interface{}, error) {
-	c := (*redis.Pool)(r).Get()
+	c := r.Get()
 	reply, err := c.Do(cmd, args...)
-	c.Close()
+	r.onErrorLog(c.Close())
 	return reply, err
 }
 
 func (r *Redis) Query(cmd string, args ...interface{}) (interface{}, error) {
-	c := (*redis.Pool)(r).Get()
+	c := r.Get()
 	reply, err := c.Do(cmd, args...)
-	c.Close()
+	r.onErrorLog(c.Close())
 	return reply, err
 }
 
 func (r *Redis) Update(cmd string, args ...interface{}) error {
-	c := (*redis.Pool)(r).Get()
+	c := r.Get()
 	_, err := c.Do(cmd, args...)
-	c.Close()
+	r.onErrorLog(c.Close())
 	return err
 }
 
-func (r *Redis) Pool() *redis.Pool {
-	return (*redis.Pool)(r)
+func (r *Redis) Destroy() {
+	r.onErrorLog(r.Close())
 }
 
-func (r *Redis) Destroy() {
-	(*redis.Pool)(r).Close()
+func (r *Redis) onErrorLog(err error) {
+	if err != nil {
+		r.errorLogger(err)
+	}
 }
