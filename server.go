@@ -33,7 +33,7 @@ type (
 		FilterCount int
 		// server listening address, default :4000
 		ListenAddr string
-		// ssl config, default not enable tls
+		// ssl config, default disable tls
 		CertFile, KeyFile string
 		// resource marshal/pool/unmarshal
 		// first search by Server.Component, if not found, use JSONResource
@@ -196,10 +196,10 @@ func (s *Server) start(o *ServerOption) {
 		c, err := s.Component(COMP_RESOURCE)
 		if err == nil {
 			s.resMaster = c.(ResourceMaster)
-			s.Errorln("Search ResourceMaster: customed")
+			s.Errorln("ResourceMaster: customed")
 		} else if err == ErrComponentNotFound {
 			s.resMaster = JSONResource{}
-			s.Errorln("Search ResourceMaster: default JSONResource")
+			s.Errorln("ResourceMaster: default JSONResource")
 		} else {
 			panic(err)
 		}

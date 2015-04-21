@@ -3,7 +3,7 @@ __Zerver__ is a simple, scalable, restful api framework for [golang](http://gola
 
 [中文介绍](http://cosiner.github.io/zerver/2015/04/09/zerver.html)
 
-It's mainly designed for restful api service, without session, template support, etc.. But you can still use it as a web framework by easily hack it. Documentation can be found at [godoc.org](godoc.org/github.com/cosiner/zerver), and each file contains a component, all api about this component is defined there.
+It's mainly designed for restful api service, without session, template support, etc.. But you can still use it as a web framework by easily hack it. Documentation can be found at [godoc.org](https://godoc.org/github.com/cosiner/zerver), and each file contains a component, all api about this component is defined there.
 
 ##### Install
 `go get github.com/cosiner/zerver`
@@ -11,13 +11,15 @@ It's mainly designed for restful api service, without session, template support,
 ##### Features
 * RESTFul Route
 * Tree-based mux/router, support route group, subrouter
+* Helpful functions about request/response
 * Filter(also known as middleware) Chain support
 * Interceptor supported
-* Builtin WebSocket support
-* Builtin Task support
+* WebSocket support
+* Task support
 * Resource Marshal/Unmarshal, Pool marshaled bytes(if marshaler support)
 * Request/Response Wrap
-* Pluggable, lazy-initializable global components
+* Pluggable, lazy-initializable, removeable global components
+* Predefined components/filters such as cors,compress,log,ffjson, redis etc..
 
 ##### Getting Started
 ```Go
@@ -28,7 +30,7 @@ import "github.com/cosiner/zerver"
 func main() {
     server := zerver.NewServer()
     server.Get("/", func(req zerver.Request, resp zerver.Response) {
-        resp.Write([]byte("Hello World!"))
+        resp.WriteString("Hello World!")
     })
     server.Start(nil) // default listen at ":4000"
 }
@@ -37,23 +39,23 @@ func main() {
 ##### Config
 ```Go
 ServerOption struct {
-    // check for websocket header
-    WebSocketChecker HeaderChecker // default nil
-    // automiclly set for each response
-    ContentType      string        // default application/json;charset=utf-8
-    // average variable count at each route
-    PathVarCount     int           // default 2
-    // average filter count for of filters at each route
-    FilterCount      int           // default 2
-    // server listening address
-    ListenAddr       string        // default :4000
-    // TLS config
-    CertFile         string        // default not enable tls
-    KeyFile          string
-    *ResourceMaster                // for resource marshal/unmarshal
-                                   // used for Request.Recieve, Response.Send,
-                                   // Request.ResourceMaster(), default use
-                                   // zerver.JSONResource
+        // check websocket header, default nil
+        WebSocketChecker HeaderChecker
+        // content type for each request, default application/json;charset=utf-8
+        ContentType string
+        // path variables count, suggest set as max or average, default 3
+        PathVarCount int
+        // filters count for each route, RootFilters is not include, default 5
+        FilterCount int
+        // server listening address, default :4000
+        ListenAddr string
+        // ssl config, default disable tls
+        CertFile, KeyFile string
+        // resource marshal/pool/unmarshal
+        // if nil, search global components or use default JSONResource
+        ResourceMaster
+        // error logger, default use log.Println
+        ErrorLogger func(...interface{})
 }
 
 server.Start(&ServerOption{
@@ -66,7 +68,7 @@ server.Start(&ServerOption{
 * resource
 ```Go
 type User struct {
-    Id int `json:"id"`
+    Id int      `json:"id"`
     Name string `json:"name"`
 }
 func Handle(req zerver.Request, resp zerver.Response) {
@@ -78,54 +80,67 @@ func Handle(req zerver.Request, resp zerver.Response) {
 * url variables
 ```Go
 server.Get("/user/:id", func(req zerver.Request, resp zerver.Response) {
-    resp.Write([]byte("Hello, " + req.URLVar("id")))
+    resp.WriteString("Hello, " + req.URLVar("id"))
 })
 server.Get("/home/*subpath", func(req zerver.Request, resp zerver.Response) {
-    resp.Write([]byte("You access " + req.URLVar("subpath")))
+    resp.WriteString("You access " + req.URLVar("subpath"))
 })
 ```
 
 * filter
 ```Go
-type logger func(v ...interface{})
-func (l logger) Init(zerver.Enviroment) error {return nil}
-func (l logger) Destroy() {}
-func (l logger) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-    l(req.RemoteIP(), req.UserAgent(), req.URL())
-    chain(req, resp)
+type logger func(v ...interface{}) // it can used as ServerOption.ErrorLogger
+func (log logger) Init(zerver.Enviroment) error {return nil}
+func (log logger) Destroy() {}
+func (log logger) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
+    log(req.RemoteIP(), req.UserAgent(), req.URL())
+    chain(req, resp) // continue the processing
 }
-server.Handle("/", logger(fmt.Println))
+server.Handle("/", logger(log.Println))
 ```
 
 * interceptor
 ```Go
 func BasicAuthFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-    auth := req.Authorization()
-    if auth == "" || auth != "abc:123" {
+    user, pass := req.BasicAuth()
+    if user != "abc" || pass != "123" {
         resp.ReportUnAuthorized()
         return
     }
-    req.SetAttr("auth", auth) // do before
+    req.SetAttr("user", user) // do before
     chain(req, resp)
 }
 
 func AuthLogFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
     chain(req, resp)
-    fmt.Println("Auth success: ", resp.Value()) // do after
+    log.Println("Auth success: ", resp.Value()) // do after
 }
 
 func AuthHandler(req zerver.Request, resp zerver.Response) {
-    resp.Write([]byte(req.Attr("auth")))
+    resp.WriteString(req.Attr("user"))
     resp.SetValue(true)
 }
 
-server.HandleFunc("/auth", "POST", zerver.InterceptHandler(
+server.POST("/auth", zerver.InterceptHandler(
     AuthHandler,  BasicAuthFilter,  AuthLogFilter,
 ))
 ```
 
+* component
+```
+serer.AddComponent(zerver.CMP_RESOURCE, zerver.ComponentState{
+    Initialized:true,
+    Component:components.Ffjson{},
+})
+serer.AddComponent(components.CMP_REDIS, zerver.ComponentState{
+    NoLazy:true,
+    Component:&components.Redis{},
+})
 
+redis, err := server.Component(zerver.CMP_REDIS)
 
+server.ManageComponent(customedComponent) // anonymous component
+```
 
 ### Handler/Filter/WebSocketHandler/TaskHandler
 There is only one method `Handle(pattern string, i interface{})` to add component 
@@ -145,25 +160,6 @@ Note: in zerver, the pattern will compile to route, they are not equal.
 
 ### ResourceMaster
 ResourceMaster responsible for marshal/unmarshal data, you can use it dependently or intergrate to Server.
-```Go
-MarshalFunc func(interface{}) ([]byte, error)
-UnmarshalFunc func([]byte, interface{}) error
-Marshaler interface {
-    Marshal(interface{}) ([]byte, error)
-    Pool([]byte) // pool marshaled buffer for reduce allocation
-}
-ResourceMaster struct {
-    Marshaler
-    Unmarshal UnmarshalFunc
-}
-func (m MarshalFunc) Marshal(v interface{}) ([]byte, error) { return m(v) }
-func (MarshalFunc) Pool([]byte)                             {}
-
-var JSONResource = ResourceMaster{
-    Marshaler: MarshalFunc(json.Marshal),
-    Unmarshal: json.Unmarshal,
-}
-```
 
 ### AttrContainer
 Store attribute, the server has a locked container, each request has a unlocked
