@@ -1,4 +1,4 @@
-# Zerver [![wercker status](https://app.wercker.com/status/0e71de0398961a473cdb1ddd145cd468/s "wercker status")](https://app.wercker.com/project/bykey/0e71de0398961a473cdb1ddd145cd468)
+# Zerver [![wercker status](https://app.wercker.com/status/0e71de0398961a473cdb1ddd145cd468/s "wercker status")](https://app.wercker.com/project/bykey/0e71de0398961a473cdb1ddd145cd468) [![GoDoc](https://godoc.org/github.com/go-martini/martini?status.png)](http://godoc.org/github.com/cosiner/zerver)
 __Zerver__ is a simple, scalable, restful api framework for [golang](http://golang.org).
 
 [中文介绍](http://cosiner.github.io/zerver/2015/04/09/zerver.html)
