@@ -13,7 +13,7 @@ func (l Log) Init(zerver.Enviroment) error { return nil }
 func (l Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	chain(req, resp)
 	status := resp.Status()
-	l("[AccessLog]", status, req.URL().String(), req.RemoteAddr(), req.UserAgent())
+	l("[AccessLog]", status, req.URL().Path, req.RemoteIP(), req.UserAgent())
 }
 
 func (l Log) Destroy() {}
@@ -27,7 +27,7 @@ func (l TimeLog) Filter(req zerver.Request, resp zerver.Response, chain zerver.F
 	chain(req, resp)
 	nano := time.Now().UnixNano() - start
 	status := resp.Status()
-	l("[AccessLog]", nano, "ns ", status, req.URL().String(), req.RemoteAddr(), req.UserAgent())
+	l("[AccessLog]", nano, "ns ", status, req.URL().Path, req.RemoteIP(), req.UserAgent())
 }
 
 func (l TimeLog) Destroy() {}

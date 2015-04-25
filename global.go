@@ -18,6 +18,7 @@ const (
 	HEADER_EXPIRES         = "Expires"
 	HEADER_AUTHRIZATION    = "Authorization"
 	HEADER_METHODOVERRIDE  = "X-HTTP-Method-Override"
+	HEADER_REALIP          = "X-Real-IP"
 
 	// ContentEncoding
 	ENCODING_GZIP    = "gzip"

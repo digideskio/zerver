@@ -109,9 +109,9 @@ func (sess *Session) Id() string {
 
 func newPanicSessionManager() SessionManager               { return panicSessionManager{} }
 func (panicSessionManager) Init(SessionStore, int64) error { return nil }
-func (panicSessionManager) Session(string) *Session        { zerver.PanicServer(_SESSION_DISABLE); return nil }
-func (panicSessionManager) NewSession() *Session           { zerver.PanicServer(_SESSION_DISABLE); return nil }
-func (panicSessionManager) StoreSession(*Session)          { zerver.PanicServer(_SESSION_DISABLE) }
+func (panicSessionManager) Session(string) *Session        { panic(_SESSION_DISABLE) }
+func (panicSessionManager) NewSession() *Session           { panic(_SESSION_DISABLE) }
+func (panicSessionManager) StoreSession(*Session)          { panic(_SESSION_DISABLE) }
 func (panicSessionManager) Destroy()                       {}
 
 // NewSessionManager create a new session manager

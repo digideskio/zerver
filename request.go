@@ -119,6 +119,9 @@ func (req *request) RemoteAddr() string {
 }
 
 func (req *request) RemoteIP() string {
+	if ip := req.Header(HEADER_REALIP); ip != "" {
+		return ip
+	}
 	return strings.Split(req.RemoteAddr(), ":")[0]
 }
 
