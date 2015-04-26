@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"hash"
 	"sync"
 	"time"
@@ -14,32 +15,58 @@ import (
 )
 
 const (
-	DEF_XSRF_TIMEOUT = 10 * 60 // 10 minutes
-	DEF_BUF_SIZE     = 256
-	HEADER_XSRFTOKEN = "X-XSRFToken"
-	HEADER_CSRFTOKEN = "X-CSRFToken"
-	XSRF_PARAM_NAME  = "_xsrf"
-	XSRF_FORMHEAD    = `<input type="hidden" name="` + XSRF_PARAM_NAME + `" value="`
-	XSRF_FORMEND     = `"/>`
+	DEF_XSRF_TIMEOUT  = 10 * 60 // 10 minutes
+	DEF_BUF_SIZE      = 256
+	_HEADER_XSRFTOKEN = "X-XSRFToken"
+	_HEADER_CSRFTOKEN = "X-CSRFToken"
+	_XSRF_PARAM_NAME  = "_xsrf"
+	_XSRF_FORMHEAD    = `<input type="hidden" name="` + _XSRF_PARAM_NAME + `" value="`
+	_XSRF_FORMEND     = `"/>`
+
+	COMP_XSRF = "XsrfComponent"
 )
 
 var _ENCODING = base64.URLEncoding
 
-type Xsrf struct {
-	Timeout    int64  // seconds
-	Secret     []byte // secret key
-	HashMethod func() hash.Hash
-	Error      string
-	FilterGet  bool // whether filter GET/HEAD/OPTIONS request
-	UsePool    bool
-	BufSize    int
-	pool       sync.Pool
+type (
+	Xsrf struct {
+		Timeout    int64            // seconds
+		Secret     []byte           // secret key
+		HashMethod func() hash.Hash // hash method for signing data
+		Error      string           // error message for invalid token
+		FilterGet  bool             // whether filter GET/HEAD/OPTIONS request
+		UsePool    bool             // whether use sync.Pool for bytes allocation
+		BufSize    int              // buffer size for pool
+		TokenInfo  TokenInfo        // marshal/unmarshal token info, default use jsonToken
+
+		pool sync.Pool
+	}
+
+	TokenInfo interface {
+		Marshal(time int64, ip, agent string) ([]byte, error)
+		Unmarshal([]byte) (time int64, ip, agent string)
+	}
+
+	jsonToken struct {
+		Time  int64  `json:"a"`
+		IP    string `json:"b"`
+		Agent string `json:"c"`
+	}
+)
+
+func (j jsonToken) Marshal(time int64, ip, agent string) ([]byte, error) {
+	j.Time = time
+	j.IP = ip
+	j.Agent = agent
+	return json.Marshal(&j)
 }
 
-type xsrfToken struct {
-	Time  int64  `json:"a"`
-	IP    string `json:"b"`
-	Agent string `json:"c"`
+func (j jsonToken) Unmarshal(bs []byte) (int64, string, string) {
+	if err := json.Unmarshal(bs, &j); err == nil {
+		return j.Time, j.IP, j.Agent
+	}
+	return -1, "", ""
+
 }
 
 func (x *Xsrf) Init(zerver.Enviroment) error {
@@ -62,6 +89,9 @@ func (x *Xsrf) Init(zerver.Enviroment) error {
 		x.pool.New = func() interface{} {
 			return make([]byte, x.BufSize)
 		}
+	}
+	if x.TokenInfo == nil {
+		x.TokenInfo = jsonToken{}
 	}
 	return nil
 }
@@ -106,15 +136,10 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 }
 
 func (x *Xsrf) CreateFor(req zerver.Request) ([]byte, error) {
-	token := xsrfToken{
-		Time:  time.Now().Unix(),
-		IP:    req.RemoteIP(),
-		Agent: req.UserAgent(),
-	}
-	rs := req.ResourceMaster()
-	bs, err := rs.Marshal(&token)
+	bs, err := x.TokenInfo.Marshal(time.Now().Unix(),
+		req.RemoteIP(),
+		req.UserAgent())
 	if err == nil {
-		rs.Pool(bs)
 		return x.sign(bs), nil
 	}
 	return nil, err
@@ -134,27 +159,25 @@ func (x *Xsrf) VerifyFor(req zerver.Request) bool {
 	if !x.FilterGet && (m == "GET" || m == "HEAD" || m == "OPTIONS") {
 		return true
 	}
-	token := req.Header(HEADER_XSRFTOKEN)
+	token := req.Header(_HEADER_XSRFTOKEN)
 	if token == "" {
-		token = req.Header(HEADER_CSRFTOKEN)
+		token = req.Header(_HEADER_CSRFTOKEN)
 		if token == "" {
-			token = req.Param(XSRF_PARAM_NAME)
+			token = req.Param(_XSRF_PARAM_NAME)
 			if token == "" {
 				return false
 			}
 		}
 	}
+
 	data := x.verify(zerver.Bytes(token))
 	if data != nil {
-		var (
-			tok xsrfToken
-			err = req.ResourceMaster().Unmarshal(data, &tok)
-		)
 		x.PoolBytes(data)
-		return err == nil &&
-			tok.Time+x.Timeout >= time.Now().Unix() &&
-			tok.IP == req.RemoteIP() &&
-			tok.Agent == req.UserAgent()
+		t, ip, agent := x.TokenInfo.Unmarshal(data)
+		return t != -1 &&
+			t+x.Timeout >= time.Now().Unix() &&
+			ip == req.RemoteIP() &&
+			agent == req.UserAgent()
 	}
 	return false
 }
@@ -193,4 +216,8 @@ func (x *Xsrf) verify(signing []byte) []byte {
 	}
 	x.PoolBytes(dst)
 	return nil
+}
+
+func XsrfHTML(token []byte) string {
+	return _XSRF_FORMHEAD + string(token) + _XSRF_FORMEND
 }

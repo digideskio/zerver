@@ -4,9 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cosiner/gohper/lib/errors"
-
 	"github.com/cosiner/gohper/config"
+	"github.com/cosiner/gohper/lib/errors"
 )
 
 // translation represent locales data

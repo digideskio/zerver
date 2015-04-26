@@ -8,6 +8,8 @@ import (
 	"github.com/pquerna/ffjson/ffjson"
 )
 
+// use COMP_RESOURCE
+
 // Ffjson is a implementation of zerver.ResourceMaster
 type Ffjson struct{}
 
