@@ -25,11 +25,13 @@ const (
 	ENCODING_DEFLATE = "deflate"
 
 	// Request Method
-	GET    = "GET"
-	POST   = "POST"
-	DELETE = "DELETE"
-	PUT    = "PUT"
-	PATCH  = "PATCH"
+	GET     = "GET"
+	POST    = "POST"
+	DELETE  = "DELETE"
+	PUT     = "PUT"
+	PATCH   = "PATCH"
+	HEAD    = "HEAD"
+	OPTIONS = "OPTIONS"
 
 	// Content Type
 	CONTNTTYPE_PLAIN = "text/plain;charset=utf-8"
@@ -67,4 +69,18 @@ func ErrorRead(err error, r io.Reader, data []byte) (int, error) {
 		return 0, err
 	}
 	return r.Read(data)
+}
+
+func ErrorPtrWrite(err *error, w io.Writer, data []byte) (count int) {
+	if err != nil && *err == nil {
+		count, *err = w.Write(data)
+	}
+	return
+}
+
+func ErrorPtrRead(err *error, r io.Reader, data []byte) (count int) {
+	if err != nil && *err == nil {
+		count, *err = r.Read(data)
+	}
+	return
 }

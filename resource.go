@@ -39,16 +39,23 @@ func (JSONResource) Pool([]byte) {}
 func (JSONResource) Send(w io.Writer, key string, value interface{}) error {
 	var err error
 	if key != "" {
-		w.Write(JSONObjStart)
-		w.Write(Bytes(key))
-		if s, is := value.(string); is {
-			w.Write(JSONQuoteMid)
-			w.Write(Bytes(s))
-			_, err = w.Write(JSONQuoteEnd)
-		} else {
-			w.Write(JSONObjMid)
-			json.NewEncoder(w).Encode(value)
-			_, err = w.Write(JSONObjEnd)
+		ErrorPtrWrite(&err, w, JSONObjStart)
+		ErrorPtrWrite(&err, w, Bytes(key))
+		switch s := value.(type) {
+		case string:
+			ErrorPtrWrite(&err, w, JSONQuoteMid)
+			ErrorPtrWrite(&err, w, Bytes(s))
+			ErrorPtrWrite(&err, w, JSONQuoteEnd)
+		case []byte:
+			ErrorPtrWrite(&err, w, JSONQuoteMid)
+			ErrorPtrWrite(&err, w, s)
+			ErrorPtrWrite(&err, w, JSONQuoteEnd)
+		default:
+			ErrorPtrWrite(&err, w, JSONObjMid)
+			if err == nil {
+				err = json.NewEncoder(w).Encode(value)
+			}
+			ErrorPtrWrite(&err, w, JSONObjEnd)
 		}
 	} else {
 		err = json.NewEncoder(w).Encode(value)

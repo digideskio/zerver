@@ -122,7 +122,8 @@ func (req *request) RemoteIP() string {
 	if ip := req.Header(HEADER_REALIP); ip != "" {
 		return ip
 	}
-	return strings.Split(req.RemoteAddr(), ":")[0]
+	addr := req.RemoteAddr()
+	return addr[:types.LastIndexByte(addr, ':')]
 }
 
 // Param return request parameter with name
@@ -134,18 +135,18 @@ func (req *request) Param(name string) (value string) {
 	return
 }
 
-// Params return request parameters with name
+// Params return request parameters with name,
 // it only get params of url query, don't parse request body
 func (req *request) Params(name string) []string {
 	params, request := req.params, req.request
 	if params == nil {
-		// switch req.method {
-		// case GET:
-		params = request.URL.Query()
-		// default:
-		// request.ParseForm()
-		// params = request.PostForm
-		// }
+		switch req.method {
+		case GET, HEAD, OPTIONS:
+			params = request.URL.Query()
+		default:
+			request.ParseForm()
+			params = request.PostForm
+		}
 		req.params = params
 	}
 	return params[name]

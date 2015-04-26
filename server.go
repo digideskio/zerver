@@ -292,6 +292,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	newFilterChain(s.RootFilters.Filters(url),
 		newFilterChain(filters, chain),
 	)(req, resp)
+
 	req.destroy()
 	resp.destroy()
 	recycleRequestEnv(requestEnv)
@@ -312,4 +313,11 @@ func (s *Server) StartTask(path string, value interface{}) {
 // for second condition, ManageComponent used to avoid multiple call of Init
 func (s *Server) ManageComponent(c Component) {
 	s.managedComponents = append(s.managedComponents, c)
+}
+
+// OnErrorLog help log error
+func (s *Server) OnErrorLog(err error) {
+	if err != nil {
+		s.Errorln(err)
+	}
 }

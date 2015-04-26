@@ -35,27 +35,26 @@ func (Ffjson) Send(w io.Writer, key string, value interface{}) error {
 		// alwayse use json marshal, simple string use Response.WriteString
 		data, err = ffjson.Marshal(value)
 		if err == nil {
-			_, err = w.Write(data)
+			zerver.ErrorPtrWrite(&err, w, data)
 			ffjson.Pool(data)
 		}
 		return err
 	}
 
-	_, err = zerver.ErrorWrite(err, w, zerver.JSONObjStart) // send key
-	_, err = zerver.ErrorWrite(err, w, zerver.Bytes(key))
-	if err != nil {
-		return err
-	}
-	if s, is := value.(string); is { // send string value
-		_, err = zerver.ErrorWrite(err, w, zerver.JSONQuoteMid)
-		_, err = zerver.ErrorWrite(err, w, zerver.Bytes(s))
-		_, err = zerver.ErrorWrite(err, w, zerver.JSONQuoteEnd)
-	} else { // send other value
-		if data, err = ffjson.Marshal(value); err == nil {
-			_, err = zerver.ErrorWrite(err, w, zerver.JSONObjMid)
-			_, err = zerver.ErrorWrite(err, w, data)
-			_, err = w.Write(zerver.JSONObjEnd)
-			ffjson.Pool(data)
+	zerver.ErrorPtrWrite(&err, w, zerver.JSONObjStart) // send key
+	zerver.ErrorPtrWrite(&err, w, zerver.Bytes(key))
+	if err == nil {
+		if s, is := value.(string); is { // send string value
+			zerver.ErrorPtrWrite(&err, w, zerver.JSONQuoteMid)
+			zerver.ErrorPtrWrite(&err, w, zerver.Bytes(s))
+			zerver.ErrorPtrWrite(&err, w, zerver.JSONQuoteEnd)
+		} else { // send other value
+			if data, err = ffjson.Marshal(value); err == nil {
+				zerver.ErrorPtrWrite(&err, w, zerver.JSONObjMid)
+				zerver.ErrorPtrWrite(&err, w, data)
+				zerver.ErrorPtrWrite(&err, w, zerver.JSONObjEnd)
+				ffjson.Pool(data)
+			}
 		}
 	}
 	return err
