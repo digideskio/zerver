@@ -1,11 +1,15 @@
 package zerver
 
 import (
+	"crypto/tls"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"runtime"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/cosiner/gohper/lib/errors"
 	"github.com/cosiner/gohper/lib/types"
@@ -19,27 +23,41 @@ var (
 
 const (
 	ErrComponentNotFound = errors.Err("The required component is not found")
+	_NORMAL              = 0
+	_DESTROYED           = 1
 )
 
 type (
 	ServerOption struct {
-		// check websocket header, default nil
-		WebSocketChecker HeaderChecker
+		// server listening address, default :4000
+		ListenAddr string
 		// content type for each request, default application/json;charset=utf-8
 		ContentType string
+
+		// check websocket header, default nil
+		WebSocketChecker HeaderChecker
+		// error logger, default use log.Println
+		ErrorLogger func(...interface{})
+		// resource marshal/pool/unmarshal
+		// first search by Server.Component, if not found, use JSONResource
+		ResourceMaster
+
 		// path variables count, suggest set as max or average, default 3
 		PathVarCount int
 		// filters count for each route, RootFilters is not include, default 5
 		FilterCount int
-		// server listening address, default :4000
-		ListenAddr string
+
+		// read timeout by millseconds
+		ReadTimeout int
+		// write timeout by millseconds
+		WriteTimeout int
+		// max header bytes
+		MaxHeaderBytes int
+		// tcp keep-alive period by minutes,
+		// default 3, same as predefined in standard http package
+		KeepAlivePeriod int
 		// ssl config, default disable tls
 		CertFile, KeyFile string
-		// resource marshal/pool/unmarshal
-		// first search by Server.Component, if not found, use JSONResource
-		ResourceMaster
-		// error logger, default use log.Println
-		ErrorLogger func(...interface{})
 	}
 
 	ComponentState struct {
@@ -58,9 +76,14 @@ type (
 		components        map[string]ComponentState
 		managedComponents []Component
 		sync.RWMutex
+
 		checker     websocket.HandshakeChecker
 		contentType string // default content type
 		resMaster   ResourceMaster
+
+		listener    net.Listener
+		state       int32           // destroy or normal running
+		activeConns *sync.WaitGroup // connections in service, don't include hijacked and websocket connections
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -101,9 +124,12 @@ func (o *ServerOption) init() {
 	if o.ErrorLogger == nil {
 		o.ErrorLogger = log.Println
 	}
+	if o.KeepAlivePeriod == 0 {
+		o.KeepAlivePeriod = 3 // same as net/http/server.go:tcpKeepAliveListener
+	}
 }
 
-// NewServer create a new server
+// NewServer create a new server with default router
 func NewServer() *Server {
 	return NewServerWith(nil, nil)
 }
@@ -121,6 +147,7 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 		AttrContainer: NewLockedAttrContainer(),
 		RootFilters:   filters,
 		components:    make(map[string]ComponentState),
+		activeConns:   new(sync.WaitGroup),
 	}
 }
 
@@ -184,67 +211,20 @@ func (s *Server) RemoveComponent(name string) {
 	}
 }
 
-// Start start server
-func (s *Server) start(o *ServerOption) {
-	o.init()
-	s.Errorln = o.ErrorLogger
-	s.Errorln("ContentType:", o.ContentType)
-	s.contentType = o.ContentType
-	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
-	s.resMaster = o.ResourceMaster
-	if s.resMaster == nil {
-		c, err := s.Component(COMP_RESOURCE)
-		if err == nil {
-			s.resMaster = c.(ResourceMaster)
-			s.Errorln("ResourceMaster: customed")
-		} else if err == ErrComponentNotFound {
-			s.resMaster = JSONResource{}
-			s.Errorln("ResourceMaster: default JSONResource")
-		} else {
-			panic(err)
-		}
-	}
-	s.Errorln("VarCountPerRoute:", o.PathVarCount)
-	pathVarCount = o.PathVarCount
-	s.Errorln("FilterCountPerRoute:", o.FilterCount)
-	filterCount = o.FilterCount
-	s.Errorln("Init managed components")
-	for i := range s.managedComponents {
-		errors.OnErrPanic(s.managedComponents[i].Init(s))
-	}
-	s.Errorln("Init root filters")
-	errors.OnErrPanic(s.RootFilters.Init(s))
-	s.Errorln("Init Handlers and Filters")
-	errors.OnErrPanic(s.Router.Init(s))
-	s.Errorln("Server Start:", o.ListenAddr)
-	// destroy temporary data store
-	tmpDestroy()
-	runtime.GC()
+// ManageComponent manage those filters used in InterceptHandler, or those added to
+// multiple routes, for first condition, ManageComponent used to Init them;
+// for second condition, ManageComponent used to avoid multiple call of Init
+func (s *Server) ManageComponent(c Component) {
+	s.managedComponents = append(s.managedComponents, c)
 }
 
-// Start start server as http server
-func (s *Server) Start(options *ServerOption) error {
-	if options == nil {
-		options = &ServerOption{}
+// StartTask start a task synchronously, the value will be passed to task handler
+func (s *Server) StartTask(path string, value interface{}) {
+	if handler := s.MatchTaskHandler(&url.URL{Path: path}); handler != nil {
+		handler.Handle(value)
+		return
 	}
-	s.start(options)
-	if options.CertFile == "" {
-		return http.ListenAndServe(options.ListenAddr, s)
-	}
-	return http.ListenAndServeTLS(options.ListenAddr, options.CertFile, options.KeyFile, s)
-}
-
-// Destroy is mainly designed to stop server, release all resources
-// but it seems ther is no approach to stop a running golang but don't exit process
-func (s *Server) Destroy() {
-	s.RootFilters.Destroy()
-	s.Router.Destroy()
-	for _, c := range s.components {
-		c.Destroy()
-	}
-	for i := range s.managedComponents {
-		s.managedComponents[i].Destroy()
-	}
+	panic("No task handler found for " + path)
 }
 
 // ServHttp serve for http reuest
@@ -299,25 +279,148 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	recycleFilters(filters)
 }
 
-// serveTask serve for task
-func (s *Server) StartTask(path string, value interface{}) {
-	if handler := s.MatchTaskHandler(&url.URL{Path: path}); handler != nil {
-		handler.Handle(value)
-		return
-	}
-	panic("No task handler found for " + path)
-}
-
-// ManageComponent manage those filters used in InterceptHandler, or those added to
-// multiple routes, for first condition, ManageComponent used to Init them;
-// for second condition, ManageComponent used to avoid multiple call of Init
-func (s *Server) ManageComponent(c Component) {
-	s.managedComponents = append(s.managedComponents, c)
-}
-
 // OnErrorLog help log error
 func (s *Server) OnErrorLog(err error) {
 	if err != nil {
 		s.Errorln(err)
+	}
+}
+
+// from net/http/server/go
+type tcpKeepAliveListener struct {
+	*net.TCPListener
+	AlivePeriod int // alive period by minutes
+}
+
+func (ln *tcpKeepAliveListener) Accept() (c net.Conn, err error) {
+	tc, err := ln.AcceptTCP()
+	if err != nil {
+		return
+	}
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(time.Duration(ln.AlivePeriod) * time.Minute)
+	return tc, nil
+}
+
+func (s *Server) config(o *ServerOption) {
+	o.init()
+	s.Errorln = o.ErrorLogger
+	log.Println("ContentType:", o.ContentType)
+	s.contentType = o.ContentType
+	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
+	s.resMaster = o.ResourceMaster
+	if s.resMaster == nil {
+		c, err := s.Component(COMP_RESOURCE)
+		if err == nil {
+			s.resMaster = c.(ResourceMaster)
+			log.Println("ResourceMaster: customed")
+		} else if err == ErrComponentNotFound {
+			s.resMaster = JSONResource{}
+			log.Println("ResourceMaster: default JSONResource")
+		} else {
+			panic(err)
+		}
+	}
+	log.Println("VarCountPerRoute:", o.PathVarCount)
+	pathVarCount = o.PathVarCount
+	log.Println("FilterCountPerRoute:", o.FilterCount)
+	filterCount = o.FilterCount
+	log.Println("Init managed components")
+	for i := range s.managedComponents {
+		errors.OnErrPanic(s.managedComponents[i].Init(s))
+	}
+	log.Println("Init root filters")
+	errors.OnErrPanic(s.RootFilters.Init(s))
+	log.Println("Init Handlers and Filters")
+	errors.OnErrPanic(s.Router.Init(s))
+	log.Println("Server Start:", o.ListenAddr)
+	// destroy temporary data store
+	tmpDestroy()
+	runtime.GC()
+}
+
+// Start start server as http server
+func (s *Server) Start(options *ServerOption) error {
+	if options == nil {
+		options = &ServerOption{}
+	}
+	s.config(options)
+	l, err := s.listen(options)
+	if err == nil {
+		s.listener = l
+		srv := &http.Server{
+			ReadTimeout:  time.Duration(options.ReadTimeout) * time.Millisecond,
+			WriteTimeout: time.Duration(options.WriteTimeout) * time.Millisecond,
+			Handler:      s,
+			ConnState:    s.connStateHook,
+		}
+		err = srv.Serve(l)
+	}
+	return err
+}
+
+func (*Server) listen(options *ServerOption) (net.Listener, error) {
+	ln, err := net.Listen("tcp", options.ListenAddr)
+	if err == nil {
+		ln = &tcpKeepAliveListener{
+			TCPListener: ln.(*net.TCPListener),
+			AlivePeriod: options.KeepAlivePeriod,
+		}
+
+		if options.CertFile != "" {
+			// from net/http/server.go.ListenAndServeTLS
+			config := &tls.Config{
+				NextProtos:   []string{"http/1.1"},
+				Certificates: make([]tls.Certificate, 1),
+			}
+			config.Certificates[0], err = tls.LoadX509KeyPair(options.CertFile, options.KeyFile)
+			if err == nil {
+				ln = tls.NewListener(ln, config)
+			}
+		}
+	}
+	if err != nil && ln != nil {
+		ln.Close()
+		return nil, err
+	}
+	return ln, err
+}
+
+func (s *Server) connStateHook(conn net.Conn, state http.ConnState) {
+	switch state {
+	case http.StateActive:
+		if atomic.LoadInt32(&s.state) == _NORMAL {
+			s.activeConns.Add(1)
+		} else {
+			// previous idle connections before server destroy to be active, directly close it
+			conn.Close()
+		}
+	case http.StateIdle:
+		if atomic.LoadInt32(&s.state) == _DESTROYED {
+			conn.Close()
+		}
+		s.activeConns.Done()
+	case http.StateHijacked:
+		s.activeConns.Done()
+	}
+}
+
+// Destroy stop server, release all resources, if destroyed, server can't be reused,
+// instead, create a new one.
+// It only wait for managed connections, hijacked/websocket connections is not
+func (s *Server) Destroy() {
+	if atomic.CompareAndSwapInt32(&s.state, _NORMAL, _DESTROYED) { // signal close idle connections
+		s.listener.Close()   // don't accept connections
+		s.activeConns.Wait() // wait connections in service to be idle
+
+		// release resources
+		s.RootFilters.Destroy()
+		s.Router.Destroy()
+		for _, c := range s.components {
+			c.Destroy()
+		}
+		for i := range s.managedComponents {
+			s.managedComponents[i].Destroy()
+		}
 	}
 }

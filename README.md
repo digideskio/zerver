@@ -25,37 +25,61 @@ It's mainly designed for restful api service, without session, template support,
 ```Go
 package main
 
-import "github.com/cosiner/zerver"
+import (
+    "github.com/cosiner/zerver"
+    "time"
+)
 
 func main() {
     server := zerver.NewServer()
     server.Get("/", func(req zerver.Request, resp zerver.Response) {
         resp.WriteString("Hello World!")
     })
-    server.Start(nil) // default listen at ":4000"
+    
+    var err error
+    go func(server *Server, err *error) {
+        time.Sleep(10 * time.Millisecond)
+        if *err == nil {
+            server.Destroy()
+        }
+    }(server, &err)
+    
+    err = server.Start(nil) // default listen at ":4000"
 }
 ```
 
 ##### Config
 ```Go
 ServerOption struct {
-        // check websocket header, default nil
-        WebSocketChecker HeaderChecker
-        // content type for each request, default application/json;charset=utf-8
-        ContentType string
-        // path variables count, suggest set as max or average, default 3
-        PathVarCount int
-        // filters count for each route, RootFilters is not include, default 5
-        FilterCount int
-        // server listening address, default :4000
-        ListenAddr string
-        // ssl config, default disable tls
-        CertFile, KeyFile string
-        // resource marshal/pool/unmarshal
-        // if nil, search global components or use default JSONResource
-        ResourceMaster
-        // error logger, default use log.Println
-        ErrorLogger func(...interface{})
+    // server listening address, default :4000
+    ListenAddr string
+    // content type for each request, default application/json;charset=utf-8
+    ContentType string
+
+    // check websocket header, default nil
+    WebSocketChecker HeaderChecker
+    // error logger, default use log.Println
+    ErrorLogger func(...interface{})
+    // resource marshal/pool/unmarshal
+    // first search server components, if not found, use JSONResource
+    ResourceMaster
+
+    // path variables count, suggest set as max or average, default 3
+    PathVarCount int
+    // filters count for each route, RootFilters is not include, default 5
+    FilterCount int
+
+    // read timeout by millseconds
+    ReadTimeout int
+    // write timeout by millseconds
+    WriteTimeout int
+    // max header bytes
+    MaxHeaderBytes int
+    // tcp keep-alive period by minutes,
+    // default 3, same as predefined in standard http package
+    KeepAlivePeriod int
+    // ssl config, default disable tls
+    CertFile, KeyFile string
 }
 
 server.Start(&ServerOption{
