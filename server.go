@@ -58,6 +58,8 @@ type (
 		KeepAlivePeriod int
 		// ssl config, default disable tls
 		CertFile, KeyFile string
+		// if not nil, cert and key will be ignored
+		TLSConfig *tls.Config
 	}
 
 	ComponentState struct {
@@ -367,7 +369,9 @@ func (*Server) listen(options *ServerOption) (net.Listener, error) {
 			AlivePeriod: options.KeepAlivePeriod,
 		}
 
-		if options.CertFile != "" {
+		if options.TLSConfig != nil {
+			ln = tls.NewListener(ln, options.TLSConfig)
+		} else if options.CertFile != "" {
 			// from net/http/server.go.ListenAndServeTLS
 			config := &tls.Config{
 				NextProtos:   []string{"http/1.1"},
@@ -379,6 +383,7 @@ func (*Server) listen(options *ServerOption) (net.Listener, error) {
 			}
 		}
 	}
+
 	if err != nil && ln != nil {
 		ln.Close()
 		return nil, err
