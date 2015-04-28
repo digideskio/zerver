@@ -1,24 +1,24 @@
 package zerver
 
 import (
-	"encoding/xml"
-	"strings"
 	"encoding/json"
+	"encoding/xml"
 	"io"
+	"strings"
 )
 
 const (
-	RES_JSON = "json"
-	RES_XML = "xml"
-	RES_HTML = "html"
+	RES_JSON  = "json"
+	RES_XML   = "xml"
+	RES_HTML  = "html"
 	RES_PLAIN = "plain"
 )
 
 type (
 	ResourceMaster struct {
 		Resources map[string]Resource
-		def string
-		TypeOf func(Request) string
+		def       string
+		TypeOf    func(Request) string
 	}
 
 	Resource interface {
@@ -38,10 +38,14 @@ func ResourceType(req Request) string {
 	typ := req.ContentType()
 	if typ != "" {
 		switch {
-			case strings.Contains(typ, RES_JSON):return RES_JSON
-			case strings.Contains(typ, RES_XML):return RES_XML
-			case strings.Contains(typ, RES_HTML):return RES_HTML
-			case strings.Contains(typ, RES_PLAIN):return RES_PLAIN
+		case strings.Contains(typ, RES_JSON):
+			return RES_JSON
+		case strings.Contains(typ, RES_XML):
+			return RES_XML
+		case strings.Contains(typ, RES_HTML):
+			return RES_HTML
+		case strings.Contains(typ, RES_PLAIN):
+			return RES_PLAIN
 		}
 	}
 	return RES_JSON
@@ -49,9 +53,9 @@ func ResourceType(req Request) string {
 
 func newResourceMaster() ResourceMaster {
 	return ResourceMaster{
-		Resources:make(map[string]Resource),
-		def:RES_JSON,
-		TypeOf: ResourceType,
+		Resources: make(map[string]Resource),
+		def:       RES_JSON,
+		TypeOf:    ResourceType,
 	}
 }
 
@@ -184,7 +188,7 @@ func (XMLResource) Receive(r io.Reader, value interface{}) error {
 }
 
 var (
-	XMLTagStart = []byte("<")
-	XMLTagEnd = []byte(">")
+	XMLTagStart      = []byte("<")
+	XMLTagEnd        = []byte(">")
 	XMLTagCloseStart = []byte("</")
 )

@@ -77,7 +77,7 @@ type logger func(v ...interface{}) // it can used as ServerOption.ErrorLogger
 func (log logger) Init(zerver.Enviroment) error {return nil}
 func (log logger) Destroy() {}
 func (log logger) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-    log(req.RemoteIP(), req.UserAgent(), req.URL())
+    log(req.RemoteIP(), req.UserAgent(), req.URL().Path)
     chain(req, resp) // continue the processing
 }
 server.Handle("/", logger(log.Println))
@@ -105,7 +105,7 @@ func AuthHandler(req zerver.Request, resp zerver.Response) {
     resp.SetValue(true)
 }
 
-server.POST("/auth", zerver.InterceptHandler(
+server.Post("/auth", zerver.InterceptHandler(
     AuthHandler,  BasicAuthFilter,  AuthLogFilter,
 ))
 ```
@@ -138,9 +138,6 @@ ServerOption struct {
     WebSocketChecker HeaderChecker
     // error logger, default use log.Println
     ErrorLogger func(...interface{})
-    // resource marshal/pool/unmarshal
-    // first search server components, if not found, use JSONResource
-    ResourceMaster
 
     // path variables count, suggest set as max or average, default 3
     PathVarCount int
@@ -168,6 +165,19 @@ server.Start(&ServerOption{
 })
 ```
 
+### Server
+```Go
+// NOTICE: Server only configured through ServerOption
+Server struct {
+    // exported fields
+    Router
+    AttrContainer
+    RootFilters RootFilters // root filters, Match Every Routes
+    ResourceMaster ResourceMaster // resource master, manage resource types
+    Errorln     func(...interface{}) // log error message
+}
+```
+
 ### Handler/Filter/WebSocketHandler/TaskHandler
 There is only one method `Handle(pattern string, i interface{})` to add component 
 to server(router), first parameter is the url pattern the handler process, second can be:
@@ -184,8 +194,9 @@ For router, all routes under this section should be managed by it, you can't use
 Note: in zerver, the pattern will compile to route, they are not equal. 
 `/user/:id/info` and `/user/:name/info` is two pattern, but the same route.
 
-### ResourceMaster
-ResourceMaster responsible for marshal/unmarshal data, you can use it dependently or intergrate to Server.
+### ResourceMaster/Resource
+`ResourceMaster` manage multiple resource types you added, it's stored in `Server`.
+`Resource` responsible for marshal/unmarshal data. `JSONResource/XMLResource` already provided, and `Ffjson` is also provided under `components` package.
 
 ### AttrContainer
 Store attribute, the server has a locked container, each request has a unlocked
