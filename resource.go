@@ -18,7 +18,7 @@ type (
 	ResourceMaster struct {
 		Resources map[string]Resource
 		def       string
-		TypeOf    func(Request) string
+		TypeOf    func(Request) string // default use 'ResourceType'
 	}
 
 	Resource interface {
@@ -34,6 +34,10 @@ type (
 	XMLResource  struct{}
 )
 
+// ResourceType identify request's resource type by header 'Content-Type', it not match
+// return "".
+//
+// If necessary, replace it with your owns.
 func ResourceType(req Request) string {
 	typ := req.ContentType()
 	if typ != "" {
@@ -48,7 +52,7 @@ func ResourceType(req Request) string {
 			return RES_PLAIN
 		}
 	}
-	return RES_JSON
+	return ""
 }
 
 func newResourceMaster() ResourceMaster {
@@ -86,7 +90,11 @@ func (rm *ResourceMaster) Default(typ string, res Resource) {
 }
 
 func (rm *ResourceMaster) Resource(req Request) Resource {
-	return rm.Resources[rm.TypeOf(req)]
+	typ := rm.TypeOf(req)
+	if typ == "" {
+		typ = rm.def
+	}
+	return rm.Resources[typ]
 }
 
 func (JSONResource) Init(Enviroment) error { return nil }

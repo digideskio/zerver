@@ -1,4 +1,4 @@
-package routers
+package host
 
 import (
 	"github.com/cosiner/zerver"

@@ -23,8 +23,10 @@ var (
 
 const (
 	ErrComponentNotFound = errors.Err("The required component is not found")
+	// server status
 	_NORMAL              = 0
 	_DESTROYED           = 1
+
 	_CONTENTTYPE_DISABLE = "-"
 )
 
@@ -304,25 +306,33 @@ func (ln *tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 
 func (s *Server) config(o *ServerOption) {
 	o.init()
+
 	s.Errorln = o.ErrorLogger
+
 	log.Println("ContentType:", o.ContentType)
 	s.contentType = o.ContentType
+
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
+
 	if len(s.ResourceMaster.Resources) == 0 {
 		s.ResourceMaster.Default(RES_JSON, JSONResource{})
 	}
+
 	log.Println("VarCountPerRoute:", o.PathVarCount)
 	pathVarCount = o.PathVarCount
 	log.Println("FilterCountPerRoute:", o.FilterCount)
 	filterCount = o.FilterCount
+
 	log.Println("Init managed components")
 	for i := range s.managedComponents {
 		errors.OnErrPanic(s.managedComponents[i].Init(s))
 	}
+
 	log.Println("Init root filters")
 	errors.OnErrPanic(s.RootFilters.Init(s))
 	log.Println("Init Handlers and Filters")
 	errors.OnErrPanic(s.Router.Init(s))
+
 	log.Println("Server Start:", o.ListenAddr)
 	// destroy temporary data store
 	tmpDestroy()

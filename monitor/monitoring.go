@@ -1,8 +1,8 @@
-// Package pprof provide a simple monitoring interface for zerver, all monitor is
+// Package monitor provide a simple monitoring interface for zerver, all monitor is
 // handled GET request
 // use Handle to add a custom monitor, it should be called before Enable
 // for there is only one change to init
-package pprof
+package monitor
 
 import (
 	"net/http"
