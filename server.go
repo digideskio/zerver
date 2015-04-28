@@ -25,22 +25,21 @@ const (
 	ErrComponentNotFound = errors.Err("The required component is not found")
 	_NORMAL              = 0
 	_DESTROYED           = 1
+	_CONTENTTYPE_DISABLE = "-"
 )
 
 type (
 	ServerOption struct {
 		// server listening address, default :4000
 		ListenAddr string
-		// content type for each request, default application/json;charset=utf-8
+		// content type for each request, default application/json;charset=utf-8,
+		// use "-" to disable the automation
 		ContentType string
 
 		// check websocket header, default nil
 		WebSocketChecker HeaderChecker
 		// error logger, default use log.Println
 		ErrorLogger func(...interface{})
-		// resource marshal/pool/unmarshal
-		// first search by Server.Component, if not found, use JSONResource
-		ResourceMaster
 
 		// path variables count, suggest set as max or average, default 3
 		PathVarCount int
@@ -73,6 +72,7 @@ type (
 		Router
 		AttrContainer
 		RootFilters RootFilters // Match Every Routes
+		ResourceMaster ResourceMaster
 		Errorln     func(...interface{})
 
 		components        map[string]ComponentState
@@ -81,11 +81,10 @@ type (
 
 		checker     websocket.HandshakeChecker
 		contentType string // default content type
-		resMaster   ResourceMaster
 
 		listener    net.Listener
 		state       int32           // destroy or normal running
-		activeConns *sync.WaitGroup // connections in service, don't include hijacked and websocket connections
+		activeConns sync.WaitGroup // connections in service, don't include hijacked and websocket connections
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -106,7 +105,6 @@ type (
 		Server() *Server
 		StartTask(path string, value interface{})
 		Component(name string) (Component, error)
-		ResourceMaster() ResourceMaster
 	}
 )
 
@@ -149,17 +147,13 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 		AttrContainer: NewLockedAttrContainer(),
 		RootFilters:   filters,
 		components:    make(map[string]ComponentState),
-		activeConns:   new(sync.WaitGroup),
+		ResourceMaster:     newResourceMaster(),
 	}
 }
 
 // ent ServerEnviroment
 func (s *Server) Server() *Server {
 	return s
-}
-
-func (s *Server) ResourceMaster() ResourceMaster {
-	return s.resMaster
 }
 
 func (s *Server) Component(name string) (Component, error) {
@@ -260,9 +254,13 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	url.Host = request.Host
 	handler, indexer, filters := s.MatchHandlerFilters(url)
 	requestEnv := newRequestEnvFromPool()
-	req := requestEnv.req.init(s, request, indexer)
-	resp := requestEnv.resp.init(s.resMaster, w)
-	resp.SetContentType(s.contentType)
+	res := s.ResourceMaster.Resource(&requestEnv.req)
+	req := requestEnv.req.init(s, res, request, indexer)
+	resp := requestEnv.resp.init(res, w)
+
+	if s.contentType != _CONTENTTYPE_DISABLE {
+		resp.SetContentType(s.contentType)
+	}
 
 	var chain FilterChain
 	if handler == nil {
@@ -310,18 +308,8 @@ func (s *Server) config(o *ServerOption) {
 	log.Println("ContentType:", o.ContentType)
 	s.contentType = o.ContentType
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
-	s.resMaster = o.ResourceMaster
-	if s.resMaster == nil {
-		c, err := s.Component(COMP_RESOURCE)
-		if err == nil {
-			s.resMaster = c.(ResourceMaster)
-			log.Println("ResourceMaster: customed")
-		} else if err == ErrComponentNotFound {
-			s.resMaster = JSONResource{}
-			log.Println("ResourceMaster: default JSONResource")
-		} else {
-			panic(err)
-		}
+	if len(s.ResourceMaster.Resources) == 0 {
+		s.ResourceMaster.Default(RES_JSON, JSONResource{})
 	}
 	log.Println("VarCountPerRoute:", o.PathVarCount)
 	pathVarCount = o.PathVarCount

@@ -1,6 +1,7 @@
 package zerver
 
 import (
+	"github.com/cosiner/gohper/lib/errors"
 	"encoding/base64"
 	"io"
 	"net/http"
@@ -57,11 +58,12 @@ type (
 		params  url.Values
 		AttrContainer
 		needClose bool
+		res Resource
 	}
 )
 
 // newRequest create a new request
-func (req *request) init(e Enviroment, requ *http.Request, varIndexer URLVarIndexer) Request {
+func (req *request) init(e Enviroment, r Resource, requ *http.Request, varIndexer URLVarIndexer) Request {
 	req.Enviroment = e
 	req.request = requ
 	req.header = requ.Header
@@ -73,6 +75,7 @@ func (req *request) init(e Enviroment, requ *http.Request, varIndexer URLVarInde
 		}
 	}
 	req.method = strings.ToUpper(method)
+	req.res = r
 	return req
 }
 
@@ -88,6 +91,7 @@ func (req *request) destroy() {
 		req.request.Body.Close()
 	}
 	req.request = nil
+	req.res = nil
 }
 
 func (req *request) Wrap(fn RequestWrapper) {
@@ -205,5 +209,8 @@ func (req *request) Header(name string) string {
 }
 
 func (req *request) Receive(v interface{}) error {
-	return req.ResourceMaster().Receive(req, v)
+	if req.res == nil {
+		panic(errors.Errorf("There is no resource type match this request: %s", req.ContentType()))
+	}
+	return req.res.Receive(req, v)
 }

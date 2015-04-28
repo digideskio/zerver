@@ -34,7 +34,7 @@ const (
 	OPTIONS = "OPTIONS"
 
 	// Content Type
-	CONTNTTYPE_PLAIN = "text/plain;charset=utf-8"
+	CONTENTTYPE_PLAIN = "text/plain;charset=utf-8"
 	CONTENTTYPE_HTML = "text/html;charset=utf-8"
 	CONTENTTYPE_XML  = "application/xml;charset=utf-8"
 	CONTENTTYPE_JSON = "application/json;charset=utf-8"
@@ -64,6 +64,13 @@ func ErrorWrite(err error, w io.Writer, data []byte) (int, error) {
 	return w.Write(data)
 }
 
+func ErrorWriteString(err error, w io.Writer, data string) (int, error) {
+	if err != nil {
+		return 0, err
+	}
+	return w.Write(Bytes(data))
+}
+
 func ErrorRead(err error, r io.Reader, data []byte) (int, error) {
 	if err != nil {
 		return 0, err
@@ -74,6 +81,13 @@ func ErrorRead(err error, r io.Reader, data []byte) (int, error) {
 func ErrorPtrWrite(err *error, w io.Writer, data []byte) (count int) {
 	if err != nil && *err == nil {
 		count, *err = w.Write(data)
+	}
+	return
+}
+
+func ErrorPtrWriteString(err *error, w io.Writer, data string) (count int) {
+	if err != nil && *err == nil {
+		count, *err = w.Write(Bytes(data))
 	}
 	return
 }

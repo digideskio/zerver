@@ -71,7 +71,7 @@ type (
 
 	// response represent a response of request to user
 	response struct {
-		resMaster ResourceMaster
+		res Resource
 		http.ResponseWriter
 		header       http.Header
 		status       int
@@ -87,8 +87,8 @@ const (
 )
 
 // newResponse create a new response, and set default content type to HTML
-func (resp *response) init(r ResourceMaster, w http.ResponseWriter) Response {
-	resp.resMaster = r
+func (resp *response) init(r Resource, w http.ResponseWriter) Response {
+	resp.res = r
 	resp.ResponseWriter = w
 	resp.header = w.Header()
 	resp.status = http.StatusOK
@@ -230,5 +230,8 @@ func (resp *response) SetValue(v interface{}) {
 }
 
 func (resp *response) Send(key string, value interface{}) error {
-	return resp.resMaster.Send(resp, key, value)
+	if resp.res == nil {
+		panic("There is no resource type match this request")
+	}
+	return resp.res.Send(resp, key, value)
 }

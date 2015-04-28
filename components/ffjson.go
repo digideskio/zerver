@@ -10,10 +10,10 @@ import (
 
 // use COMP_RESOURCE
 
-// Ffjson is a implementation of zerver.ResourceMaster
+// Ffjson is a implementation of zerver.Resource
 type Ffjson struct{}
 
-func NewFfjsonResource() zerver.ResourceMaster {
+func NewFfjsonResource() zerver.Resource {
 	return Ffjson{}
 }
 
