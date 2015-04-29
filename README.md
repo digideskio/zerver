@@ -85,7 +85,7 @@ server.Handle("/", logger(log.Println))
 
 * interceptor
 ```Go
-func BasicAuthFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
+func BasicAuth(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
     user, pass := req.BasicAuth()
     if user != "abc" || pass != "123" {
         resp.ReportUnAuthorized()
@@ -95,17 +95,17 @@ func BasicAuthFilter(req zerver.Request, resp zerver.Response, chain zerver.Filt
     chain(req, resp)
 }
 
-func AuthLogFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
+func AuthLog(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
     chain(req, resp)
     log.Println("Auth success: ", resp.Value()) // do after
 }
 
-func AuthHandler(req zerver.Request, resp zerver.Response) {
+func Auth(req zerver.Request, resp zerver.Response) {
     resp.WriteString(req.Attr("user"))
     resp.SetValue(true)
 }
 
-server.Post("/auth", zerver.InterceptHandler(
+server.Post("/auth", zerver.Intercept(
     AuthHandler,  BasicAuthFilter,  AuthLogFilter,
 ))
 ```

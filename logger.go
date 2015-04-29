@@ -1,9 +1,5 @@
 package zerver
 
-import (
-	"github.com/cosiner/gohper/log"
-)
-
 type Logger interface {
 	Flush()
 	Close()
@@ -26,17 +22,10 @@ type Logger interface {
 	Errorln(...interface{})
 	Fatalln(...interface{})
 
+	// current function's depth is 0, parant's is 1, etc..
 	DebugDepth(int, ...interface{})
 	InfoDepth(int, ...interface{})
 	WarnDepth(int, ...interface{})
 	ErrorDepth(int, ...interface{})
 	FatalDepth(int, ...interface{})
-}
-
-func DefaultLogger() Logger {
-	l := log.New(&log.LoggerOption{
-		Level: log.LEVEL_DEBUG,
-	})
-	l.AddWriter(new(log.ConsoleWriter), nil)
-	return l
 }

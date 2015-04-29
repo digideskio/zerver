@@ -13,6 +13,7 @@ import (
 	"github.com/cosiner/gohper/lib/defval"
 	"github.com/cosiner/gohper/lib/errors"
 	"github.com/cosiner/gohper/lib/types"
+	"github.com/cosiner/gohper/log"
 	websocket "github.com/cosiner/zerver_websocket"
 )
 
@@ -119,7 +120,7 @@ func (o *ServerOption) init() {
 	defval.Int(&o.KeepAlivePeriod, 3) // same as net/http/server.go:tcpKeepAliveListener
 
 	if o.Logger == nil {
-		o.Logger = DefaultLogger()
+		o.Logger = log.Default()
 	}
 }
 

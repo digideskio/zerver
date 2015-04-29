@@ -20,10 +20,6 @@ type (
 	// to continue the chain, must call chain(Request, Response)
 	FilterChain HandleFunc
 
-	// FilterChain interface {
-	// 	Continue(Request, Response)
-	// }
-
 	// filterChain holds filters and handler
 	// if there is no filters, the final handler will be called
 	filterChain struct {
@@ -31,8 +27,7 @@ type (
 		handler HandleFunc
 	}
 
-	// handlerInterceptor is a interceptor
-	handlerInterceptor struct {
+	interceptor struct {
 		filter  Filter
 		handler HandleFunc
 	}
@@ -116,8 +111,8 @@ func (rfs *rootFilters) Destroy() {
 // newFilterChain create a chain of filter
 //
 // NOTICE: FilterChain keeps some states, it should be used only once
-// if need unlimit FilterChain, use InterceptHandler replace
-// but it takes less memory space, InterceptHandler takes more, make your choice
+// if need unlimit FilterChain, use Intercept replace
+// but it takes less memory space, Intercept takes more, make your choice
 func newFilterChain(filters []Filter, handler func(Request, Response)) FilterChain {
 	if handler == nil {
 		handler = EmptyHandlerFunc
@@ -125,56 +120,48 @@ func newFilterChain(filters []Filter, handler func(Request, Response)) FilterCha
 	if l := len(filters); l == 0 {
 		return handler
 	} else if l == 1 {
-		return newInterceptHandler(handler, filters[0])
+		return FilterChain(newInterceptor(handler, filters[0]))
 	}
 	return (&filterChain{
 		filters: filters,
 		handler: handler,
-	}).handleChain
+	}).handle
 }
 
-// handleChain call next filter, if there is no next filter,then call final handler
+// handle call next filter, if there is no next filter,then call final handler
 // if there is no chains, filterChain will be recycle to pool
 // if chain is not continue to last, chain will not be recycled
-func (chain *filterChain) handleChain(req Request, resp Response) {
+func (chain *filterChain) handle(req Request, resp Response) {
 	filters := chain.filters
 	if len(filters) == 0 {
 		chain.handler(req, resp)
-		chain.destroy()
 	} else {
 		filter := filters[0]
 		chain.filters = filters[1:]
-		filter.Filter(req, resp, chain.handleChain)
+		filter.Filter(req, resp, chain.handle)
 	}
 }
 
-// destroy destroy all reference hold by filterChain, then recycle it to pool
-func (chain *filterChain) destroy() {
-	chain.filters = nil
-	chain.handler = nil
-}
-
-// InterceptHandler will create a permanent HandleFunc/FilterChain, there is no
+// Intercept wrap a handler with some filters as a interceptor,
+// it will create a permanent HandleFunc/FilterChain, there is no
 // states keeps, it can be used without limitation.
-//
-// InterceptHandler wrap a handler with some filters as a interceptor
-func InterceptHandler(handler func(Request, Response), filters ...interface{}) func(Request, Response) {
+func Intercept(handler HandleFunc, filters ...interface{}) HandleFunc {
 	if handler == nil {
 		handler = EmptyHandlerFunc
 	}
 	if len(filters) == 0 {
 		return handler
 	}
-	return newInterceptHandler(InterceptHandler(handler, filters[1:]...), panicConvertFilter(filters[0]))
+	return newInterceptor(Intercept(handler, filters[1:]...), panicConvertFilter(filters[0]))
 }
 
-func newInterceptHandler(handler func(Request, Response), filter Filter) func(Request, Response) {
-	return (&handlerInterceptor{
+func newInterceptor(handler func(Request, Response), filter Filter) HandleFunc {
+	return (&interceptor{
 		filter:  filter,
 		handler: handler,
 	}).handle
 }
 
-func (interceptor *handlerInterceptor) handle(req Request, resp Response) {
-	interceptor.filter.Filter(req, resp, FilterChain(interceptor.handler))
+func (i *interceptor) handle(req Request, resp Response) {
+	i.filter.Filter(req, resp, FilterChain(i.handler))
 }
