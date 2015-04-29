@@ -52,11 +52,12 @@ type (
 	request struct {
 		URLVarIndexer
 		Enviroment
+		AttrContainer
+
 		request *http.Request
 		method  string
 		header  http.Header
 		params  url.Values
-		AttrContainer
 		needClose bool
 		res Resource
 	}

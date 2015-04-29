@@ -63,12 +63,6 @@ type (
 		TLSConfig *tls.Config
 	}
 
-	ComponentState struct {
-		Initialized bool
-		NoLazy      bool
-		Component
-	}
-
 	// Server represent a web server
 	Server struct {
 		Router
@@ -89,17 +83,23 @@ type (
 		activeConns sync.WaitGroup // connections in service, don't include hijacked and websocket connections
 	}
 
-	// HeaderChecker is a http header checker, it accept a function which can get
-	// http header's value by name , if there is something wrong, throw an error
-	// to terminate this request
-	HeaderChecker func(func(string) string) error
-
 	// Component is a Object which will automaticlly initial/destroyed by server
 	// if it's added to server, else it should initial manually
 	Component interface {
 		Init(Enviroment) error
 		Destroy()
 	}
+
+	ComponentState struct {
+		Initialized bool
+		NoLazy      bool
+		Component
+	}
+
+	// HeaderChecker is a http header checker, it accept a function which can get
+	// http header's value by name , if there is something wrong, throw an error
+	// to terminate this request
+	HeaderChecker func(func(string) string) error
 
 	// Enviroment is a server enviroment, real implementation is the Server itself.
 	// it can be accessed from Request/WebsocketConn
@@ -394,7 +394,7 @@ func (s *Server) connStateHook(conn net.Conn, state http.ConnState) {
 		if atomic.LoadInt32(&s.state) == _NORMAL {
 			s.activeConns.Add(1)
 		} else {
-			// previous idle connections before server destroy to be active, directly close it
+			// previous idle connections before call server.Destroy() becomes active, directly close it
 			conn.Close()
 		}
 	case http.StateIdle:

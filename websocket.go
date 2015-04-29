@@ -4,9 +4,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
+	"github.com/cosiner/gohper/lib/types"
 	websocket "github.com/cosiner/zerver_websocket"
 )
 
@@ -17,6 +17,8 @@ type (
 	WebSocketConn interface {
 		URLVarIndexer
 		io.ReadWriteCloser
+		Enviroment
+
 		WriteString(string) (int, error)
 		SetDeadline(t time.Time) error
 		SetReadDeadline(t time.Time) error
@@ -25,14 +27,13 @@ type (
 		RemoteIP() string
 		UserAgent() string
 		URL() *url.URL
-		Enviroment
 	}
 
 	// webSocketConn is the actual websocket connection
 	webSocketConn struct {
 		Enviroment
-		*websocket.Conn
 		URLVarIndexer
+		*websocket.Conn
 		request *http.Request
 	}
 
@@ -70,7 +71,11 @@ func (wsc *webSocketConn) RemoteAddr() string {
 }
 
 func (wsc *webSocketConn) RemoteIP() string {
-	return strings.Split(wsc.RemoteAddr(), ":")[0]
+	if ip := wsc.request.Header.Get(HEADER_REALIP); ip != "" {
+		return ip
+	}
+	addr := wsc.RemoteAddr()
+	return addr[:types.LastIndexByte(addr, ':')]
 }
 
 // UserAgent return user's agent identify
