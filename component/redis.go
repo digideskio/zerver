@@ -32,8 +32,8 @@ type (
 	}
 
 	Redis struct {
+		logger zerver.Logger
 		redis.Pool
-		errorLogger func(...interface{})
 	}
 )
 
@@ -67,7 +67,7 @@ func (r *Redis) Init(env zerver.Enviroment) error {
 	r.MaxActive = o.MaxActive
 	r.IdleTimeout = time.Duration(o.IdleTimeout) * time.Second
 	r.Dial = o.Dial
-	r.errorLogger = env.Server().Errorln // use server error logger
+	r.logger = env.Logger()
 	return r.Update("PING")
 }
 
@@ -102,6 +102,6 @@ func (r *Redis) Destroy() {
 
 func (r *Redis) onErrorLog(err error) {
 	if err != nil {
-		r.errorLogger(err)
+		r.logger.Errorln(err)
 	}
 }

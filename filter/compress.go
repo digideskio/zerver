@@ -1,6 +1,8 @@
 package filter
 
 import (
+	"bufio"
+	"net"
 	"compress/flate"
 	"compress/gzip"
 	"io"
@@ -20,6 +22,14 @@ func (w *gzipWriter) Write(data []byte) (int, error) {
 	return w.gw.Write(data)
 }
 
+func (w *gzipWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hijacker, is := w.ResponseWriter.(http.Hijacker); is {
+		w.gw.Close()
+		return hijacker.Hijack()
+	}
+	return nil, nil, zerver.ErrHijack
+}
+
 func (w *gzipWriter) Close() error {
 	err := w.gw.Close()
 	if w.needClose {
@@ -36,6 +46,14 @@ type flateWriter struct {
 
 func (w *flateWriter) Write(data []byte) (int, error) {
 	return w.fw.Write(data)
+}
+
+func (w *flateWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hijacker, is := w.ResponseWriter.(http.Hijacker); is {
+		w.fw.Close()
+		return hijacker.Hijack()
+	}
+	return nil, nil, zerver.ErrHijack
 }
 
 func (w *flateWriter) Close() error {
@@ -71,6 +89,10 @@ func Compress(req zerver.Request, resp zerver.Response, chain zerver.FilterChain
 	} else if strings.Contains(encoding, zerver.ENCODING_DEFLATE) {
 		resp.SetContentEncoding(zerver.ENCODING_DEFLATE)
 		resp.Wrap(flateWrapper)
+	} else {
+		chain(req, resp)
+		return
 	}
 	chain(req, resp)
+	resp.RemoveHeader("Content-Length")
 }

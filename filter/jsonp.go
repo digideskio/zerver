@@ -38,6 +38,6 @@ func (j JSONP) Filter(req zerver.Request, resp zerver.Response, chain zerver.Fil
 		_, err = resp.WriteString(end)
 	}
 	if err != nil {
-		req.Server().Errorln(err)
+		req.Logger().Errorln(err)
 	}
 }

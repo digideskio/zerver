@@ -79,6 +79,8 @@ type (
 		value        interface{}
 		err          error
 		needClose    bool
+
+		hijacked bool
 	}
 )
 
@@ -101,10 +103,11 @@ func (resp *response) destroy() {
 	resp.header = nil
 	resp.value = nil
 	resp.err = nil
-	if resp.needClose {
+	if resp.needClose && !resp.hijacked {
 		resp.needClose = false
 		resp.ResponseWriter.(io.Closer).Close()
 	}
+	resp.hijacked = false
 	resp.ResponseWriter = nil
 }
 
@@ -154,6 +157,7 @@ func (resp *response) Status() int {
 // Hijack hijack response connection
 func (resp *response) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if hijacker, is := resp.ResponseWriter.(http.Hijacker); is {
+		resp.hijacked = true
 		return hijacker.Hijack()
 	}
 	return nil, nil, ErrHijack

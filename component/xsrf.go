@@ -128,8 +128,8 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 		if req.Method() == "POST" {
 			resp.ReportCreated()
 		}
-		req.Server().OnErrorLog(resp.Send("tokBytes", tokBytes))
-		x.PoolBytes(tokBytes)
+		defer x.PoolBytes(tokBytes)
+		req.Server().LogError(resp.Send("tokBytes", tokBytes))
 	} else {
 		resp.ReportServiceUnavailable()
 	}
