@@ -136,8 +136,8 @@ ServerOption struct {
 
     // check websocket header, default nil
     WebSocketChecker HeaderChecker
-    // error logger, default use log.Println
-    ErrorLogger func(...interface{})
+    // logger, default use cosiner/gohper/log.Logger with ConsoleWriter
+    Logger
 
     // path variables count, suggest set as max or average, default 3
     PathVarCount int
@@ -175,6 +175,18 @@ Server struct {
     RootFilters RootFilters // root filters, Match Every Routes
     ResourceMaster ResourceMaster // resource master, manage resource types
     Errorln     func(...interface{}) // log error message
+}
+```
+
+### Enviroment
+```Go
+// Enviroment is a server enviroment, real implementation is the Server itself.
+// it can be accessed from Request/WebsocketConn
+Enviroment interface {
+    Server() *Server
+    Logger() Logger
+    StartTask(path string, value interface{})
+    Component(name string) (Component, error)
 }
 ```
 
