@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cosiner/gohper/lib/defval"
+
 	"github.com/cosiner/gohper/lib/types"
 	"github.com/cosiner/zerver"
 )
@@ -49,24 +51,16 @@ func (c *CORS) Init(zerver.Enviroment) error {
 		c.allowAll = true
 		c.Origins = nil
 	}
-	if len(c.Methods) == 0 {
-		c.Methods = defAllowMethods
-	}
+	defval.Nil(&c.Methods, defAllowMethods)
 	c.methods = strings.Join(c.Methods, ",")
-	if len(c.Headers) == 0 {
-		c.Headers = defAllowHeaders
-	}
+	defval.Nil(&c.Headers, defAllowHeaders)
 	c.headers = strings.Join(c.Headers, ",")
 	for i := range c.Headers {
 		c.Headers[i] = strings.ToLower(c.Headers[i]) // chrome browser will use lower header
 	}
 	c.exposeHeaders = strings.Join(c.ExposeHeaders, ",")
+	defval.BoolStr(c.AllowCredentials, &c.allowCredentials)
 
-	if c.AllowCredentials {
-		c.allowCredentials = "true"
-	} else {
-		c.allowCredentials = "false"
-	}
 	if c.PreflightMaxage != 0 {
 		c.preflightMaxage = strconv.Itoa(c.PreflightMaxage)
 	}

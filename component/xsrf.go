@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cosiner/gohper/lib/defval"
+
 	"github.com/cosiner/gohper/lib/errors"
 	"github.com/cosiner/zerver"
 )
@@ -73,26 +75,17 @@ func (x *Xsrf) Init(zerver.Enviroment) error {
 	if x.Secret == nil {
 		return errors.Err("xsrf secret can't be empty")
 	}
-	if x.Timeout == 0 {
-		x.Timeout = DEF_XSRF_TIMEOUT
-	}
-	if x.HashMethod == nil {
-		x.HashMethod = sha256.New
-	}
-	if x.Error == "" {
-		x.Error = "xsrf token is invalid or not found"
-	}
-	if x.UsePool && x.pool.New == nil {
-		if x.BufSize == 0 {
-			x.BufSize = DEF_BUF_SIZE
-		}
+	defval.Int64(&x.Timeout, DEF_XSRF_TIMEOUT)
+	defval.Nil(&x.HashMethod, sha256.New)
+	defval.String(&x.Error, "xsrf token is invalid or not found")
+	if x.UsePool {
+		defval.Int(&x.BufSize, DEF_BUF_SIZE)
+
 		x.pool.New = func() interface{} {
 			return make([]byte, x.BufSize)
 		}
 	}
-	if x.TokenInfo == nil {
-		x.TokenInfo = jsonToken{}
-	}
+	defval.Nil(&x.TokenInfo, jsonToken{})
 	return nil
 }
 
@@ -122,6 +115,7 @@ func (x *Xsrf) GetBytes(size int, asLen bool) []byte {
 
 func (x *Xsrf) Destroy() {}
 
+// Create xsrf token, used as zerver.HandleFunc
 func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 	tokBytes, err := x.CreateFor(req)
 	if err == nil {
@@ -145,6 +139,9 @@ func (x *Xsrf) CreateFor(req zerver.Request) ([]byte, error) {
 	return nil, err
 }
 
+// Verify xsrf token, used as zerver.FilterFunc
+//
+// The reason not use "Filter" as function name is to prevent the Xsrf from used as both Component and Filter
 func (x *Xsrf) Verify(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	if x.VerifyFor(req) {
 		chain(req, resp)

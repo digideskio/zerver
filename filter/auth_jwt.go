@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"github.com/cosiner/gohper/lib/defval"
 	"github.com/cosiner/gohper/lib/errors"
 	"github.com/cosiner/zerver"
 	jwt "github.com/cosiner/zerver_jwt"
@@ -23,12 +24,8 @@ func (j *JWTAuth) Init(s *zerver.Server) error {
 	if j.JWT.Keyfunc == nil {
 		return ErrNilKeyFunc
 	}
-	if j.AuthTokenAttrName == "" {
-		j.AuthTokenAttrName = "AuthToken"
-	}
-	if j.JWT.SigningMethod == nil {
-		j.JWT.SigningMethod = jwt.SigningMethodHS256
-	}
+	defval.String(&j.AuthTokenAttrName, "AuthToken")
+	defval.Nil(&j.JWT.SigningMethod, jwt.SigningMethodHS256)
 	return nil
 }
 

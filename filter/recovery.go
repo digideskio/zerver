@@ -3,6 +3,7 @@ package filter
 import (
 	"runtime"
 
+	"github.com/cosiner/gohper/lib/defval"
 	"github.com/cosiner/zerver"
 )
 
@@ -12,9 +13,7 @@ type Recovery struct {
 }
 
 func (r *Recovery) Init(env zerver.Enviroment) error {
-	if r.Bufsize == 0 {
-		r.Bufsize = 1024 * 8
-	}
+	defval.Int(&r.Bufsize, 1024*8)
 	return nil
 }
 

@@ -3,7 +3,16 @@ package filter
 import (
 	"sync"
 
+	"github.com/cosiner/gohper/lib/defval"
+	"github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/lib/types"
 	"github.com/cosiner/zerver"
+	"github.com/cosiner/zerver/component"
+	"github.com/garyburd/redigo/redis"
+)
+
+const (
+	ErrRequestIDExist = errors.Err("Request id already exist")
 )
 
 type (
@@ -15,69 +24,94 @@ type (
 		PassingOnNoId bool
 		Error         string
 		ErrorOverlap  string
+		logger        zerver.Logger
 	}
 
 	IDStore interface {
-		Exist(ip, id string) bool
-		Save(ip, id string)
-		Remove(ip, id string)
+		zerver.Component
+		// if ip-id pair already exist, return ErrRequestIDExist
+		Save(id string) error
+		Remove(id string) error
 	}
 
 	MemIDStore struct {
-		requests map[string]map[string]struct{} // [ip][id]exist
+		requests map[string]types.EXIST // [ip:id]exist
 		lock     sync.RWMutex
+	}
+
+	// RedisIDStore depends on component.Redis
+	RedisIDStore struct {
+		Key   string // key for redis set to store ip-id pair, default use "RequestID"
+		redis *component.Redis
 	}
 )
 
-func NewMemIDStore() IDStore {
-	return &MemIDStore{
-		requests: make(map[string]map[string]struct{}),
-	}
+func (m *MemIDStore) Init(zerver.Enviroment) error {
+	m.requests = make(map[string]types.EXIST)
+	m.lock = sync.RWMutex{}
+	return nil
 }
 
-func (m *MemIDStore) Exist(ip, id string) bool {
-	var (
-		ids   map[string]struct{}
-		exist bool
-	)
-	m.lock.RLock()
-	if ids, exist = m.requests[ip]; exist {
-		_, exist = ids[id]
-	}
-	m.lock.RUnlock()
-	return exist
+func (m *MemIDStore) Destroy() {
+	m.requests = nil
 }
 
-func (m *MemIDStore) Save(ip, id string) {
+func (m *MemIDStore) Save(id string) (err error) {
 	m.lock.Lock()
-	ids := m.requests[ip]
-	if ids == nil {
-		ids = make(map[string]struct{})
-		m.requests[ip] = ids
+	if _, has := m.requests[id]; has {
+		err = ErrRequestIDExist
+	} else {
+		m.requests[id] = types.EX
+
 	}
-	ids[id] = struct{}{}
 	m.lock.Unlock()
+	return
 }
 
-func (m *MemIDStore) Remove(ip, id string) {
+func (m *MemIDStore) Remove(id string) error {
 	m.lock.Lock()
-	delete(m.requests[ip], id)
+	delete(m.requests, id)
 	m.lock.Unlock()
+	return nil
 }
 
-func (ri *RequestId) Init(zerver.Enviroment) error {
-	if ri.Store == nil {
-		ri.Store = NewMemIDStore()
+func (r *RedisIDStore) Init(env zerver.Enviroment) error {
+	redis, err := env.Component(component.COMP_REDIS)
+	if err == nil {
+		if redis == nil {
+			err = errors.Err("component redis isn't loaded")
+		} else {
+			r.redis = redis.(*component.Redis)
+			defval.String(&r.Key, "RequestID")
+		}
 	}
-	if ri.HeaderName == "" {
-		ri.HeaderName = "X-Request-Id"
+	return err
+}
+
+func (r *RedisIDStore) Destroy() {
+	r.redis = nil
+}
+
+func (r *RedisIDStore) Save(id string) error {
+	success, err := redis.Bool(r.redis.Exec("SADD", r.Key, id))
+	if err == nil && !success {
+		err = ErrRequestIDExist
 	}
-	if ri.Error == "" {
-		ri.Error = "header value X-Request-Id can't be empty"
-	}
-	if ri.ErrorOverlap == "" {
-		ri.ErrorOverlap = "request already accepted before, please wait"
-	}
+	return err
+}
+
+func (r *RedisIDStore) Remove(ip, id string) error {
+	_, err := r.redis.Exec("SREM", r.Key, id)
+	return err
+}
+
+func (ri *RequestId) Init(env zerver.Enviroment) error {
+	defval.Nil(&ri.Store, new(MemIDStore))
+	ri.Store.Init(env)
+	defval.String(&ri.HeaderName, "X-Request-Id")
+	defval.String(&ri.Error, "header value X-Request-Id can't be empty")
+	defval.String(&ri.ErrorOverlap, "request already accepted before, please wait")
+	ri.logger = env.Logger()
 	return nil
 }
 
@@ -95,15 +129,16 @@ func (ri *RequestId) Filter(req zerver.Request, resp zerver.Response, chain zerv
 			resp.Send("error", ri.Error)
 		}
 	} else {
-		ip := req.RemoteIP()
-		if ri.Store.Exist(ip, reqId) {
+		id := req.RemoteIP() + ":" + reqId
+		if err := ri.Store.Save(id); err == ErrRequestIDExist {
 			resp.ReportForbidden()
 			resp.Send("error", ri.ErrorOverlap)
-			return
+		} else if err != nil {
+			ri.logger.Panicln(err)
+		} else {
+			chain(req, resp)
+			ri.Store.Remove(id)
 		}
-		ri.Store.Save(ip, reqId)
-		chain(req, resp)
-		ri.Store.Remove(ip, reqId)
 	}
 }
 

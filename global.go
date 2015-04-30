@@ -35,9 +35,9 @@ const (
 
 	// Content Type
 	CONTENTTYPE_PLAIN = "text/plain;charset=utf-8"
-	CONTENTTYPE_HTML = "text/html;charset=utf-8"
-	CONTENTTYPE_XML  = "application/xml;charset=utf-8"
-	CONTENTTYPE_JSON = "application/json;charset=utf-8"
+	CONTENTTYPE_HTML  = "text/html;charset=utf-8"
+	CONTENTTYPE_XML   = "application/xml;charset=utf-8"
+	CONTENTTYPE_JSON  = "application/json;charset=utf-8"
 )
 
 // parseRequestMethod convert a string to request method, default use GET
