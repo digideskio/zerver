@@ -8,6 +8,7 @@ import (
 
 type Recovery struct {
 	Bufsize int
+	NoStack bool
 }
 
 func (r *Recovery) Init(env zerver.Enviroment) error {
@@ -21,7 +22,7 @@ func (r *Recovery) Destroy() {}
 
 func (r *Recovery) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	defer func() {
-		if e := recover(); e != nil {
+		if e := recover(); e != nil && !r.NoStack {
 			resp.ReportInternalServerError()
 			buf := make([]byte, r.Bufsize)
 			runtime.Stack(buf, false)

@@ -50,7 +50,7 @@ type (
 func EmptyHandlerFunc(Request, Response) {}
 
 // convertHandler convert a interfae to Handler,
-// only support Handler,MapHandler,MethodHandler, otherwise panic
+// only support Handler,MapHandler,MethodHandler, otherwise return nil
 func convertHandler(i interface{}) Handler {
 	switch h := i.(type) {
 	case Handler:

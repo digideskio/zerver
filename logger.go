@@ -1,31 +1,39 @@
 package zerver
 
+import (
+	"github.com/cosiner/gohper/log"
+)
+
 type Logger interface {
 	Flush()
 	Close()
 
-	Debug(...interface{})
+	Trace(...interface{})
 	Info(...interface{})
 	Warn(...interface{})
-	Error(...interface{}) // panic goroutine
+	Panic(...interface{}) // panic goroutine
 	Fatal(...interface{}) // exit process
 
-	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
 	Infof(string, ...interface{})
 	Warnf(string, ...interface{})
-	Errorf(string, ...interface{})
+	Panicf(string, ...interface{})
 	Fatalf(string, ...interface{})
 
-	Debugln(...interface{})
+	Traceln(...interface{})
 	Infoln(...interface{})
 	Warnln(...interface{})
-	Errorln(...interface{})
+	Panicln(...interface{})
 	Fatalln(...interface{})
 
 	// current function's depth is 0, parant's is 1, etc..
-	DebugDepth(int, ...interface{})
+	TraceDepth(int, ...interface{})
 	InfoDepth(int, ...interface{})
 	WarnDepth(int, ...interface{})
-	ErrorDepth(int, ...interface{})
+	PanicDepth(int, ...interface{})
 	FatalDepth(int, ...interface{})
+}
+
+func DefaultLogger() Logger {
+	return log.Default()
 }

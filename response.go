@@ -71,6 +71,7 @@ type (
 
 	// response represent a response of request to user
 	response struct {
+		env Enviroment
 		res Resource
 		http.ResponseWriter
 		header       http.Header
@@ -89,7 +90,8 @@ const (
 )
 
 // newResponse create a new response, and set default content type to HTML
-func (resp *response) init(r Resource, w http.ResponseWriter) Response {
+func (resp *response) init(env Enviroment, r Resource, w http.ResponseWriter) Response {
+	resp.env = env
 	resp.res = r
 	resp.ResponseWriter = w
 	resp.header = w.Header()
@@ -235,7 +237,7 @@ func (resp *response) SetValue(v interface{}) {
 
 func (resp *response) Send(key string, value interface{}) error {
 	if resp.res == nil {
-		panic("There is no resource type match this request")
+		resp.env.Logger().Panicln("There is no resource type match this request")
 	}
 	return resp.res.Send(resp, key, value)
 }

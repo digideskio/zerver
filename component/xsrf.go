@@ -129,7 +129,7 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 			resp.ReportCreated()
 		}
 		defer x.PoolBytes(tokBytes)
-		req.Server().LogError(resp.Send("tokBytes", tokBytes))
+		req.Server().PanicLog(resp.Send("tokBytes", tokBytes))
 	} else {
 		resp.ReportServiceUnavailable()
 	}

@@ -1,7 +1,7 @@
 package zerver
 
 import (
-	"fmt"
+	"log"
 
 	"github.com/cosiner/gohper/lib/runtime"
 )
@@ -47,6 +47,6 @@ func tmpDestroy() {
 
 func _tmpCheck() {
 	if _tmp == nil {
-		panic(fmt.Sprintf("Temporary data store has been destroyed: %s", runtime.CallerPosition(2)))
+		log.Panicf("Temporary data store has been destroyed: %s\n", runtime.CallerPosition(2))
 	}
 }

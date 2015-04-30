@@ -1,7 +1,6 @@
 package zerver
 
 import (
-	"github.com/cosiner/gohper/lib/errors"
 	"encoding/base64"
 	"io"
 	"net/http"
@@ -54,12 +53,12 @@ type (
 		Enviroment
 		AttrContainer
 
-		request *http.Request
-		method  string
-		header  http.Header
-		params  url.Values
+		request   *http.Request
+		method    string
+		header    http.Header
+		params    url.Values
 		needClose bool
-		res Resource
+		res       Resource
 	}
 )
 
@@ -211,7 +210,7 @@ func (req *request) Header(name string) string {
 
 func (req *request) Receive(v interface{}) error {
 	if req.res == nil {
-		panic(errors.Errorf("There is no resource type match this request: %s", req.ContentType()))
+		req.Logger().Panicln("There is no resource type match this request:" + req.ContentType())
 	}
 	return req.res.Receive(req, v)
 }

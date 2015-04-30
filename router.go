@@ -3,6 +3,7 @@ package zerver
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"strings"
 
@@ -192,7 +193,7 @@ func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) (err er
 // TaskHandler, Router, Filter will not catch url variable values.
 func (rt *router) Handle(pattern string, handler interface{}) error {
 	if handler == nil || pattern == "" {
-		panic("Nil handler or empty pattern is not allowed")
+		log.Panicln("Nil handler or empty pattern is not allowed")
 	}
 	routePath, pathVars := compile(pattern)
 	if r, is := handler.(*router); is {
@@ -229,7 +230,7 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 		nrt.taskHandler = h
 		nrt.taskHandlerVars = pathVars
 	} else {
-		panic("Not a Router/Handler/Filter/WebSocketHandler/TaskHandler")
+		log.Panicln("Not a Router/Handler/Filter/WebSocketHandler/TaskHandler")
 	}
 	return nil
 }
@@ -585,7 +586,7 @@ func compile(path string) (newPath string, vars map[string]int) {
 	path = strings.TrimSpace(path)
 	l := len(path)
 	if path[0] != '/' {
-		panic("Invalid pattern, must start with '/': " + path)
+		log.Panicln("Invalid pattern, must start with '/': " + path)
 	}
 	if l != 1 && path[l-1] == '/' {
 		path = path[:l-1]
@@ -608,8 +609,8 @@ func compile(path string) (newPath string, vars map[string]int) {
 			}
 			if name := s[i+1:]; len(name) > 0 {
 				if isInvalidSection(name) {
-					panic(errors.Errorf("path %s has pre-defined characters %c or %c",
-						path, _WILDCARD, _REMAINSALL))
+					log.Panicf("path %s has pre-defined characters %c or %c\n",
+						path, _WILDCARD, _REMAINSALL)
 				}
 				if vars == nil {
 					vars = make(map[string]int)

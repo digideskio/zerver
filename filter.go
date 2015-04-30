@@ -1,6 +1,7 @@
 package zerver
 
 import (
+	"log"
 	"net/url"
 )
 
@@ -64,7 +65,8 @@ func panicConvertFilter(i interface{}) Filter {
 	if f := convertFilter(i); f != nil {
 		return f
 	}
-	panic("Not a filter")
+	log.Panicln("Not a filter")
+	return nil
 }
 
 // FilterFunc is a function Filter

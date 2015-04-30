@@ -2,6 +2,7 @@ package zerver
 
 import (
 	"crypto/tls"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -13,7 +14,6 @@ import (
 	"github.com/cosiner/gohper/lib/defval"
 	"github.com/cosiner/gohper/lib/errors"
 	"github.com/cosiner/gohper/lib/types"
-	"github.com/cosiner/gohper/log"
 	websocket "github.com/cosiner/zerver_websocket"
 )
 
@@ -68,9 +68,9 @@ type (
 	Server struct {
 		Router
 		AttrContainer
-		RootFilters    RootFilters // Match Every Routes
-		ResourceMaster ResourceMaster
-		Log            Logger
+		RootFilters RootFilters // Match Every Routes
+		ResMaster   ResourceMaster
+		Log         Logger
 
 		components        map[string]ComponentState
 		managedComponents []Component
@@ -106,6 +106,7 @@ type (
 	// it can be accessed from Request/WebsocketConn
 	Enviroment interface {
 		Server() *Server
+		ResourceMaster() *ResourceMaster
 		Logger() Logger
 		StartTask(path string, value interface{})
 		Component(name string) (Component, error)
@@ -118,9 +119,8 @@ func (o *ServerOption) init() {
 	defval.Int(&o.PathVarCount, 3)
 	defval.Int(&o.FilterCount, 5)
 	defval.Int(&o.KeepAlivePeriod, 3) // same as net/http/server.go:tcpKeepAliveListener
-
 	if o.Logger == nil {
-		o.Logger = log.Default()
+		o.Logger = DefaultLogger()
 	}
 }
 
@@ -138,21 +138,24 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 		rt = NewRouter()
 	}
 	return &Server{
-		Router:         rt,
-		AttrContainer:  NewLockedAttrContainer(),
-		RootFilters:    filters,
-		components:     make(map[string]ComponentState),
-		ResourceMaster: newResourceMaster(),
+		Router:        rt,
+		AttrContainer: NewLockedAttrContainer(),
+		RootFilters:   filters,
+		components:    make(map[string]ComponentState),
+		ResMaster:     newResourceMaster(),
 	}
 }
 
-// ent ServerEnviroment
 func (s *Server) Server() *Server {
 	return s
 }
 
 func (s *Server) Logger() Logger {
 	return s.Log
+}
+
+func (s *Server) ResourceMaster() *ResourceMaster {
+	return &s.ResMaster
 }
 
 func (s *Server) Component(name string) (Component, error) {
@@ -187,7 +190,8 @@ func (s *Server) AddComponent(name string, c ComponentState) error {
 		s.Unlock()
 		return nil
 	}
-	panic("empty name or nil component is not allowed")
+	s.Log.PanicDepth(1, "empty name or nil component is not allowed")
+	return nil
 }
 
 func (s *Server) RemoveComponent(name string) {
@@ -219,7 +223,7 @@ func (s *Server) StartTask(path string, value interface{}) {
 		handler.Handle(value)
 		return
 	}
-	panic("No task handler found for " + path)
+	s.Log.Panicln("No task handler found for:", path)
 }
 
 // ServHttp serve for http reuest
@@ -253,9 +257,9 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	url.Host = request.Host
 	handler, indexer, filters := s.MatchHandlerFilters(url)
 	requestEnv := newRequestEnvFromPool()
-	res := s.ResourceMaster.Resource(&requestEnv.req)
+	res := s.ResMaster.Resource(&requestEnv.req)
 	req := requestEnv.req.init(s, res, request, indexer)
-	resp := requestEnv.resp.init(res, w)
+	resp := requestEnv.resp.init(s, res, w)
 
 	if s.contentType != _CONTENTTYPE_DISABLE {
 		resp.SetContentType(s.contentType)
@@ -294,48 +298,52 @@ func (ln *tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	return tc, nil
 }
 
+// all log message before server start will use standard log package
 func (s *Server) config(o *ServerOption) {
 	o.init()
-	log := o.Logger
-	s.Log = log
-
-	log.Debugln("ContentType:", o.ContentType)
+	var panicError = func(err error) {
+		if err != nil {
+			log.Panicln(err)
+		}
+	}
+	s.Log = o.Logger
+	log.Println("ContentType:", o.ContentType)
 	s.contentType = o.ContentType
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 
-	if len(s.ResourceMaster.Resources) == 0 {
-		s.ResourceMaster.Default(RES_JSON, JSONResource{})
+	if len(s.ResMaster.Resources) == 0 {
+		s.ResMaster.Default(RES_JSON, JSONResource{})
 	}
-	log.Debugln("Init resource master")
-	s.LogError(s.ResourceMaster.Init(s))
+	log.Println("Init resource master")
+	panicError(s.ResMaster.Init(s))
 
-	log.Debugln("VarCountPerRoute:", o.PathVarCount)
+	log.Println("VarCountPerRoute:", o.PathVarCount)
 	pathVarCount = o.PathVarCount
-	log.Debugln("FilterCountPerRoute:", o.FilterCount)
+	log.Println("FilterCountPerRoute:", o.FilterCount)
 	filterCount = o.FilterCount
 
-	log.Debugln("Init managed components")
+	log.Println("Init managed components")
 	for i := range s.managedComponents {
-		s.LogError(s.managedComponents[i].Init(s))
+		panicError(s.managedComponents[i].Init(s))
 	}
 
-	log.Debugln("Init root filters")
-	s.LogError(s.RootFilters.Init(s))
-	log.Debugln("Init Handlers and Filters")
-	s.LogError(s.Router.Init(s))
+	log.Println("Init root filters")
+	panicError(s.RootFilters.Init(s))
+	log.Println("Init Handlers and Filters")
+	panicError(s.Router.Init(s))
 
 	// destroy temporary data store
 	tmpDestroy()
-	log.Debugln("Server Start:", o.ListenAddr)
+	log.Println("Server Start:", o.ListenAddr)
 
 	runtime.GC()
 }
 
-// LogError will panic goroutine, be care to call this and note to relase resource
+// PanicLog will panic goroutine, be care to call this and note to relase resource
 // with 'defer'
-func (s *Server) LogError(err error) {
+func (s *Server) PanicLog(err error) {
 	if err != nil {
-		s.Log.Errorln(err)
+		s.Log.Panicln(err)
 	}
 }
 

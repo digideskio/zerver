@@ -167,14 +167,14 @@ server.Start(&ServerOption{
 
 ### Server
 ```Go
-// NOTICE: Server only configured through ServerOption
+// NOTICE: Server only configured through ServerOption and NewServerWith
 Server struct {
     // exported fields
     Router
     AttrContainer
     RootFilters RootFilters // root filters, Match Every Routes
-    ResourceMaster ResourceMaster // resource master, manage resource types
-    Errorln     func(...interface{}) // log error message
+    ResMaster ResourceMaster // resource master, manage resource types
+    Log     Logger // server has another method called Logger()
 }
 ```
 

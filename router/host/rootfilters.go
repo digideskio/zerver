@@ -1,6 +1,7 @@
 package host
 
 import (
+	"log"
 	"net/url"
 
 	"github.com/cosiner/zerver"
@@ -34,7 +35,7 @@ func (r *RootFilters) Init(env zerver.Enviroment) error {
 }
 
 func (r *RootFilters) Add(interface{}) {
-	panic("Don't add filter to wrapper directly")
+	log.Panicln("Don't add filter to wrapper directly")
 }
 
 // Filters return all root filters
