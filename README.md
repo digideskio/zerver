@@ -97,7 +97,7 @@ func BasicAuth(req zerver.Request, resp zerver.Response, chain zerver.FilterChai
 
 func AuthLog(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
     chain(req, resp)
-    log.Println("Auth success: ", resp.Value()) // do after
+    req.Logger().Infoln("Auth success: ", resp.Value()) // do after
 }
 
 func Auth(req zerver.Request, resp zerver.Response) {
@@ -106,7 +106,7 @@ func Auth(req zerver.Request, resp zerver.Response) {
 }
 
 server.Post("/auth", zerver.Intercept(
-    AuthHandler,  BasicAuthFilter,  AuthLogFilter,
+    Auth,  BasicAuth,  AuthLog,
 ))
 ```
 
