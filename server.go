@@ -11,9 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	tls2 "github.com/cosiner/gohper/lib/crypto/tls"
 	"github.com/cosiner/gohper/lib/defval"
 	"github.com/cosiner/gohper/lib/errors"
 	"github.com/cosiner/gohper/lib/types"
+	"github.com/cosiner/gohper/resource"
 	websocket "github.com/cosiner/zerver_websocket"
 )
 
@@ -58,6 +60,9 @@ type (
 		// tcp keep-alive period by minutes,
 		// default 3, same as predefined in standard http package
 		KeepAlivePeriod int
+
+		// CA pem files to verify client certs
+		CAs []string
 		// ssl config, default disable tls
 		CertFile, KeyFile string
 		// if not nil, cert and key will be ignored
@@ -69,7 +74,7 @@ type (
 		Router
 		AttrContainer
 		RootFilters RootFilters // Match Every Routes
-		ResMaster   ResourceMaster
+		ResMaster   resource.Master
 		Log         Logger
 
 		components        map[string]ComponentState
@@ -106,7 +111,7 @@ type (
 	// it can be accessed from Request/WebsocketConn
 	Enviroment interface {
 		Server() *Server
-		ResourceMaster() *ResourceMaster
+		ResourceMaster() *resource.Master
 		Logger() Logger
 		StartTask(path string, value interface{})
 		Component(name string) (Component, error)
@@ -142,7 +147,7 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 		AttrContainer: NewLockedAttrContainer(),
 		RootFilters:   filters,
 		components:    make(map[string]ComponentState),
-		ResMaster:     newResourceMaster(),
+		ResMaster:     resource.NewMaster(),
 	}
 }
 
@@ -154,7 +159,7 @@ func (s *Server) Logger() Logger {
 	return s.Log
 }
 
-func (s *Server) ResourceMaster() *ResourceMaster {
+func (s *Server) ResourceMaster() *resource.Master {
 	return &s.ResMaster
 }
 
@@ -256,10 +261,10 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	url := request.URL
 	url.Host = request.Host
 	handler, indexer, filters := s.MatchHandlerFilters(url)
-	requestEnv := newRequestEnvFromPool()
-	res := s.ResMaster.Resource(&requestEnv.req)
-	req := requestEnv.req.init(s, res, request, indexer)
-	resp := requestEnv.resp.init(s, res, w)
+	reqEnv := newRequestEnvFromPool()
+	res := s.ResMaster.Resource(reqEnv.req.ContentType())
+	req := reqEnv.req.init(s, res, request, indexer)
+	resp := reqEnv.resp.init(s, res, w)
 
 	if s.contentType != _CONTENTTYPE_DISABLE {
 		resp.SetContentType(s.contentType)
@@ -278,7 +283,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 
 	req.destroy()
 	resp.destroy()
-	recycleRequestEnv(requestEnv)
+	recycleRequestEnv(reqEnv)
 	recycleFilters(filters)
 }
 
@@ -312,10 +317,8 @@ func (s *Server) config(o *ServerOption) {
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 
 	if len(s.ResMaster.Resources) == 0 {
-		s.ResMaster.Default(RES_JSON, JSONResource{})
+		s.ResMaster.DefUse(resource.RES_JSON, resource.JSON{})
 	}
-	log.Println("Init resource master")
-	panicError(s.ResMaster.Init(s))
 
 	log.Println("VarCountPerRoute:", o.PathVarCount)
 	pathVarCount = o.PathVarCount
@@ -347,18 +350,18 @@ func (s *Server) PanicLog(err error) {
 	}
 }
 
-// Start start server as http server, if options is nil, use default configurations
-func (s *Server) Start(options *ServerOption) error {
-	if options == nil {
-		options = &ServerOption{}
+// Start start server as http server, if opt is nil, use default configurations
+func (s *Server) Start(opt *ServerOption) error {
+	if opt == nil {
+		opt = &ServerOption{}
 	}
-	s.config(options)
-	l, err := s.listen(options)
+	s.config(opt)
+	l, err := s.listen(opt)
 	if err == nil {
 		s.listener = l
 		srv := &http.Server{
-			ReadTimeout:  time.Duration(options.ReadTimeout) * time.Millisecond,
-			WriteTimeout: time.Duration(options.WriteTimeout) * time.Millisecond,
+			ReadTimeout:  time.Duration(opt.ReadTimeout) * time.Millisecond,
+			WriteTimeout: time.Duration(opt.WriteTimeout) * time.Millisecond,
 			Handler:      s,
 			ConnState:    s.connStateHook,
 		}
@@ -367,25 +370,34 @@ func (s *Server) Start(options *ServerOption) error {
 	return err
 }
 
-func (*Server) listen(options *ServerOption) (net.Listener, error) {
-	ln, err := net.Listen("tcp", options.ListenAddr)
+func (*Server) listen(opt *ServerOption) (net.Listener, error) {
+	ln, err := net.Listen("tcp", opt.ListenAddr)
 	if err == nil {
 		ln = &tcpKeepAliveListener{
 			TCPListener: ln.(*net.TCPListener),
-			AlivePeriod: options.KeepAlivePeriod,
+			AlivePeriod: opt.KeepAlivePeriod,
 		}
 
-		if options.TLSConfig != nil {
-			ln = tls.NewListener(ln, options.TLSConfig)
-		} else if options.CertFile != "" {
+		if opt.TLSConfig != nil {
+			ln = tls.NewListener(ln, opt.TLSConfig)
+		} else if opt.CertFile != "" {
 			// from net/http/server.go.ListenAndServeTLS
-			config := &tls.Config{
+			// TODO: support verify client certs
+			tc := &tls.Config{
 				NextProtos:   []string{"http/1.1"},
 				Certificates: make([]tls.Certificate, 1),
 			}
-			config.Certificates[0], err = tls.LoadX509KeyPair(options.CertFile, options.KeyFile)
+			tc.Certificates[0], err = tls.LoadX509KeyPair(opt.CertFile, opt.KeyFile)
 			if err == nil {
-				ln = tls.NewListener(ln, config)
+				if opt.CAs != nil {
+					tc.ClientCAs, err = tls2.CAPool(opt.CAs...)
+					if err == nil {
+						tc.ClientAuth = tls.RequireAndVerifyClientCert
+					}
+				}
+				if err == nil {
+					ln = tls.NewListener(ln, tc)
+				}
 			}
 		}
 	}

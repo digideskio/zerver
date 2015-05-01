@@ -1,9 +1,6 @@
 package zerver
 
-import (
-	"io"
-	"strings"
-)
+import "strings"
 
 const (
 	// Http Header
@@ -55,46 +52,4 @@ func parseContentType(str string) string {
 		return CONTENTTYPE_HTML
 	}
 	return strings.ToLower(strings.TrimSpace(str))
-}
-
-func ErrorWrite(err error, w io.Writer, data []byte) (int, error) {
-	if err != nil {
-		return 0, err
-	}
-	return w.Write(data)
-}
-
-func ErrorWriteString(err error, w io.Writer, data string) (int, error) {
-	if err != nil {
-		return 0, err
-	}
-	return w.Write(Bytes(data))
-}
-
-func ErrorRead(err error, r io.Reader, data []byte) (int, error) {
-	if err != nil {
-		return 0, err
-	}
-	return r.Read(data)
-}
-
-func ErrorPtrWrite(err *error, w io.Writer, data []byte) (count int) {
-	if err != nil && *err == nil {
-		count, *err = w.Write(data)
-	}
-	return
-}
-
-func ErrorPtrWriteString(err *error, w io.Writer, data string) (count int) {
-	if err != nil && *err == nil {
-		count, *err = w.Write(Bytes(data))
-	}
-	return
-}
-
-func ErrorPtrRead(err *error, r io.Reader, data []byte) (count int) {
-	if err != nil && *err == nil {
-		count, *err = r.Read(data)
-	}
-	return
 }

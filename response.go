@@ -9,6 +9,11 @@ import (
 	"time"
 
 	"github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/resource"
+)
+
+const (
+	ErrHijack = errors.Err("Connection not support hijack")
 )
 
 type (
@@ -26,6 +31,8 @@ type (
 		RemoveHeader(name string)
 
 		SetContentEncoding(enc string)
+
+		// SetContentType will cause Resource change
 		SetContentType(typ string)
 
 		SetAdvancedCookie(c *http.Cookie)
@@ -58,6 +65,7 @@ type (
 		Value() interface{}
 		SetValue(interface{})
 
+		Resource() resource.Resource
 		// Send send marshaled value to client
 		Send(string, interface{}) error
 
@@ -72,7 +80,7 @@ type (
 	// response represent a response of request to user
 	response struct {
 		env Enviroment
-		res Resource
+		res resource.Resource
 		http.ResponseWriter
 		header       http.Header
 		status       int
@@ -85,12 +93,8 @@ type (
 	}
 )
 
-const (
-	ErrHijack = errors.Err("Connection not support hijack")
-)
-
 // newResponse create a new response, and set default content type to HTML
-func (resp *response) init(env Enviroment, r Resource, w http.ResponseWriter) Response {
+func (resp *response) init(env Enviroment, r resource.Resource, w http.ResponseWriter) Response {
 	resp.env = env
 	resp.res = r
 	resp.ResponseWriter = w
@@ -187,8 +191,8 @@ func (resp *response) RemoveHeader(name string) {
 	resp.header.Del(name)
 }
 
-// SetContentType set content type of response
 func (resp *response) SetContentType(typ string) {
+	resp.res = resp.env.ResourceMaster().Resource(typ)
 	resp.SetHeader(HEADER_CONTENTTYPE, typ)
 }
 
@@ -233,6 +237,10 @@ func (resp *response) Value() interface{} {
 
 func (resp *response) SetValue(v interface{}) {
 	resp.value = v
+}
+
+func (resp *response) Resource() resource.Resource {
+	return resp.res
 }
 
 func (resp *response) Send(key string, value interface{}) error {

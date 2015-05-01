@@ -153,6 +153,9 @@ ServerOption struct {
     // tcp keep-alive period by minutes,
     // default 3, same as predefined in standard http package
     KeepAlivePeriod int
+
+    // CA pem files to verify client certs
+    CAs []string
     // ssl config, default disable tls
     CertFile, KeyFile string
     // if not nil, cert and key will be ignored

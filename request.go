@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cosiner/gohper/lib/types"
+	"github.com/cosiner/gohper/resource"
 )
 
 type (
@@ -58,12 +59,12 @@ type (
 		header    http.Header
 		params    url.Values
 		needClose bool
-		res       Resource
+		res       resource.Resource
 	}
 )
 
 // newRequest create a new request
-func (req *request) init(e Enviroment, r Resource, requ *http.Request, varIndexer URLVarIndexer) Request {
+func (req *request) init(e Enviroment, r resource.Resource, requ *http.Request, varIndexer URLVarIndexer) Request {
 	req.Enviroment = e
 	req.request = requ
 	req.header = requ.Header
@@ -179,7 +180,7 @@ func (req *request) AcceptEncodings() string {
 func (req *request) Authorization() (string, bool) {
 	basic, auth := false, req.Header(HEADER_AUTHRIZATION)
 	if basic = strings.HasPrefix(auth, "Basic "); basic {
-		a, err := base64.URLEncoding.DecodeString(auth[len("Basic "):])
+		a, err := base64.StdEncoding.DecodeString(auth[len("Basic "):])
 		if err == nil {
 			auth = string(a)
 		} else {
