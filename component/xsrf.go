@@ -82,6 +82,7 @@ func (x *Xsrf) Init(zerver.Enviroment) error {
 		if x.Pool == nil {
 			x.Pool = bytes2.NewSyncPool(0, true)
 		}
+		x.Pool.Init()
 	}
 	defval.Nil(&x.TokenInfo, jsonToken{})
 	return nil
@@ -96,7 +97,7 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 		if req.Method() == "POST" {
 			resp.ReportCreated()
 		}
-		defer x.Pool.Put(tokBytes)
+		defer x.poolBytes(tokBytes)
 		req.Server().PanicLog(resp.Send("tokBytes", tokBytes))
 	} else {
 		resp.ReportServiceUnavailable()
@@ -143,7 +144,7 @@ func (x *Xsrf) VerifyFor(req zerver.Request) bool {
 
 	data := x.verify(zerver.Bytes(token))
 	if data != nil {
-		x.Pool.Put(data)
+		x.poolBytes(data)
 		t, ip, agent := x.TokenInfo.Unmarshal(data)
 		return t != -1 &&
 			t+x.Timeout >= time.Now().Unix() &&
@@ -153,25 +154,42 @@ func (x *Xsrf) VerifyFor(req zerver.Request) bool {
 	return false
 }
 
+func (x *Xsrf) poolBytes(bs []byte) {
+	if x.UsePool {
+		x.Pool.Put(bs)
+	}
+}
+
+func (x *Xsrf) getBytes(size int, asLen bool) []byte {
+	if x.UsePool {
+		return x.Pool.Get(size, asLen)
+	}
+	bs := make([]byte, size)
+	if !asLen {
+		bs = bs[:0]
+	}
+	return bs
+}
+
 func (x *Xsrf) sign(data []byte) []byte {
 	hash := hmac.New(x.HashMethod, x.Secret)
 	hash.Write(data)
 	signing := hash.Sum(nil)
 
-	bs := x.Pool.Get(len(data)+hash.Size(), false) // data+signature
+	bs := x.getBytes(len(data)+hash.Size(), false) // data+signature
 	buf := bytes.NewBuffer(bs)
 	buf.Write(data)
 	buf.Write(signing)
 
-	dst := x.Pool.Get(_ENCODING.EncodedLen(buf.Len()), true)
+	dst := x.getBytes(_ENCODING.EncodedLen(buf.Len()), true)
 	_ENCODING.Encode(dst, buf.Bytes())
-	x.Pool.Put(bs)
+	x.poolBytes(bs)
 
 	return dst
 }
 
 func (x *Xsrf) verify(signing []byte) []byte {
-	dst := x.Pool.Get(_ENCODING.DecodedLen(len(signing)), true)
+	dst := x.getBytes(_ENCODING.DecodedLen(len(signing)), true)
 	n, err := _ENCODING.Decode(dst, signing)
 	if err == nil {
 		dst = dst[:n]
@@ -185,7 +203,7 @@ func (x *Xsrf) verify(signing []byte) []byte {
 			}
 		}
 	}
-	x.Pool.Put(dst)
+	x.poolBytes(dst)
 	return nil
 }
 
