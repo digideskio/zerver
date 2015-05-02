@@ -120,7 +120,7 @@ type (
 
 func (o *ServerOption) init() {
 	defval.String(&o.ListenAddr, ":4000")
-	defval.String(&o.ContentType, CONTENTTYPE_JSON)
+	defval.String(&o.ContentType, resource.CONTENTTYPE_JSON)
 	defval.Int(&o.PathVarCount, 3)
 	defval.Int(&o.FilterCount, 5)
 	defval.Int(&o.KeepAlivePeriod, 3) // same as net/http/server.go:tcpKeepAliveListener

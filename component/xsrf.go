@@ -7,11 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"hash"
-	"sync"
 	"time"
 
+	bytes2 "github.com/cosiner/gohper/lib/bytes"
 	"github.com/cosiner/gohper/lib/defval"
-
 	"github.com/cosiner/gohper/lib/errors"
 	"github.com/cosiner/zerver"
 )
@@ -37,11 +36,12 @@ type (
 		HashMethod func() hash.Hash // hash method for signing data
 		Error      string           // error message for invalid token
 		FilterGet  bool             // whether filter GET/HEAD/OPTIONS request
-		UsePool    bool             // whether use sync.Pool for bytes allocation
-		BufSize    int              // buffer size for pool
-		TokenInfo  TokenInfo        // marshal/unmarshal token info, default use jsonToken
 
-		pool sync.Pool
+		UsePool bool // whether use sync.Pool for bytes allocation
+		Pool    bytes2.Pool
+
+		TokenInfo TokenInfo // marshal/unmarshal token info, default use jsonToken
+
 	}
 
 	TokenInfo interface {
@@ -79,38 +79,12 @@ func (x *Xsrf) Init(zerver.Enviroment) error {
 	defval.Nil(&x.HashMethod, sha256.New)
 	defval.String(&x.Error, "xsrf token is invalid or not found")
 	if x.UsePool {
-		defval.Int(&x.BufSize, DEF_BUF_SIZE)
-
-		x.pool.New = func() interface{} {
-			return make([]byte, x.BufSize)
+		if x.Pool == nil {
+			x.Pool = bytes2.NewSyncPool(0, true)
 		}
 	}
 	defval.Nil(&x.TokenInfo, jsonToken{})
 	return nil
-}
-
-func (x *Xsrf) PoolBytes(bs []byte) {
-	if x.UsePool {
-		x.pool.Put(bs)
-	}
-}
-
-func (x *Xsrf) GetBytes(size int, asLen bool) []byte {
-	var bs []byte
-	if x.UsePool {
-		bs = x.pool.Get().([]byte)
-		if cap(bs) < size {
-			bs = make([]byte, size)
-		}
-	} else {
-		bs = make([]byte, size)
-	}
-	if asLen {
-		bs = bs[:size]
-	} else {
-		bs = bs[:0]
-	}
-	return bs
 }
 
 func (x *Xsrf) Destroy() {}
@@ -122,7 +96,7 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 		if req.Method() == "POST" {
 			resp.ReportCreated()
 		}
-		defer x.PoolBytes(tokBytes)
+		defer x.Pool.Put(tokBytes)
 		req.Server().PanicLog(resp.Send("tokBytes", tokBytes))
 	} else {
 		resp.ReportServiceUnavailable()
@@ -169,7 +143,7 @@ func (x *Xsrf) VerifyFor(req zerver.Request) bool {
 
 	data := x.verify(zerver.Bytes(token))
 	if data != nil {
-		x.PoolBytes(data)
+		x.Pool.Put(data)
 		t, ip, agent := x.TokenInfo.Unmarshal(data)
 		return t != -1 &&
 			t+x.Timeout >= time.Now().Unix() &&
@@ -184,20 +158,20 @@ func (x *Xsrf) sign(data []byte) []byte {
 	hash.Write(data)
 	signing := hash.Sum(nil)
 
-	bs := x.GetBytes(len(data)+hash.Size(), false) // data+signature
+	bs := x.Pool.Get(len(data)+hash.Size(), false) // data+signature
 	buf := bytes.NewBuffer(bs)
 	buf.Write(data)
 	buf.Write(signing)
 
-	dst := x.GetBytes(_ENCODING.EncodedLen(buf.Len()), true)
+	dst := x.Pool.Get(_ENCODING.EncodedLen(buf.Len()), true)
 	_ENCODING.Encode(dst, buf.Bytes())
-	x.PoolBytes(bs)
+	x.Pool.Put(bs)
 
 	return dst
 }
 
 func (x *Xsrf) verify(signing []byte) []byte {
-	dst := x.GetBytes(_ENCODING.DecodedLen(len(signing)), true)
+	dst := x.Pool.Get(_ENCODING.DecodedLen(len(signing)), true)
 	n, err := _ENCODING.Decode(dst, signing)
 	if err == nil {
 		dst = dst[:n]
@@ -211,7 +185,7 @@ func (x *Xsrf) verify(signing []byte) []byte {
 			}
 		}
 	}
-	x.PoolBytes(dst)
+	x.Pool.Put(dst)
 	return nil
 }
 

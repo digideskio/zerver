@@ -1,6 +1,10 @@
 package zerver
 
-import "strings"
+import (
+	"github.com/cosiner/gohper/resource"
+
+	"strings"
+)
 
 const (
 	// Http Header
@@ -29,12 +33,6 @@ const (
 	PATCH   = "PATCH"
 	HEAD    = "HEAD"
 	OPTIONS = "OPTIONS"
-
-	// Content Type
-	CONTENTTYPE_PLAIN = "text/plain;charset=utf-8"
-	CONTENTTYPE_HTML  = "text/html;charset=utf-8"
-	CONTENTTYPE_XML   = "application/xml;charset=utf-8"
-	CONTENTTYPE_JSON  = "application/json;charset=utf-8"
 )
 
 // parseRequestMethod convert a string to request method, default use GET
@@ -49,7 +47,7 @@ func parseRequestMethod(s string) string {
 // parseContentType parse content type
 func parseContentType(str string) string {
 	if str == "" {
-		return CONTENTTYPE_HTML
+		return resource.CONTENTTYPE_JSON
 	}
 	return strings.ToLower(strings.TrimSpace(str))
 }
