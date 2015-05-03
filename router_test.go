@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/cosiner/gohper/errors"
-	"github.com/cosiner/gohper/testing"
+	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/gohper/testing2"
 )
 
 func TestCompile(t *testing.T) {
-	tt := test.Wrap(t)
+	tt := testing2.Wrap(t)
 	tt.Log(len(strings.Split("", "/")))
 	tt.Log(compile("/"))
 	tt.Log(compile("/:user/:id/:a"))
@@ -283,7 +283,7 @@ func rt() *router {
 var r = rt()
 
 func BenchmarkMatchRouteOne(b *testing.B) {
-	// tt := test.Wrap(b)
+	// tt := testing2.Wrap(b)
 	path := "/repos/cosiner/zerver/stargazers"
 	// path := "/user/repos"
 	// path := "/user/keys"
@@ -301,7 +301,7 @@ func BenchmarkMatchRouteOne(b *testing.B) {
 }
 
 func BenchmarkMatchRouteMultiple(b *testing.B) {
-	// tt := test.Wrap(b)
+	// tt := testing2.Wrap(b)
 	// path := "/legacy/issues/search/aaa/bbb/ccc/ddd"
 	// path := "/user/repos"
 	path := "/repos/cosiner/zerver/stargazers"
@@ -322,21 +322,21 @@ func BenchmarkMatchRouteMultiple(b *testing.B) {
 
 func TestRoute(t *testing.T) {
 	rt := new(router)
-	OnErrPanic(rt.Handle("/user.:format", MapHandler{}))
-	OnErrPanic(rt.Handle("/v:version", MapHandler{}))
-	OnErrPanic(rt.Handle("/vaa/:id", MapHandler{}))
-	// OnErrPanic(rt.Handle("/vba/:id", EmptyHandlerFunc))
-	// OnErrPanic(rt.Handle("/v0a/:id", EmptyHandlerFunc))
+	errors.Fatal(rt.Handle("/user.:format", MapHandler{}))
+	errors.Fatal(rt.Handle("/v:version", MapHandler{}))
+	errors.Fatal(rt.Handle("/vaa/:id", MapHandler{}))
+	// errors.Fatal(rt.Handle("/vba/:id", EmptyHandlerFunc))
+	// errors.Fatal(rt.Handle("/v0a/:id", EmptyHandlerFunc))
 	rt.PrintRouteTree(os.Stdout)
 	_, value := rt.matchOne("/user.json", nil)
 	t.Log(value)
 	rt, value = rt.matchOne("/vbc", nil)
-	test.True(t, rt != nil)
+	testing2.True(t, rt != nil)
 	t.Log(value)
 }
 
 func TestFilterHideHandler(t *testing.T) {
-	tt := test.Wrap(t)
+	tt := testing2.Wrap(t)
 	rt := NewRouter()
 	rt.Handle("/user/12:id", EmptyFilterFunc)
 	rt.HandleFunc("/user/:id", GET, EmptyHandlerFunc)
@@ -347,7 +347,7 @@ func TestFilterHideHandler(t *testing.T) {
 }
 
 func TestConflictWildcardCatchall(t *testing.T) {
-	tt := test.Wrap(t)
+	tt := testing2.Wrap(t)
 	rt := new(router)
 	tt.True(rt.HandleFunc("/:user/:id", GET, EmptyHandlerFunc) == nil)
 	e := rt.HandleFunc("/*user", GET, EmptyHandlerFunc)
@@ -355,7 +355,7 @@ func TestConflictWildcardCatchall(t *testing.T) {
 }
 
 func TestSubRouter(t *testing.T) {
-	tt := test.Wrap(t)
+	tt := testing2.Wrap(t)
 	userRt := NewRouter()
 	userRt.HandleFunc("/info/:id", GET, EmptyHandlerFunc)
 	userRt.HandleFunc("/posts/:id", GET, EmptyHandlerFunc)

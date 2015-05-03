@@ -2,11 +2,10 @@ package zerver
 
 import (
 	"strings"
-
-	"github.com/cosiner/gohper/testing"
-
 	"testing"
 	"time"
+
+	"github.com/cosiner/gohper/testing2"
 )
 
 func TestServer(t *testing.T) {
@@ -23,5 +22,5 @@ func TestServer(t *testing.T) {
 	}(s, &err)
 
 	err = s.Start(nil)
-	test.True(t, strings.Contains(err.Error(), "closed"))
+	testing2.True(t, strings.Contains(err.Error(), "closed"))
 }

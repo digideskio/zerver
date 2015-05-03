@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/cosiner/gohper/testing"
+	"github.com/cosiner/gohper/testing2"
 )
 
 func TestXsrf(t *testing.T) {
-	tt := test.Wrap(t)
+	tt := testing2.Wrap(t)
 	data := []byte("123456789")
 	xsrf := &Xsrf{
 		Secret: data,
