@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cosiner/gohper/unsafe2"
 	"github.com/cosiner/zerver"
 )
 
@@ -126,10 +127,10 @@ func initRoutes() bool {
 	Handle("/options", "Get all pprof options",
 		func(req zerver.Request, resp zerver.Response) {
 			if from := req.Param("from"); from != "" {
-				resp.Write(zerver.Bytes("There is no this pprof option: " + from + "\n"))
+				resp.Write(unsafe2.Bytes("There is no this pprof option: " + from + "\n"))
 			}
 			for i := range options {
-				resp.Write(zerver.Bytes(options[i]))
+				resp.Write(unsafe2.Bytes(options[i]))
 			}
 		})
 	return inited

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/cosiner/gohper/lib/test"
+	"github.com/cosiner/gohper/testing"
 )
 
 func TestXsrf(t *testing.T) {

@@ -7,8 +7,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cosiner/gohper/lib/errors"
-	"github.com/cosiner/gohper/lib/runtime"
+	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/gohper/runtime2"
+	"github.com/cosiner/gohper/unsafe2"
 )
 
 type (
@@ -91,7 +92,7 @@ func NewRouter() Router {
 
 func (*router) reportExistError(typ, pattern string) error {
 	return existError{
-		pos:     runtime.CallerPosition(2),
+		pos:     runtime2.Caller(2),
 		typ:     typ,
 		pattern: pattern,
 	}
@@ -655,7 +656,7 @@ func (rt *router) printRouteTree(w io.Writer, parentPath string) {
 		}
 	}
 	cur := parentPath + string(s)
-	if _, e := w.Write(Bytes(cur + "\n")); e == nil {
+	if _, e := w.Write(unsafe2.Bytes(cur + "\n")); e == nil {
 		rt.accessAllChilds(func(n *router) bool {
 			n.printRouteTree(w, cur)
 			return true

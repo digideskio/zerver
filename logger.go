@@ -1,7 +1,7 @@
 package zerver
 
 import (
-	"github.com/cosiner/gohper/log"
+	"github.com/cosiner/ygo/log"
 )
 
 type Logger interface {

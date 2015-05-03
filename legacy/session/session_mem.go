@@ -4,9 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cosiner/ygo/config"
 	"github.com/cosiner/zerver"
-
-	"github.com/cosiner/gohper/config"
 )
 
 type (

@@ -7,7 +7,7 @@ import (
 
 	"github.com/cosiner/zerver"
 
-	. "github.com/cosiner/gohper/lib/errors"
+	. "github.com/cosiner/gohper/errors"
 )
 
 const (

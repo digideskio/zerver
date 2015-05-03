@@ -4,9 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cosiner/gohper/lib/defval"
-
-	"github.com/cosiner/gohper/lib/types"
+	"github.com/cosiner/gohper/defval"
+	"github.com/cosiner/gohper/strings2"
 	"github.com/cosiner/zerver"
 )
 
@@ -94,7 +93,7 @@ func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, heade
 			break
 		}
 	}
-	for _, h := range types.TrimSplit(headers, ",") {
+	for _, h := range strings2.TrimSplit(headers, ",") {
 		for _, ch := range c.Headers {
 			if strings.ToLower(h) == ch { // c.Headers already ToLowered when Init
 				resp.AddHeader(_CORS_ALLOWHEADERS, ch)

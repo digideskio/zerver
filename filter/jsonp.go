@@ -1,7 +1,7 @@
 package filter
 
 import (
-	"github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/zerver"
 )
 

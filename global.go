@@ -1,9 +1,9 @@
 package zerver
 
 import (
-	"github.com/cosiner/gohper/resource"
-
 	"strings"
+
+	"github.com/cosiner/ygo/resource"
 )
 
 const (

@@ -6,7 +6,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cosiner/gohper/lib/types"
+	"github.com/cosiner/gohper/strings2"
+	"github.com/cosiner/gohper/unsafe2"
 	websocket "github.com/cosiner/zerver_websocket"
 )
 
@@ -59,7 +60,7 @@ func newWebSocketConn(e Enviroment, conn *websocket.Conn, varIndexer URLVarIndex
 }
 
 func (wsc *webSocketConn) WriteString(s string) (int, error) {
-	return wsc.Write(Bytes(s))
+	return wsc.Write(unsafe2.Bytes(s))
 }
 
 func (wsc *webSocketConn) URL() *url.URL {
@@ -75,7 +76,7 @@ func (wsc *webSocketConn) RemoteIP() string {
 		return ip
 	}
 	addr := wsc.RemoteAddr()
-	return addr[:types.LastIndexByte(addr, ':')]
+	return addr[:strings2.LastIndexByte(addr, ':')]
 }
 
 // UserAgent return user's agent identify

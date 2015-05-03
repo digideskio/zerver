@@ -3,7 +3,7 @@ package zerver
 import (
 	"strings"
 
-	"github.com/cosiner/gohper/lib/test"
+	"github.com/cosiner/gohper/testing"
 
 	"testing"
 	"time"

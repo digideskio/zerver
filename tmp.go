@@ -3,7 +3,7 @@ package zerver
 import (
 	"log"
 
-	"github.com/cosiner/gohper/lib/runtime"
+	"github.com/cosiner/gohper/runtime2"
 )
 
 // Tmp* provide a temporary data store, it should not be used after server start
@@ -47,6 +47,6 @@ func tmpDestroy() {
 
 func _tmpCheck() {
 	if _tmp == nil {
-		log.Panicf("Temporary data store has been destroyed: %s\n", runtime.CallerPosition(2))
+		log.Panicf("Temporary data store has been destroyed: %s\n", runtime2.Caller(2))
 	}
 }

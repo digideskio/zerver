@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/cosiner/gohper/unsafe2"
 	"github.com/cosiner/zerver"
 )
 
@@ -98,7 +99,7 @@ func (w indentWriter) Write(data []byte) (int, error) {
 
 func (r *Router) PrintRouteTree(w io.Writer) {
 	for i := range r.routers {
-		w.Write(zerver.Bytes(r.hosts[i] + "\n"))
+		w.Write(unsafe2.Bytes(r.hosts[i] + "\n"))
 		r.routers[i].PrintRouteTree(w)
 	}
 }

@@ -11,11 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	tls2 "github.com/cosiner/gohper/lib/crypto/tls"
-	"github.com/cosiner/gohper/lib/defval"
-	"github.com/cosiner/gohper/lib/errors"
-	"github.com/cosiner/gohper/lib/types"
-	"github.com/cosiner/gohper/resource"
+	"github.com/cosiner/gohper/crypto/tls2"
+	"github.com/cosiner/gohper/defval"
+	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/ygo/resource"
 	websocket "github.com/cosiner/zerver_websocket"
 )
 
@@ -26,11 +25,6 @@ const (
 	_DESTROYED = 1
 
 	_CONTENTTYPE_DISABLE = "-"
-)
-
-var (
-	Bytes  = types.UnsafeBytes
-	String = types.UnsafeString
 )
 
 type (

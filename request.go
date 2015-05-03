@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cosiner/gohper/lib/types"
-	"github.com/cosiner/gohper/resource"
+	"github.com/cosiner/gohper/strings2"
+	"github.com/cosiner/ygo/resource"
 )
 
 type (
@@ -128,7 +128,7 @@ func (req *request) RemoteIP() string {
 		return ip
 	}
 	addr := req.RemoteAddr()
-	return addr[:types.LastIndexByte(addr, ':')]
+	return addr[:strings2.LastIndexByte(addr, ':')]
 }
 
 // Param return request parameter with name
@@ -194,7 +194,7 @@ func (req *request) Authorization() (string, bool) {
 // user,password, if any wrong, "", "" was returned
 func (req *request) BasicAuth() (string, string) {
 	if auth, basic := req.Authorization(); basic {
-		return types.Seperate(auth, ':')
+		return strings2.Seperate(auth, ':')
 	}
 	return "", ""
 }

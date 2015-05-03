@@ -3,9 +3,8 @@ package filter
 import (
 	"sync"
 
-	"github.com/cosiner/gohper/lib/defval"
-	"github.com/cosiner/gohper/lib/errors"
-	"github.com/cosiner/gohper/lib/types"
+	"github.com/cosiner/gohper/defval"
+	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/component"
 	"github.com/garyburd/redigo/redis"
@@ -35,7 +34,7 @@ type (
 	}
 
 	MemIDStore struct {
-		requests map[string]types.EXIST // [ip:id]exist
+		requests map[string]struct{} // [ip:id]exist
 		lock     sync.RWMutex
 	}
 
@@ -47,7 +46,7 @@ type (
 )
 
 func (m *MemIDStore) Init(zerver.Enviroment) error {
-	m.requests = make(map[string]types.EXIST)
+	m.requests = make(map[string]struct{})
 	m.lock = sync.RWMutex{}
 	return nil
 }
@@ -61,7 +60,7 @@ func (m *MemIDStore) Save(id string) (err error) {
 	if _, has := m.requests[id]; has {
 		err = ErrRequestIDExist
 	} else {
-		m.requests[id] = types.EX
+		m.requests[id] = struct{}{}
 
 	}
 	m.lock.Unlock()

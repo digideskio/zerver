@@ -8,8 +8,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cosiner/gohper/lib/errors"
-	"github.com/cosiner/gohper/resource"
+	"github.com/cosiner/gohper/unsafe2"
+
+	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/ygo/resource"
 )
 
 const (
@@ -140,7 +142,7 @@ func (resp *response) Write(data []byte) (i int, err error) {
 }
 
 func (resp *response) WriteString(s string) (int, error) {
-	return resp.Write(Bytes(s))
+	return resp.Write(unsafe2.Bytes(s))
 }
 
 func (resp *response) ClearError() {

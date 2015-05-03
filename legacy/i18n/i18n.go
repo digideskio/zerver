@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cosiner/gohper/config"
-	"github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/ygo/config"
 )
 
 // translation represent locales data
@@ -43,7 +43,7 @@ func (tr *translation) load(path string) error {
 // SetDefaultLocale setup default locale
 func (tr *translation) setDefaultLocale(locale string) (err error) {
 	if tr.defLocale = tr.locales[locale]; tr.defLocale == nil {
-		err = errors.Errorf("Default locale %s has not been loaded", locale)
+		err = errors.Newf("Default locale %s has not been loaded", locale)
 	}
 	return
 }

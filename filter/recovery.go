@@ -3,7 +3,8 @@ package filter
 import (
 	"runtime"
 
-	"github.com/cosiner/gohper/lib/defval"
+	"github.com/cosiner/gohper/defval"
+	"github.com/cosiner/gohper/unsafe2"
 	"github.com/cosiner/zerver"
 )
 
@@ -25,7 +26,7 @@ func (r *Recovery) Filter(req zerver.Request, resp zerver.Response, chain zerver
 			resp.ReportInternalServerError()
 			buf := make([]byte, r.Bufsize)
 			runtime.Stack(buf, false)
-			req.Logger().Warnln(zerver.String(buf))
+			req.Logger().Warnln(unsafe2.String(buf))
 		}
 	}()
 	chain(req, resp)

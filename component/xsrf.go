@@ -9,9 +9,10 @@ import (
 	"hash"
 	"time"
 
-	bytes2 "github.com/cosiner/gohper/lib/bytes"
-	"github.com/cosiner/gohper/lib/defval"
-	"github.com/cosiner/gohper/lib/errors"
+	"github.com/cosiner/gohper/bytes2"
+	"github.com/cosiner/gohper/defval"
+	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/gohper/unsafe2"
 	"github.com/cosiner/zerver"
 )
 
@@ -85,7 +86,6 @@ func (x *Xsrf) Init(zerver.Enviroment) error {
 	} else {
 		x.Pool = bytes2.FakePool{}
 	}
-	x.Pool.Init()
 	defval.Nil(&x.TokenInfo, jsonToken{})
 	return nil
 }
@@ -144,7 +144,7 @@ func (x *Xsrf) VerifyFor(req zerver.Request) bool {
 		}
 	}
 
-	data := x.verify(zerver.Bytes(token))
+	data := x.verify(unsafe2.Bytes(token))
 	if data != nil {
 		x.Pool.Put(data)
 		t, ip, agent := x.TokenInfo.Unmarshal(data)
