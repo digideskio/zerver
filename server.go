@@ -83,19 +83,6 @@ type (
 		activeConns sync.WaitGroup // connections in service, don't include hijacked and websocket connections
 	}
 
-	// Component is a Object which will automaticlly initial/destroyed by server
-	// if it's added to server, else it should initial manually
-	Component interface {
-		Init(Enviroment) error
-		Destroy()
-	}
-
-	ComponentState struct {
-		Initialized bool
-		NoLazy      bool
-		Component
-	}
-
 	// HeaderChecker is a http header checker, it accept a function which can get
 	// http header's value by name , if there is something wrong, throw an error
 	// to terminate this request
@@ -108,20 +95,9 @@ type (
 		ResourceMaster() *resource.Master
 		Logger() Logger
 		StartTask(path string, value interface{})
-		Component(name string) (Component, error)
+		Component(name string) (interface{}, error)
 	}
 )
-
-func (o *ServerOption) init() {
-	defval.String(&o.ListenAddr, ":4000")
-	defval.String(&o.ContentType, resource.CONTENTTYPE_JSON)
-	defval.Int(&o.PathVarCount, 3)
-	defval.Int(&o.FilterCount, 5)
-	defval.Int(&o.KeepAlivePeriod, 3) // same as net/http/server.go:tcpKeepAliveListener
-	if o.Logger == nil {
-		o.Logger = DefaultLogger()
-	}
-}
 
 // NewServer create a new server with default router
 func NewServer() *Server {
@@ -157,39 +133,61 @@ func (s *Server) ResourceMaster() *resource.Master {
 	return &s.ResMaster
 }
 
-func (s *Server) Component(name string) (Component, error) {
+func (s *Server) Component(name string) (interface{}, error) {
 	s.RLock()
-	if c, has := s.components[name]; has {
+	c, has := s.components[name]
+	if !has {
 		s.RUnlock()
-		var err error
-		if !c.Initialized {
-			s.Lock()
-			if !c.Initialized {
-				if err = c.Component.Init(s); err == nil {
-					c.Initialized = true
-				}
-			}
-			s.Unlock()
-		}
-		return c.Component, err
+		return nil, ErrComponentNotFound
 	}
+
 	s.RUnlock()
-	return nil, ErrComponentNotFound
+	if c.value != nil {
+		return c.value, nil
+	}
+
+	var err error
+	if !c.Initialized {
+		s.Lock()
+		if !c.Initialized {
+			if err = c.Component.(Component).Init(s); err == nil { // must be a Component
+				c.Initialized = true
+			}
+		}
+		s.Unlock()
+	}
+	return c.Component, err
 }
 
-func (s *Server) AddComponent(name string, c ComponentState) error {
-	if name != "" && c.Component != nil {
-		if !c.Initialized && c.NoLazy {
-			if err := c.Init(s); err != nil {
-				return err
-			}
+// AddComponent let server manage this component and it's lifetime.
+//
+// If name is "", component must implements Component, and it will initialized at
+// server start and can't be accessed by name.
+//
+// Otherwise, it can be a Component, ComponentState, or others.
+// Component is treat as Not Initialized, and is not NoLazy.
+// ComponentState use it's own way.
+// Others treat as Initialized.
+func (s *Server) AddComponent(name string, component interface{}) error {
+	if name == "" {
+		if c, is := component.(Component); is {
+			s.managedComponents = append(s.managedComponents, c)
 		}
-		s.Lock()
-		s.components[name] = c
-		s.Unlock()
 		return nil
 	}
-	s.Log.PanicDepth(1, "empty name or nil component is not allowed")
+
+	comp := convertComponentState(component)
+	if !comp.Initialized && comp.NoLazy {
+		if err := comp.Init(s); err != nil {
+			return err
+		} else {
+			comp.Initialized = true
+		}
+	}
+
+	s.Lock()
+	s.components[name] = comp
+	s.Unlock()
 	return nil
 }
 
@@ -207,13 +205,6 @@ func (s *Server) RemoveComponent(name string) {
 		delete(s.components, name)
 		s.Unlock()
 	}
-}
-
-// ManageComponent manage those filters used in InterceptHandler, or those added to
-// multiple routes, for first condition, ManageComponent used to Init them;
-// for second condition, ManageComponent used to avoid multiple call of Init
-func (s *Server) ManageComponent(c Component) {
-	s.managedComponents = append(s.managedComponents, c)
 }
 
 // StartTask start a task synchronously, the value will be passed to task handler
@@ -281,20 +272,15 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	recycleFilters(filters)
 }
 
-// from net/http/server/go
-type tcpKeepAliveListener struct {
-	*net.TCPListener
-	AlivePeriod int // alive period by minutes
-}
-
-func (ln *tcpKeepAliveListener) Accept() (c net.Conn, err error) {
-	tc, err := ln.AcceptTCP()
-	if err != nil {
-		return
+func (o *ServerOption) init() {
+	defval.String(&o.ListenAddr, ":4000")
+	defval.String(&o.ContentType, resource.CONTENTTYPE_JSON)
+	defval.Int(&o.PathVarCount, 3)
+	defval.Int(&o.FilterCount, 5)
+	defval.Int(&o.KeepAlivePeriod, 3) // same as net/http/server.go:tcpKeepAliveListener
+	if o.Logger == nil {
+		o.Logger = DefaultLogger()
 	}
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(time.Duration(ln.AlivePeriod) * time.Minute)
-	return tc, nil
 }
 
 // all log message before server start will use standard log package
@@ -305,7 +291,9 @@ func (s *Server) config(o *ServerOption) {
 			log.Panicln(err)
 		}
 	}
+
 	s.Log = o.Logger
+
 	log.Println("ContentType:", o.ContentType)
 	s.contentType = o.ContentType
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
@@ -362,6 +350,22 @@ func (s *Server) Start(opt *ServerOption) error {
 		err = srv.Serve(l)
 	}
 	return err
+}
+
+// from net/http/server/go
+type tcpKeepAliveListener struct {
+	*net.TCPListener
+	AlivePeriod int // alive period by minutes
+}
+
+func (ln *tcpKeepAliveListener) Accept() (c net.Conn, err error) {
+	tc, err := ln.AcceptTCP()
+	if err != nil {
+		return
+	}
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(time.Duration(ln.AlivePeriod) * time.Minute)
+	return tc, nil
 }
 
 func (*Server) listen(opt *ServerOption) (net.Listener, error) {

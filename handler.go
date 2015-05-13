@@ -29,7 +29,6 @@ type (
 	// MethodHandler will apply standard handler mapping rule,
 	// each method is correspond to it's handle function
 	MethodHandler interface {
-		Component
 		Get(Request, Response)
 		Post(Request, Response)
 		Delete(Request, Response)
@@ -37,7 +36,11 @@ type (
 		Patch(Request, Response)
 	}
 
+	// FakeMethodHandler's all method report 405(method not allowed)
+	FakeMethodHandler struct{}
+
 	standardHandler struct {
+		Component
 		MethodHandler
 	}
 
@@ -60,7 +63,16 @@ func convertHandler(i interface{}) Handler {
 	case map[string]HandleFunc:
 		return MapHandler(h)
 	case MethodHandler:
-		return standardHandler{MethodHandler: h}
+		var comp Component
+		if c, is := h.(Component); is {
+			comp = c
+		} else {
+			comp = FakeComponent{}
+		}
+		return standardHandler{
+			Component:     comp,
+			MethodHandler: h,
+		}
 	}
 	return nil
 }
@@ -109,4 +121,24 @@ func (fh MapHandler) Destroy() {
 // setMethodHandler setup method handler for MapHandler
 func (fh MapHandler) setMethodHandler(method string, handleFunc HandleFunc) {
 	fh[method] = handleFunc
+}
+
+func (FakeMethodHandler) Get(_ Request, resp Response) {
+	resp.ReportMethodNotAllowed()
+}
+
+func (FakeMethodHandler) Post(_ Request, resp Response) {
+	resp.ReportMethodNotAllowed()
+}
+
+func (FakeMethodHandler) Delete(_ Request, resp Response) {
+	resp.ReportMethodNotAllowed()
+}
+
+func (FakeMethodHandler) Put(_ Request, resp Response) {
+	resp.ReportMethodNotAllowed()
+}
+
+func (FakeMethodHandler) Patch(_ Request, resp Response) {
+	resp.ReportMethodNotAllowed()
 }
