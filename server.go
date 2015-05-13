@@ -112,6 +112,7 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 	if rt == nil {
 		rt = NewRouter()
 	}
+
 	return &Server{
 		Router:        rt,
 		AttrContainer: NewLockedAttrContainer(),
@@ -140,8 +141,8 @@ func (s *Server) Component(name string) (interface{}, error) {
 		s.RUnlock()
 		return nil, ErrComponentNotFound
 	}
-
 	s.RUnlock()
+
 	if c.value != nil {
 		return c.value, nil
 	}
@@ -156,6 +157,7 @@ func (s *Server) Component(name string) (interface{}, error) {
 		}
 		s.Unlock()
 	}
+
 	return c.Component, err
 }
 
@@ -188,6 +190,7 @@ func (s *Server) AddComponent(name string, component interface{}) error {
 	s.Lock()
 	s.components[name] = comp
 	s.Unlock()
+
 	return nil
 }
 
@@ -209,11 +212,12 @@ func (s *Server) RemoveComponent(name string) {
 
 // StartTask start a task synchronously, the value will be passed to task handler
 func (s *Server) StartTask(path string, value interface{}) {
-	if handler := s.MatchTaskHandler(&url.URL{Path: path}); handler != nil {
-		handler.Handle(value)
-		return
+	handler := s.MatchTaskHandler(&url.URL{Path: path})
+	if handler == nil {
+		s.Log.Panicln("No task handler found for:", path)
 	}
-	s.Log.Panicln("No task handler found for:", path)
+
+	handler.Handle(value)
 }
 
 // ServHttp serve for http reuest
@@ -223,6 +227,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	if l := len(path); l > 1 && path[l-1] == '/' {
 		request.URL.Path = path[:l-1]
 	}
+
 	if websocket.IsWebSocketRequest(request) {
 		s.serveWebSocket(w, request)
 	} else {
@@ -235,9 +240,12 @@ func (s *Server) serveWebSocket(w http.ResponseWriter, request *http.Request) {
 	handler, indexer := s.MatchWebSocketHandler(request.URL)
 	if handler == nil {
 		w.WriteHeader(http.StatusNotFound)
-	} else if conn, err := websocket.UpgradeWebsocket(w, request, s.checker); err == nil {
-		handler.Handle(newWebSocketConn(s, conn, indexer))
-		indexer.destroySelf()
+	} else {
+		conn, err := websocket.UpgradeWebsocket(w, request, s.checker)
+		if err == nil {
+			handler.Handle(newWebSocketConn(s, conn, indexer))
+			indexer.destroySelf()
+		}
 	} // else connecion will be auto-closed when error occoured,
 }
 
@@ -246,11 +254,11 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	url := request.URL
 	url.Host = request.Host
 	handler, indexer, filters := s.MatchHandlerFilters(url)
+
 	reqEnv := newRequestEnvFromPool()
 	res := s.ResMaster.Resource(reqEnv.req.ContentType())
 	req := reqEnv.req.init(s, res, request, indexer)
 	resp := reqEnv.resp.init(s, res, w)
-
 	if s.contentType != _CONTENTTYPE_DISABLE {
 		resp.SetContentType(s.contentType)
 	}
@@ -345,6 +353,7 @@ func (s *Server) Start(opt *ServerOption) error {
 		opt = &ServerOption{}
 	}
 	s.config(opt)
+
 	l, err := s.listen(opt)
 	if err == nil {
 		s.listener = l
@@ -356,6 +365,7 @@ func (s *Server) Start(opt *ServerOption) error {
 		}
 		err = srv.Serve(l)
 	}
+
 	return err
 }
 
@@ -374,6 +384,7 @@ func (ln *tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	// if keep-alive fail, don't care
 	_ = tc.SetKeepAlive(true)
 	_ = tc.SetKeepAlivePeriod(time.Duration(ln.AlivePeriod) * time.Minute)
+
 	return tc, nil
 }
 
@@ -389,11 +400,11 @@ func (s *Server) listen(opt *ServerOption) (net.Listener, error) {
 			ln = tls.NewListener(ln, opt.TLSConfig)
 		} else if opt.CertFile != "" {
 			// from net/http/server.go.ListenAndServeTLS
-			// TODO: support verify client certs
 			tc := &tls.Config{
 				NextProtos:   []string{"http/1.1"},
 				Certificates: make([]tls.Certificate, 1),
 			}
+
 			tc.Certificates[0], err = tls.LoadX509KeyPair(opt.CertFile, opt.KeyFile)
 			if err == nil {
 				if opt.CAs != nil {
@@ -411,8 +422,9 @@ func (s *Server) listen(opt *ServerOption) (net.Listener, error) {
 
 	if err != nil && ln != nil {
 		s.warnLog(ln.Close())
-		return nil, err
+		ln = nil
 	}
+
 	return ln, err
 }
 
@@ -446,6 +458,7 @@ func (s *Server) Destroy() {
 		// release resources
 		s.RootFilters.Destroy()
 		s.Router.Destroy()
+
 		for _, c := range s.components {
 			c.Destroy()
 		}

@@ -41,6 +41,7 @@ func parseRequestMethod(s string) string {
 	if s == "" {
 		return GET
 	}
+
 	return strings.ToUpper(s)
 }
 
@@ -49,5 +50,6 @@ func parseContentType(str string) string {
 	if str == "" {
 		return resource.CONTENTTYPE_JSON
 	}
+
 	return strings.ToLower(strings.TrimSpace(str))
 }

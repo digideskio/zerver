@@ -32,14 +32,17 @@ var _defaultPool *serverPool
 
 func init() {
 	_defaultPool = &serverPool{otherPools: make(map[int]*sync.Pool)}
+
 	_defaultPool.requestEnvPool.New = func() interface{} {
 		env := &requestEnv{}
 		env.req.AttrContainer = NewAttrContainer()
 		return env
 	}
+
 	_defaultPool.varIndexerPool.New = func() interface{} {
 		return &urlVarIndexer{values: make([]string, 0, pathVarCount)}
 	}
+
 	_defaultPool.filtersPool.New = func() interface{} {
 		return make([]Filter, 0, filterCount)
 	}
@@ -50,6 +53,7 @@ func ReigisterPool(id int, newFunc func() interface{}) error {
 	if _, has := op[id]; has {
 		return errors.New("Pool for ", id, " already exist")
 	}
+
 	op[id] = &sync.Pool{New: newFunc}
 	return nil
 }

@@ -69,11 +69,13 @@ func convertHandler(i interface{}) Handler {
 		} else {
 			comp = FakeComponent{}
 		}
+
 		return standardHandler{
 			Component:     comp,
 			MethodHandler: h,
 		}
 	}
+
 	return nil
 }
 
@@ -96,31 +98,33 @@ func (s standardHandler) Handler(method string) HandleFunc {
 	case PATCH:
 		return s.Patch
 	}
+
 	return nil
 }
 
-func (fh MapHandler) Init(Enviroment) error {
-	for m, h := range fh {
-		delete(fh, m)
-		fh[strings.ToUpper(m)] = h
+func (mh MapHandler) Init(Enviroment) error {
+	for m, h := range mh {
+		delete(mh, m)
+		mh[strings.ToUpper(m)] = h
 	}
+
 	return nil
 }
 
 // MapHandler implements MethodIndicator interface for custom method handler
-func (fh MapHandler) Handler(method string) (handleFunc HandleFunc) {
-	return fh[method]
+func (mh MapHandler) Handler(method string) HandleFunc {
+	return mh[method]
 }
 
-func (fh MapHandler) Destroy() {
-	for m := range fh {
-		delete(fh, m)
+func (mh MapHandler) Destroy() {
+	for m := range mh {
+		delete(mh, m)
 	}
 }
 
 // setMethodHandler setup method handler for MapHandler
-func (fh MapHandler) setMethodHandler(method string, handleFunc HandleFunc) {
-	fh[method] = handleFunc
+func (mh MapHandler) setMethodHandler(method string, handleFunc HandleFunc) {
+	mh[method] = handleFunc
 }
 
 func (FakeMethodHandler) Get(_ Request, resp Response) {

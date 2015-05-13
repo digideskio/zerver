@@ -58,15 +58,17 @@ func convertFilter(i interface{}) Filter {
 	case Filter:
 		return f
 	}
+
 	return nil
 }
 
 func panicConvertFilter(i interface{}) Filter {
-	if f := convertFilter(i); f != nil {
-		return f
+	f := convertFilter(i)
+	if f == nil {
+		log.Panicln("Not a filter")
 	}
-	log.Panicln("Not a filter")
-	return nil
+
+	return f
 }
 
 // FilterFunc is a function Filter
@@ -77,21 +79,21 @@ func (fn FilterFunc) Filter(req Request, resp Response, chain FilterChain) {
 }
 
 func NewRootFilters(filters []Filter) RootFilters {
-	var rfs = rootFilters(filters)
+	rfs := rootFilters(filters)
 	if filters == nil {
 		rfs = make(rootFilters, 0)
-		return &rfs
 	}
+
 	return &rfs
 }
 
 func (rfs *rootFilters) Init(e Enviroment) error {
-	for _, f := range *rfs {
-		if err := f.Init(e); err != nil {
-			return err
-		}
+	var err error
+	for i := 0; i < len(*rfs) && err == nil; i++ {
+		err = (*rfs)[i].Init(e)
 	}
-	return nil
+
+	return err
 }
 
 // Filters returl all root filters
@@ -119,11 +121,13 @@ func newFilterChain(filters []Filter, handler func(Request, Response)) FilterCha
 	if handler == nil {
 		handler = EmptyHandlerFunc
 	}
+
 	if l := len(filters); l == 0 {
 		return handler
 	} else if l == 1 {
 		return FilterChain(newInterceptor(handler, filters[0]))
 	}
+
 	return (&filterChain{
 		filters: filters,
 		handler: handler,
@@ -151,9 +155,11 @@ func Intercept(handler HandleFunc, filters ...interface{}) HandleFunc {
 	if handler == nil {
 		handler = EmptyHandlerFunc
 	}
+
 	if len(filters) == 0 {
 		return handler
 	}
+
 	return newInterceptor(Intercept(handler, filters[1:]...), panicConvertFilter(filters[0]))
 }
 

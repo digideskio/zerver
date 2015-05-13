@@ -39,14 +39,16 @@ type MessageQueue struct {
 }
 
 func (m *MessageQueue) Init(Enviroment) error {
-	if m.Bufsize == 0 {
-		m.Bufsize = 1024
-	}
-	m.queue = make(chan interface{}, m.Bufsize)
-	m.signal = make(chan byte)
 	if m.MessageProcessor == nil {
 		return errors.Err("message processor shouldn't be nil")
 	}
+	if m.Bufsize == 0 {
+		m.Bufsize = 1024
+	}
+
+	m.queue = make(chan interface{}, m.Bufsize)
+	m.signal = make(chan byte)
+
 	go func() {
 		for {
 			select {
@@ -57,6 +59,7 @@ func (m *MessageQueue) Init(Enviroment) error {
 			}
 		}
 	}()
+
 	return nil
 }
 

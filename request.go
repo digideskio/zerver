@@ -73,6 +73,7 @@ func (req *request) init(e Enviroment, r resource.Resource, requ *http.Request, 
 	req.request = requ
 	req.header = requ.Header
 	req.URLVarIndexer = varIndexer
+
 	method := requ.Method
 	if method == POST {
 		if m := requ.Header.Get(HEADER_METHODOVERRIDE); m != "" {
@@ -81,6 +82,7 @@ func (req *request) init(e Enviroment, r resource.Resource, requ *http.Request, 
 	}
 	req.method = strings.ToUpper(method)
 	req.res = r
+
 	return req
 }
 
@@ -120,10 +122,12 @@ func (req *request) Method() string {
 
 // Cookie return cookie value with given name
 func (req *request) Cookie(name string) string {
-	if c, err := req.request.Cookie(name); err == nil {
-		return c.Value
+	c, err := req.request.Cookie(name)
+	if err != nil {
+		return ""
 	}
-	return ""
+
+	return c.Value
 }
 
 // RemoteAddr return remote address
@@ -135,6 +139,7 @@ func (req *request) RemoteIP() string {
 	if ip := req.Header(HEADER_REALIP); ip != "" {
 		return ip
 	}
+
 	addr := req.RemoteAddr()
 	return addr[:strings2.LastIndexByte(addr, ':')]
 }
@@ -145,6 +150,7 @@ func (req *request) Param(name string) (value string) {
 	if len(params) > 0 {
 		value = params[0]
 	}
+
 	return
 }
 
@@ -167,6 +173,7 @@ func (req *request) Params(name string) []string {
 		}
 		req.params = params
 	}
+
 	return params[name]
 }
 
@@ -200,6 +207,7 @@ func (req *request) Authorization() (string, bool) {
 			auth = ""
 		}
 	}
+
 	return auth, basic
 }
 
@@ -209,6 +217,7 @@ func (req *request) BasicAuth() (string, string) {
 	if auth, basic := req.Authorization(); basic {
 		return strings2.Seperate(auth, ':')
 	}
+
 	return "", ""
 }
 
@@ -226,5 +235,6 @@ func (req *request) Receive(v interface{}) error {
 	if req.res == nil {
 		req.Logger().Panicln("There is no resource type match this request:" + req.ContentType())
 	}
+
 	return req.res.Receive(req, v)
 }

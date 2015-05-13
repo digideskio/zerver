@@ -87,6 +87,7 @@ func (e existError) Error() string {
 func NewRouter() Router {
 	rt := new(router)
 	rt.noFilter = true
+
 	return rt
 }
 
@@ -103,18 +104,23 @@ func (rt *router) Init(env Enviroment) (err error) {
 	if rt.handler != nil {
 		err = rt.handler.Init(env)
 	}
+
 	for i := 0; i < len(rt.filters) && err == nil; i++ {
 		err = rt.filters[i].Init(env)
 	}
+
 	if err == nil && rt.wsHandler != nil {
 		err = rt.wsHandler.Init(env)
 	}
+
 	if err == nil && rt.taskHandler != nil {
 		err = rt.taskHandler.Init(env)
 	}
+
 	for i := 0; i < len(rt.childs) && err == nil; i++ {
 		err = rt.childs[i].Init(env)
 	}
+
 	return
 }
 
@@ -123,15 +129,19 @@ func (rt *router) Destroy() {
 	if rt.handler != nil {
 		rt.handler.Destroy()
 	}
+
 	for _, f := range rt.filters {
 		f.Destroy()
 	}
+
 	if rt.wsHandler != nil {
 		rt.wsHandler.Destroy()
 	}
+
 	if rt.taskHandler != nil {
 		rt.taskHandler.Destroy()
 	}
+
 	for _, c := range rt.childs {
 		c.Destroy()
 	}
@@ -169,7 +179,9 @@ func (rt *router) Group(prefix string, fn func(Router)) {
 // HandleFunc add HandleFunc to router for given pattern and method
 func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) (err error) {
 	method = parseRequestMethod(method)
-	if fHandler := _tmpGetMapHandler(rt, pattern); fHandler == nil {
+
+	fHandler := _tmpGetMapHandler(rt, pattern)
+	if fHandler == nil {
 		fHandler = make(MapHandler)
 		fHandler.setMethodHandler(method, handler)
 		if err = rt.Handle(pattern, fHandler); err == nil {
@@ -178,6 +190,7 @@ func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) (err er
 	} else {
 		fHandler.setMethodHandler(method, handler)
 	}
+
 	return
 }
 
@@ -196,6 +209,7 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 	if handler == nil || pattern == "" {
 		log.Panicln("Nil handler or empty pattern is not allowed")
 	}
+
 	routePath, pathVars := compile(pattern)
 	if r, is := handler.(*router); is {
 		if !rt.addPathRouter(routePath, r) {
@@ -203,10 +217,12 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 		}
 		return nil
 	}
+
 	nrt, success := rt.addPath(routePath)
 	if !success {
 		return ErrConflictPathVar
 	}
+
 	if h := convertHandler(handler); h != nil {
 		if nrt.handler != nil {
 			return nrt.reportExistError("Handler", pattern)
@@ -233,6 +249,7 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 	} else {
 		log.Panicln("Not a Router/Handler/Filter/WebSocketHandler/TaskHandler")
 	}
+
 	return nil
 }
 
@@ -242,22 +259,24 @@ func (rt *router) MatchWebSocketHandler(url *url.URL) (WebSocketHandler, URLVarI
 	indexer := newVarIndexerFromPool()
 	rt, values := rt.matchOne(path, indexer.values)
 	indexer.values = values
-	if rt != nil {
-		if ws := rt.wsHandler; ws != nil {
-			indexer.vars = rt.wsHandlerVars
-			indexer.pattern = rt.wsHandlerPattern
-			return ws, indexer
-		}
+
+	if rt == nil || rt.wsHandler == nil {
+		return nil, indexer
 	}
-	return nil, indexer
+
+	indexer.vars = rt.wsHandlerVars
+	indexer.pattern = rt.wsHandlerPattern
+
+	return rt.wsHandler, indexer
 }
 
 // MatchTaskhandler match url to find final task handler
 func (rt *router) MatchTaskHandler(url *url.URL) TaskHandler {
-	if rt = rt.matchOnly(url.Path); rt != nil {
-		return rt.taskHandler
+	if rt = rt.matchOnly(url.Path); rt == nil {
+		return nil
 	}
-	return nil
+
+	return rt.taskHandler
 }
 
 // // MatchHandler match url to find final websocket handler
@@ -276,14 +295,14 @@ func (rt *router) MatchTaskHandler(url *url.URL) TaskHandler {
 // }
 
 // MatchHandlerFilters match url to fin final handler and each filters
-func (rt *router) MatchHandlerFilters(url *url.URL) (Handler,
-	URLVarIndexer, []Filter) {
+func (rt *router) MatchHandlerFilters(url *url.URL) (Handler, URLVarIndexer, []Filter) {
 	var (
 		path    = url.Path
 		indexer = newVarIndexerFromPool()
 		values  = indexer.values
 		filters []Filter
 	)
+
 	if rt.noFilter {
 		rt, values = rt.matchOne(path, indexer.values)
 	} else {
@@ -299,14 +318,15 @@ func (rt *router) MatchHandlerFilters(url *url.URL) (Handler,
 		}
 	}
 	indexer.values = values
-	if rt != nil {
-		if h := rt.handler; h != nil {
-			indexer.vars = rt.handlerVars
-			indexer.pattern = rt.handlerPattern
-			return h, indexer, filters
-		}
+
+	if rt == nil || rt.handler == nil {
+		return nil, indexer, filters
 	}
-	return nil, indexer, filters
+
+	indexer.vars = rt.handlerVars
+	indexer.pattern = rt.handlerPattern
+
+	return rt.handler, indexer, filters
 }
 
 // addPath add an new path to route, use given function to operate the final
@@ -317,10 +337,12 @@ func (rt *router) addPath(path string) (*router, bool) {
 		rt.str = path
 		return rt, true
 	}
+
 	diff, pathLen, strLen := 0, len(path), len(str)
 	for diff != pathLen && diff != strLen && path[diff] == str[diff] {
 		diff++
 	}
+
 	if diff < pathLen {
 		first := path[diff]
 		if diff == strLen {
@@ -332,14 +354,17 @@ func (rt *router) addPath(path string) (*router, bool) {
 		} else { // diff < strLen
 			rt.moveAllToChild(str[diff:], str[:diff])
 		}
+
 		newNode := &router{str: path[diff:]}
 		if !rt.addChild(first, newNode) {
 			return nil, false
 		}
+
 		rt = newNode
 	} else if diff < strLen {
 		rt.moveAllToChild(str[diff:], path)
 	}
+
 	return rt, true
 }
 
@@ -354,6 +379,7 @@ func (rt *router) addPathRouter(path string, r *router) bool {
 		for diff != pathLen && diff != strLen && path[diff] == str[diff] {
 			diff++
 		}
+
 		if diff < pathLen {
 			first := path[diff]
 			if diff == strLen {
@@ -365,11 +391,13 @@ func (rt *router) addPathRouter(path string, r *router) bool {
 			} else { // diff < strLen
 				rt.moveAllToChild(str[diff:], str[:diff])
 			}
+
 			r.str = path[diff:] + r.str
 		} else if diff < strLen {
 			if str[diff] == '/' {
 				return false
 			}
+
 			rt.moveAllToChild(str[diff:], path)
 		} else {
 			for _, c := range rt.chars {
@@ -379,6 +407,7 @@ func (rt *router) addPathRouter(path string, r *router) bool {
 			}
 		}
 	}
+
 	rt.addChild(first, r)
 	return true
 }
@@ -392,6 +421,7 @@ func (rt *router) moveAllToChild(childStr string, newStr string) {
 		childs:         rt.childs,
 		routeProcessor: rt.routeProcessor,
 	}
+
 	rt.chars, rt.childs, rt.routeProcessor = nil, nil, routeProcessor{}
 	rt.addChild(childStr[0], rnCopy)
 	rt.str = newStr
@@ -404,6 +434,7 @@ func (rt *router) addChild(b byte, n *router) bool {
 	if l > 0 && chars[l-1] >= _WILDCARD && b >= _WILDCARD {
 		return false
 	}
+
 	chars, childs = make([]byte, l+1), make([]*router, l+1)
 	copy(chars, rt.chars)
 	copy(childs, rt.childs)
@@ -412,6 +443,7 @@ func (rt *router) addChild(b byte, n *router) bool {
 	}
 	chars[l], childs[l] = b, n
 	rt.chars, rt.childs = chars, childs
+
 	return true
 }
 
@@ -434,10 +466,12 @@ func (rt *router) matchMultiple(path string, pathIndex int, values []string) (in
 	[]string, *router, bool) {
 	str, strIndex := rt.str, 0
 	strLen, pathLen := len(str), len(path)
+
 	for strIndex < strLen {
 		if pathIndex != pathLen {
 			c := str[strIndex]
 			strIndex++
+
 			switch c {
 			case path[pathIndex]: // else check character MatchPath or not
 				pathIndex++
@@ -459,6 +493,7 @@ func (rt *router) matchMultiple(path string, pathIndex int, values []string) (in
 			return -1, nil, nil, false // path parse end
 		}
 	}
+
 	if pathIndex != pathLen { // path not parse end, to find a child node to continue
 		p := path[pathIndex]
 		for i, c := range rt.chars {
@@ -468,6 +503,7 @@ func (rt *router) matchMultiple(path string, pathIndex int, values []string) (in
 		}
 		rt = nil
 	}
+
 	return pathIndex, values, rt, false
 }
 
@@ -478,6 +514,7 @@ func (rt *router) matchOne(path string, values []string) (*router, []string) {
 		strIndex, strLen   int
 		pathIndex, pathLen = 0, len(path)
 	)
+
 AGAIN:
 	str, strIndex = rt.str, 0
 	strLen = len(str)
@@ -485,6 +522,7 @@ AGAIN:
 		if pathIndex != pathLen {
 			c := str[strIndex]
 			strIndex++
+
 			switch c {
 			case path[pathIndex]: // else check character MatchPath or not
 				pathIndex++
@@ -505,6 +543,7 @@ AGAIN:
 			return nil, nil // path parse end
 		}
 	}
+
 	if pathIndex != pathLen { // path not parse end, must find a child node to continue
 		p := path[pathIndex]
 		for i, c := range rt.chars {
@@ -513,8 +552,10 @@ AGAIN:
 				goto AGAIN
 			}
 		}
+
 		rt = nil // child to parse
 	} /* else { path parse end, node is the last matched node }*/
+
 	return rt, values
 }
 
@@ -525,6 +566,7 @@ func (rt *router) matchOnly(path string) *router {
 		strIndex, strLen   int
 		pathIndex, pathLen = 0, len(path)
 	)
+
 AGAIN:
 	str, strIndex = rt.str, 0
 	strLen = len(str)
@@ -532,6 +574,7 @@ AGAIN:
 		if pathIndex != pathLen {
 			c := str[strIndex]
 			strIndex++
+
 			switch c {
 			case path[pathIndex]: // else check character MatchPath or not
 				pathIndex++
@@ -548,6 +591,7 @@ AGAIN:
 			return nil // path parse end
 		}
 	}
+
 	if pathIndex != pathLen { // path not parse end, must find a child node to continue
 		p := path[pathIndex]
 		for i, c := range rt.chars {
@@ -558,18 +602,20 @@ AGAIN:
 		}
 		rt = nil // not found
 	} /* else { path parse end, node is the last matched node }*/
+
 	return rt
 }
 
 // isInvalidSection check whether section has the predefined _WILDCARD and match
 // all character
 func isInvalidSection(s string) bool {
-	for _, c := range s {
-		if bc := byte(c); bc >= _WILDCARD {
-			return true
-		}
+	var invalid bool
+
+	for i := 0; i < len(s) && !invalid; i++ {
+		invalid = s[i] >= _WILDCARD
 	}
-	return false
+
+	return invalid
 }
 
 var (
@@ -586,19 +632,24 @@ var (
 func compile(path string) (newPath string, vars map[string]int) {
 	path = strings.TrimSpace(path)
 	l := len(path)
+
 	if path[0] != '/' {
 		log.Panicln("Invalid pattern, must start with '/': " + path)
 	}
+
 	if l != 1 && path[l-1] == '/' {
 		path = path[:l-1]
 	}
+
 	sections := strings.Split(path[1:], "/")
 	new := make([]byte, 0, len(path))
 	varIndex := 0
+
 	for _, s := range sections {
 		new = append(new, '/')
 		last := len(s)
 		i := last - 1
+
 		var c byte
 		for ; i >= 0; i-- {
 			if s[i] == _MATCH_WILDCARD {
@@ -608,6 +659,7 @@ func compile(path string) (newPath string, vars map[string]int) {
 			} else {
 				continue
 			}
+
 			if name := s[i+1:]; len(name) > 0 {
 				if isInvalidSection(name) {
 					log.Panicf("path %s has pre-defined characters %c or %c\n",
@@ -618,10 +670,12 @@ func compile(path string) (newPath string, vars map[string]int) {
 				}
 				vars[name] = varIndex
 			}
+
 			varIndex++
 			last = i
 			break
 		}
+
 		if last != 0 {
 			new = append(new, []byte(s[:last])...)
 		}
@@ -629,10 +683,12 @@ func compile(path string) (newPath string, vars map[string]int) {
 			new = append(new, c)
 		}
 	}
+
 	newPath = string(new)
 	if vars == nil {
 		vars = emptyVars
 	}
+
 	return
 }
 
@@ -647,6 +703,7 @@ func (rt *router) printRouteTree(w io.Writer, parentPath string) {
 	if parentPath != "" {
 		parentPath = parentPath + _PRINT_SEP
 	}
+
 	s := []byte(rt.str)
 	for i := range s {
 		if s[i] == _WILDCARD {
@@ -655,6 +712,7 @@ func (rt *router) printRouteTree(w io.Writer, parentPath string) {
 			s[i] = _MATCH_REMAINSALL
 		}
 	}
+
 	cur := parentPath + string(s)
 	if _, e := w.Write(unsafe2.Bytes(cur + "\n")); e == nil {
 		rt.accessAllChilds(func(n *router) bool {
@@ -678,6 +736,7 @@ func _tmpGetMapHandler(rt *router, pattern string) MapHandler {
 	if h == nil {
 		return nil
 	}
+
 	return h.(MapHandler)
 }
 

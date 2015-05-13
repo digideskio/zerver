@@ -102,6 +102,7 @@ func (resp *response) init(env Enviroment, r resource.Resource, w http.ResponseW
 	resp.ResponseWriter = w
 	resp.header = w.Header()
 	resp.status = http.StatusOK
+
 	return resp
 }
 
@@ -138,10 +139,10 @@ func (resp *response) flushHeader() {
 func (resp *response) Write(data []byte) (i int, err error) {
 	resp.flushHeader()
 	// inspired by official go blog "Errors are value: http://blog.golang.org/errors-are-values"
-	if err = resp.err; err == nil {
-		i, err = resp.ResponseWriter.Write(data)
-		resp.err = err
+	if resp.err == nil {
+		i, resp.err = resp.ResponseWriter.Write(data)
 	}
+
 	return
 }
 
@@ -168,11 +169,13 @@ func (resp *response) Status() int {
 
 // Hijack hijack response connection
 func (resp *response) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	if hijacker, is := resp.ResponseWriter.(http.Hijacker); is {
-		resp.hijacked = true
-		return hijacker.Hijack()
+	hijacker, is := resp.ResponseWriter.(http.Hijacker)
+	if !is {
+		return nil, nil, ErrHijack
 	}
-	return nil, nil, ErrHijack
+
+	resp.hijacked = true
+	return hijacker.Hijack()
 }
 
 // Flush flush response's output
@@ -253,5 +256,6 @@ func (resp *response) Send(key string, value interface{}) error {
 	if resp.res == nil {
 		resp.env.Logger().Panicln("There is no resource type match this request")
 	}
+
 	return resp.res.Send(resp, key, value)
 }
