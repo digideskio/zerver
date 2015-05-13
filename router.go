@@ -177,21 +177,24 @@ func (rt *router) Group(prefix string, fn func(Router)) {
 }
 
 // HandleFunc add HandleFunc to router for given pattern and method
-func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) (err error) {
+func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) error {
 	method = parseRequestMethod(method)
 
 	fHandler := _tmpGetMapHandler(rt, pattern)
-	if fHandler == nil {
-		fHandler = make(MapHandler)
+	if fHandler != nil {
 		fHandler.setMethodHandler(method, handler)
-		if err = rt.Handle(pattern, fHandler); err == nil {
-			_tmpSetMapHandler(rt, pattern, fHandler)
-		}
-	} else {
-		fHandler.setMethodHandler(method, handler)
+		return nil
 	}
 
-	return
+	fHandler = make(MapHandler)
+	fHandler.setMethodHandler(method, handler)
+	if err := rt.Handle(pattern, fHandler); err != nil {
+		return err
+	}
+
+	_tmpSetMapHandler(rt, pattern, fHandler)
+
+	return nil
 }
 
 // Handle add
@@ -215,6 +218,7 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 		if !rt.addPathRouter(routePath, r) {
 			return rt.reportExistError("Router", pattern)
 		}
+
 		return nil
 	}
 
@@ -227,29 +231,45 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 		if nrt.handler != nil {
 			return nrt.reportExistError("Handler", pattern)
 		}
+
 		nrt.handler = h
 		nrt.handlerVars = pathVars
 		nrt.handlerPattern = pattern
-	} else if f := convertFilter(handler); f != nil {
+
+		return nil
+	}
+
+	if f := convertFilter(handler); f != nil {
 		rt.noFilter = false
 		nrt.filters = append(nrt.filters, convertFilter(f))
-	} else if h := convertWebSocketHandler(handler); h != nil {
+
+		return nil
+	}
+
+	if h := convertWebSocketHandler(handler); h != nil {
 		if nrt.wsHandler != nil {
 			return nrt.reportExistError("WebSocketHandler", pattern)
 		}
+
 		nrt.wsHandler = h
 		nrt.wsHandlerVars = pathVars
 		nrt.wsHandlerPattern = pattern
-	} else if h := convertTaskHandler(handler); h != nil {
+
+		return nil
+	}
+
+	if h := convertTaskHandler(handler); h != nil {
 		if nrt.taskHandler != nil {
 			return nrt.reportExistError("TaskHandler", pattern)
 		}
+
 		nrt.taskHandler = h
 		nrt.taskHandlerVars = pathVars
-	} else {
-		log.Panicln("Not a Router/Handler/Filter/WebSocketHandler/TaskHandler")
+
+		return nil
 	}
 
+	log.Panicln("Not a Router/Handler/Filter/WebSocketHandler/TaskHandler")
 	return nil
 }
 

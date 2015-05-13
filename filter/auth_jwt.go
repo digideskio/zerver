@@ -26,6 +26,7 @@ func (j *JWTAuth) Init(s *zerver.Server) error {
 	}
 	defval.String(&j.AuthTokenAttrName, "AuthToken")
 	defval.Nil(&j.JWT.SigningMethod, jwt.SigningMethodHS256)
+
 	return nil
 }
 
@@ -37,6 +38,7 @@ func (j *JWTAuth) Filter(req zerver.Request, resp zerver.Response, chain zerver.
 			return
 		}
 	}
+
 	resp.ReportUnauthorized()
 }
 

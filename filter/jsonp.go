@@ -22,6 +22,7 @@ func (j JSONP) Filter(req zerver.Request, resp zerver.Response, chain zerver.Fil
 		end string
 		err error
 	)
+
 	if req.Method() == "GET" {
 		callback := req.Param(string(j))
 		if callback != "" {
@@ -33,7 +34,9 @@ func (j JSONP) Filter(req zerver.Request, resp zerver.Response, chain zerver.Fil
 			end = ")"
 		}
 	}
+
 	chain(req, resp)
+
 	if end != "" {
 		_, err = resp.WriteString(end)
 	}

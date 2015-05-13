@@ -53,6 +53,7 @@ func (t *Template) Init(env zerver.Enviroment) error {
 		env.Server().RemoveAttr(OPT_TEMPLATE)
 	}
 	o.init()
+
 	files, err := filenames(o.Path, o.Suffixes)
 	if err == nil {
 		_, err = (*tmpl.Template)(t).
@@ -60,6 +61,7 @@ func (t *Template) Init(env zerver.Enviroment) error {
 			Funcs(o.FuncMap).
 			ParseFiles(files...)
 	}
+
 	return err
 }
 
@@ -86,17 +88,20 @@ func filenames(path []string, suffixes []string) (files []string, err error) {
 	for _, s := range suffixes {
 		suffMap[s] = true
 	}
+
 	addTmpl := func(path string, info os.FileInfo, err error) error {
 		if err == nil && !info.IsDir() && isTemplate(path, suffMap) {
 			files = append(files, path)
 		}
 		return err
 	}
+
 	for _, p := range path {
 		if err = filepath.Walk(p, addTmpl); err != nil {
 			break
 		}
 	}
+
 	return files, err
 }
 
@@ -106,5 +111,6 @@ func isTemplate(name string, suffixes map[string]bool) (is bool) {
 	if is = (index >= 0); is {
 		is = suffixes[name[index+1:]]
 	}
+
 	return
 }

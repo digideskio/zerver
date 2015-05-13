@@ -22,6 +22,7 @@ func NewRouter() *Router {
 
 func (r *Router) AddRouter(host string, rt zerver.Router) {
 	l := len(r.hosts) + 1
+
 	hosts, routers := make([]string, l), make([]zerver.Router, l)
 	copy(hosts, r.hosts)
 	copy(routers, r.routers)
@@ -38,6 +39,7 @@ func (r *Router) match(url *url.URL) zerver.Router {
 			return r.routers[i]
 		}
 	}
+
 	return nil
 }
 
@@ -46,6 +48,7 @@ func (r *Router) Init(env zerver.Enviroment) (err error) {
 	for i := 0; i < len(r.routers) && err == nil; i++ {
 		err = r.routers[i].Init(env)
 	}
+
 	return
 }
 
@@ -54,6 +57,7 @@ func (r *Router) Destroy() {
 	for i := 0; i < len(r.routers); i++ {
 		r.routers[i].Destroy()
 	}
+
 	return
 }
 
@@ -62,6 +66,7 @@ func (r *Router) MatchHandlerFilters(url *url.URL) (handler zerver.Handler, inde
 	if router := r.match(url); router != nil {
 		handler, indexer, filters = router.MatchHandlerFilters(url)
 	}
+
 	return
 }
 
@@ -70,6 +75,7 @@ func (r *Router) MatchWebSocketHandler(url *url.URL) (handler zerver.WebSocketHa
 	if router := r.match(url); router != nil {
 		handler, indexer = router.MatchWebSocketHandler(url)
 	}
+
 	return
 }
 
@@ -78,6 +84,7 @@ func (r *Router) MatchTaskHandler(url *url.URL) (handler zerver.TaskHandler) {
 	if router := r.match(url); router != nil {
 		handler = router.MatchTaskHandler(url)
 	}
+
 	return
 }
 
@@ -94,6 +101,7 @@ func (w indentWriter) Write(data []byte) (int, error) {
 		c1, e1 := w.Writer.Write(data)
 		c, e = c+c1, e1
 	}
+
 	return c, e
 }
 

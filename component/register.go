@@ -18,6 +18,7 @@ func Register(s *zerver.Server, info ComponentInfo) error {
 	if info.OptionName != "" {
 		s.SetAttr(info.OptionName, info.Option)
 	}
+
 	return s.AddComponent(info.Name, zerver.ComponentState{
 		Initialized: info.Initialized,
 		NoLazy:      info.NoLazy,

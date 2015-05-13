@@ -41,6 +41,7 @@ func (o *RedisOption) init() {
 	if o.MaxIdle == 0 {
 		o.MaxIdle = 8
 	}
+
 	if o.Dial == nil {
 		var addr string
 		if addr = o.Addr; addr == "" {
@@ -63,11 +64,13 @@ func (r *Redis) Init(env zerver.Enviroment) error {
 		env.Server().RemoveAttr(OPT_REDIS)
 	}
 	o.init()
+
 	r.MaxIdle = o.MaxIdle
 	r.MaxActive = o.MaxActive
 	r.IdleTimeout = time.Duration(o.IdleTimeout) * time.Second
 	r.Dial = o.Dial
 	r.logger = env.Logger()
+
 	return r.Update("PING")
 }
 
@@ -79,6 +82,7 @@ func (r *Redis) Exec(cmd string, args ...interface{}) (interface{}, error) {
 	c := r.Get()
 	reply, err := c.Do(cmd, args...)
 	r.PanicLog(c.Close())
+
 	return reply, err
 }
 
@@ -86,6 +90,7 @@ func (r *Redis) Query(cmd string, args ...interface{}) (interface{}, error) {
 	c := r.Get()
 	reply, err := c.Do(cmd, args...)
 	r.PanicLog(c.Close())
+
 	return reply, err
 }
 
@@ -93,6 +98,7 @@ func (r *Redis) Update(cmd string, args ...interface{}) error {
 	c := r.Get()
 	_, err := c.Do(cmd, args...)
 	r.PanicLog(c.Close())
+
 	return err
 }
 

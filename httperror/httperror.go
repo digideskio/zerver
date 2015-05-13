@@ -42,6 +42,7 @@ func ServerError(e error) Error {
 	if e == nil {
 		return nil
 	}
+
 	return httpError{
 		err:  e,
 		typ:  SERVER,
@@ -53,6 +54,7 @@ func ServiceError(e error) Error {
 	if e == nil {
 		return nil
 	}
+
 	return httpError{
 		err:  e,
 		typ:  SERVICE,
@@ -64,6 +66,7 @@ func AuthError(e error) Error {
 	if e == nil {
 		return nil
 	}
+
 	return httpError{
 		err:  e,
 		typ:  AUTH,
@@ -75,6 +78,7 @@ func DataError(e error) Error {
 	if e == nil {
 		return nil
 	}
+
 	return httpError{
 		err:  e,
 		typ:  DATA,
@@ -86,6 +90,7 @@ func ParseError(e error) Error {
 	if e == nil {
 		return nil
 	}
+
 	return httpError{
 		err:  e,
 		typ:  PARSE,
@@ -95,5 +100,6 @@ func ParseError(e error) Error {
 
 func Send(resp zerver.Response, err Error) error {
 	resp.ReportStatus(err.Code())
+
 	return resp.Send("error", err.Error())
 }

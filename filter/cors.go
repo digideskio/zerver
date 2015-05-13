@@ -50,31 +50,36 @@ func (c *CORS) Init(zerver.Enviroment) error {
 		c.allowAll = true
 		c.Origins = nil
 	}
+
 	defval.Nil(&c.Methods, defAllowMethods)
 	c.methods = strings.Join(c.Methods, ",")
+
 	defval.Nil(&c.Headers, defAllowHeaders)
 	c.headers = strings.Join(c.Headers, ",")
 	for i := range c.Headers {
 		c.Headers[i] = strings.ToLower(c.Headers[i]) // chrome browser will use lower header
 	}
+
 	c.exposeHeaders = strings.Join(c.ExposeHeaders, ",")
 	defval.BoolStr(c.AllowCredentials, &c.allowCredentials)
 
 	if c.PreflightMaxage != 0 {
 		c.preflightMaxage = strconv.Itoa(c.PreflightMaxage)
 	}
+
 	return nil
 }
 
 func (c *CORS) Destroy() {}
 
 func (c *CORS) allow(origin string) bool {
-	for i := range c.Origins {
-		if c.Origins[i] == origin {
-			return true
-		}
+	var has bool
+
+	for i := 0; i < len(c.Origins) && !has; i++ {
+		has = c.Origins[i] == origin
 	}
-	return false
+
+	return has
 }
 
 func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, headers string) {
@@ -87,12 +92,14 @@ func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, heade
 	}
 	resp.SetHeader(_CORS_ALLOWORIGIN, origin)
 	method = strings.ToUpper(method)
+
 	for _, m := range c.Methods {
 		if m == method {
 			resp.AddHeader(_CORS_ALLOWMETHODS, m)
 			break
 		}
 	}
+
 	for _, h := range strings2.TrimSplit(headers, ",") {
 		for _, ch := range c.Headers {
 			if strings.ToLower(h) == ch { // c.Headers already ToLowered when Init
@@ -101,6 +108,7 @@ func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, heade
 			}
 		}
 	}
+
 	resp.SetHeader(_CORS_ALLOWCREDENTIALS, c.allowCredentials)
 	if c.exposeHeaders != "" {
 		resp.SetHeader(_CORS_EXPOSEHEADERS, c.exposeHeaders)
@@ -108,6 +116,7 @@ func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, heade
 	if c.preflightMaxage != "" {
 		resp.SetHeader(_CORS_MAXAGE, c.preflightMaxage)
 	}
+
 END:
 	resp.ReportOK()
 }
@@ -133,12 +142,14 @@ func (c *CORS) filter(req zerver.Request, resp zerver.Response, chain zerver.Fil
 	if c.preflightMaxage != "" {
 		resp.SetHeader(_CORS_MAXAGE, c.preflightMaxage)
 	}
+
 	chain(req, resp)
 }
 
 func (c *CORS) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	reqMethod := req.Header(_CORS_REQUESTMETHOD)
 	reqHeaders := req.Header(_CORS_REQUESTHEADERS)
+
 	if req.Method() == "OPTIONS" && (reqMethod != "" || reqHeaders != "") {
 		c.preflight(req, resp, reqMethod, reqHeaders)
 	} else {

@@ -61,24 +61,27 @@ func (j jsonToken) Marshal(time int64, ip, agent string) ([]byte, error) {
 	j.Time = time
 	j.IP = ip
 	j.Agent = agent
+
 	return json.Marshal(&j)
 }
 
 func (j jsonToken) Unmarshal(bs []byte) (int64, string, string) {
-	if err := json.Unmarshal(bs, &j); err == nil {
-		return j.Time, j.IP, j.Agent
+	if err := json.Unmarshal(bs, &j); err != nil {
+		return -1, "", ""
 	}
-	return -1, "", ""
 
+	return j.Time, j.IP, j.Agent
 }
 
 func (x *Xsrf) Init(zerver.Enviroment) error {
 	if x.Secret == nil {
 		return errors.Err("xsrf secret can't be empty")
 	}
+
 	defval.Int64(&x.Timeout, DEF_XSRF_TIMEOUT)
 	defval.Nil(&x.HashMethod, sha256.New)
 	defval.String(&x.Error, "xsrf token is invalid or not found")
+
 	if x.UsePool {
 		if x.Pool == nil {
 			x.Pool = bytes2.NewSyncPool(0, true)
@@ -87,6 +90,7 @@ func (x *Xsrf) Init(zerver.Enviroment) error {
 		x.Pool = bytes2.FakePool{}
 	}
 	defval.Nil(&x.TokenInfo, jsonToken{})
+
 	return nil
 }
 
@@ -96,23 +100,24 @@ func (x *Xsrf) Destroy() {}
 func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 	tokBytes, err := x.CreateFor(req)
 	if err == nil {
-		if req.Method() == "POST" {
-			resp.ReportCreated()
-		}
-		defer x.Pool.Put(tokBytes)
-		req.Server().PanicLog(resp.Send("tokBytes", tokBytes))
-	} else {
 		resp.ReportServiceUnavailable()
+		return
 	}
+
+	if req.Method() == "POST" {
+		resp.ReportCreated()
+	}
+
+	defer x.Pool.Put(tokBytes)
+	req.Server().PanicLog(resp.Send("tokBytes", tokBytes))
 }
 
 func (x *Xsrf) CreateFor(req zerver.Request) ([]byte, error) {
-	bs, err := x.TokenInfo.Marshal(time.Now().Unix(),
-		req.RemoteIP(),
-		req.UserAgent())
+	bs, err := x.TokenInfo.Marshal(time.Now().Unix(), req.RemoteIP(), req.UserAgent())
 	if err == nil {
 		return x.sign(bs), nil
 	}
+
 	return nil, err
 }
 
@@ -133,6 +138,7 @@ func (x *Xsrf) VerifyFor(req zerver.Request) bool {
 	if !x.FilterGet && (m == "GET" || m == "HEAD" || m == "OPTIONS") {
 		return true
 	}
+
 	token := req.Header(_HEADER_XSRFTOKEN)
 	if token == "" {
 		token = req.Header(_HEADER_CSRFTOKEN)
@@ -153,6 +159,7 @@ func (x *Xsrf) VerifyFor(req zerver.Request) bool {
 			ip == req.RemoteIP() &&
 			agent == req.UserAgent()
 	}
+
 	return false
 }
 
@@ -179,16 +186,20 @@ func (x *Xsrf) verify(signing []byte) []byte {
 	if err == nil {
 		dst = dst[:n]
 		hash := hmac.New(x.HashMethod, x.Secret)
+
 		sep := len(dst) - hash.Size()
 		if sep > 0 {
 			data := dst[:sep]
 			hash.Write(data)
+
 			if bytes.Equal(hash.Sum(nil), dst[sep:]) {
 				return data
 			}
 		}
 	}
+
 	x.Pool.Put(dst)
+
 	return nil
 }
 

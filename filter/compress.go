@@ -2,10 +2,10 @@ package filter
 
 import (
 	"bufio"
-	"net"
 	"compress/flate"
 	"compress/gzip"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 
@@ -23,18 +23,22 @@ func (w *gzipWriter) Write(data []byte) (int, error) {
 }
 
 func (w *gzipWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	if hijacker, is := w.ResponseWriter.(http.Hijacker); is {
-		w.gw.Close()
-		return hijacker.Hijack()
+	hijacker, is := w.ResponseWriter.(http.Hijacker)
+	if !is {
+		return nil, nil, zerver.ErrHijack
 	}
-	return nil, nil, zerver.ErrHijack
+
+	w.gw.Close()
+
+	return hijacker.Hijack()
 }
 
 func (w *gzipWriter) Close() error {
 	err := w.gw.Close()
 	if w.needClose {
-		err = w.ResponseWriter.(io.Closer).Close()
+		_ = w.ResponseWriter.(io.Closer).Close()
 	}
+
 	return err
 }
 
@@ -49,18 +53,22 @@ func (w *flateWriter) Write(data []byte) (int, error) {
 }
 
 func (w *flateWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	if hijacker, is := w.ResponseWriter.(http.Hijacker); is {
-		w.fw.Close()
-		return hijacker.Hijack()
+	hijacker, is := w.ResponseWriter.(http.Hijacker)
+	if !is {
+		return nil, nil, zerver.ErrHijack
 	}
-	return nil, nil, zerver.ErrHijack
+
+	w.fw.Close()
+
+	return hijacker.Hijack()
 }
 
 func (w *flateWriter) Close() error {
 	err := w.fw.Close()
 	if w.needClose {
-		err = w.ResponseWriter.(io.Closer).Close()
+		_ = w.ResponseWriter.(io.Closer).Close()
 	}
+
 	return err
 }
 
@@ -74,6 +82,7 @@ func gzipWrapper(w http.ResponseWriter, needClose bool) (http.ResponseWriter, bo
 
 func flateWrapper(w http.ResponseWriter, needClose bool) (http.ResponseWriter, bool) {
 	fw, _ := flate.NewWriter(w, flate.DefaultCompression)
+
 	return &flateWriter{
 		fw:             fw,
 		ResponseWriter: w,
@@ -83,6 +92,7 @@ func flateWrapper(w http.ResponseWriter, needClose bool) (http.ResponseWriter, b
 
 func Compress(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	encoding := req.AcceptEncodings()
+
 	if strings.Contains(encoding, zerver.ENCODING_GZIP) {
 		resp.SetContentEncoding(zerver.ENCODING_GZIP)
 		resp.Wrap(gzipWrapper)
@@ -93,6 +103,7 @@ func Compress(req zerver.Request, resp zerver.Response, chain zerver.FilterChain
 		chain(req, resp)
 		return
 	}
+
 	chain(req, resp)
 	resp.RemoveHeader("Content-Length")
 }

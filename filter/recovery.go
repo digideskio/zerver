@@ -29,5 +29,6 @@ func (r *Recovery) Filter(req zerver.Request, resp zerver.Response, chain zerver
 			req.Logger().Warnln(unsafe2.String(buf))
 		}
 	}()
+
 	chain(req, resp)
 }

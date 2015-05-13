@@ -25,17 +25,20 @@ func Enable(p string, rt zerver.Router, rootFilters zerver.RootFilters) (err err
 	if !initRoutes() {
 		return
 	}
+
 	for subpath, handler := range routes {
 		if err = rt.HandleFunc(path+subpath, "GET", handler); err != nil {
 			return
 		}
 		options = append(options, "GET "+path+subpath+": "+infos[subpath]+"\n")
 	}
+
 	if rootFilters == nil {
 		err = rt.Handle(path, globalFilter)
 	} else {
 		rootFilters.Add(globalFilter)
 	}
+
 	return
 }
 
@@ -43,6 +46,7 @@ func NewServer(p string) (*zerver.Server, error) {
 	if p == "" {
 		p = "/"
 	}
+
 	s := zerver.NewServer()
 	// s.AddHandleFunc("/stop", "GET", func(req zerver.Request, resp zerver.Response) {
 	// 	req.Server().Destroy()
@@ -53,6 +57,7 @@ func NewServer(p string) (*zerver.Server, error) {
 
 func globalFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	resp.SetContentType("text/plain")
+
 	if resp.Status() == http.StatusNotFound {
 		resp.SetHeader("Location", path+"/options?from="+url.QueryEscape(req.URL().Path))
 		resp.ReportMovedPermanently()
@@ -133,5 +138,6 @@ func initRoutes() bool {
 				resp.Write(unsafe2.Bytes(options[i]))
 			}
 		})
+
 	return inited
 }

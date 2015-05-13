@@ -48,6 +48,7 @@ type (
 func (m *MemIDStore) Init(zerver.Enviroment) error {
 	m.requests = make(map[string]struct{})
 	m.lock = sync.RWMutex{}
+
 	return nil
 }
 
@@ -64,6 +65,7 @@ func (m *MemIDStore) Save(id string) (err error) {
 
 	}
 	m.lock.Unlock()
+
 	return
 }
 
@@ -71,6 +73,7 @@ func (m *MemIDStore) Remove(id string) error {
 	m.lock.Lock()
 	delete(m.requests, id)
 	m.lock.Unlock()
+
 	return nil
 }
 
@@ -84,6 +87,7 @@ func (r *RedisIDStore) Init(env zerver.Enviroment) error {
 			defval.String(&r.Key, "RequestID")
 		}
 	}
+
 	return err
 }
 
@@ -96,11 +100,13 @@ func (r *RedisIDStore) Save(id string) error {
 	if err == nil && !success {
 		err = ErrRequestIDExist
 	}
+
 	return err
 }
 
 func (r *RedisIDStore) Remove(ip, id string) error {
 	_, err := r.redis.Exec("SREM", r.Key, id)
+
 	return err
 }
 
@@ -111,6 +117,7 @@ func (ri *RequestId) Init(env zerver.Enviroment) error {
 	defval.String(&ri.Error, "header value X-Request-Id can't be empty")
 	defval.String(&ri.ErrorOverlap, "request already accepted before, please wait")
 	ri.logger = env.Logger()
+
 	return nil
 }
 
@@ -119,6 +126,7 @@ func (ri *RequestId) Filter(req zerver.Request, resp zerver.Response, chain zerv
 		chain(req, resp)
 		return
 	}
+
 	reqId := req.Header(ri.HeaderName)
 	if reqId == "" {
 		if ri.PassingOnNoId {

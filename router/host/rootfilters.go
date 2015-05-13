@@ -18,6 +18,7 @@ func NewRootFilters() *RootFilters {
 
 func (r *RootFilters) AddRootFilters(host string, rfs zerver.RootFilters) {
 	l := len(r.hosts) + 1
+
 	hosts, filters := make([]string, l), make([]zerver.RootFilters, l)
 	copy(hosts, r.hosts)
 	copy(filters, r.filters)
@@ -26,12 +27,12 @@ func (r *RootFilters) AddRootFilters(host string, rfs zerver.RootFilters) {
 }
 
 func (r *RootFilters) Init(env zerver.Enviroment) error {
-	for _, f := range r.filters {
-		if e := f.Init(env); e != nil {
-			return e
-		}
+	var err error
+	for i := 0; i < len(r.filters) && err == nil; i++ {
+		err = r.filters[i].Init(env)
 	}
-	return nil
+
+	return err
 }
 
 func (r *RootFilters) Add(interface{}) {
@@ -46,6 +47,7 @@ func (r *RootFilters) Filters(url *url.URL) []zerver.Filter {
 			return r.filters[i].Filters(url)
 		}
 	}
+
 	return nil
 }
 
