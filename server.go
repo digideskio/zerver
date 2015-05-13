@@ -266,8 +266,9 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 		newFilterChain(filters, chain),
 	)(req, resp)
 
-	req.destroy()
-	resp.destroy()
+	s.warnLog(req.destroy())
+	s.warnLog(resp.destroy())
+
 	recycleRequestEnv(reqEnv)
 	recycleFilters(filters)
 }
@@ -332,6 +333,12 @@ func (s *Server) PanicLog(err error) {
 	}
 }
 
+func (s *Server) warnLog(err error) {
+	if err != nil {
+		s.Log.Warnln(err)
+	}
+}
+
 // Start start server as http server, if opt is nil, use default configurations
 func (s *Server) Start(opt *ServerOption) error {
 	if opt == nil {
@@ -363,12 +370,14 @@ func (ln *tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	if err != nil {
 		return
 	}
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(time.Duration(ln.AlivePeriod) * time.Minute)
+
+	// if keep-alive fail, don't care
+	_ = tc.SetKeepAlive(true)
+	_ = tc.SetKeepAlivePeriod(time.Duration(ln.AlivePeriod) * time.Minute)
 	return tc, nil
 }
 
-func (*Server) listen(opt *ServerOption) (net.Listener, error) {
+func (s *Server) listen(opt *ServerOption) (net.Listener, error) {
 	ln, err := net.Listen("tcp", opt.ListenAddr)
 	if err == nil {
 		ln = &tcpKeepAliveListener{
@@ -401,7 +410,7 @@ func (*Server) listen(opt *ServerOption) (net.Listener, error) {
 	}
 
 	if err != nil && ln != nil {
-		ln.Close()
+		s.warnLog(ln.Close())
 		return nil, err
 	}
 	return ln, err
@@ -414,11 +423,11 @@ func (s *Server) connStateHook(conn net.Conn, state http.ConnState) {
 			s.activeConns.Add(1)
 		} else {
 			// previous idle connections before call server.Destroy() becomes active, directly close it
-			conn.Close()
+			s.warnLog(conn.Close())
 		}
 	case http.StateIdle:
 		if atomic.LoadInt32(&s.state) == _DESTROYED {
-			conn.Close()
+			s.warnLog(conn.Close())
 		}
 		s.activeConns.Done()
 	case http.StateHijacked:
@@ -431,8 +440,8 @@ func (s *Server) connStateHook(conn net.Conn, state http.ConnState) {
 // It only wait for managed connections, hijacked/websocket connections is not
 func (s *Server) Destroy() {
 	if atomic.CompareAndSwapInt32(&s.state, _NORMAL, _DESTROYED) { // signal close idle connections
-		s.listener.Close()   // don't accept connections
-		s.activeConns.Wait() // wait connections in service to be idle
+		s.warnLog(s.listener.Close()) // don't accept connections
+		s.activeConns.Wait()          // wait connections in service to be idle
 
 		// release resources
 		s.RootFilters.Destroy()

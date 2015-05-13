@@ -45,7 +45,7 @@ type (
 		URLVarIndexer
 
 		Receive(interface{}) error
-		destroy()
+		destroy() error
 	}
 
 	// request represent an income request
@@ -61,6 +61,10 @@ type (
 		needClose bool
 		res       resource.Resource
 	}
+)
+
+var (
+	emptyParams = make(url.Values)
 )
 
 // newRequest create a new request
@@ -80,19 +84,23 @@ func (req *request) init(e Enviroment, r resource.Resource, requ *http.Request, 
 	return req
 }
 
-func (req *request) destroy() {
+func (req *request) destroy() error {
 	req.AttrContainer.Clear()
 	req.Enviroment = nil
 	req.header = nil
 	req.URLVarIndexer.destroySelf() // who owns resource, who releases resource
 	req.URLVarIndexer = nil
 	req.params = nil
+
+	var err error
 	if req.needClose {
 		req.needClose = false
-		req.request.Body.Close()
+		err = req.request.Body.Close()
 	}
 	req.request = nil
 	req.res = nil
+
+	return err
 }
 
 func (req *request) Wrap(fn RequestWrapper) {
@@ -149,8 +157,13 @@ func (req *request) Params(name string) []string {
 		case GET, HEAD, OPTIONS:
 			params = request.URL.Query()
 		default:
-			request.ParseForm()
-			params = request.PostForm
+			err := request.ParseForm()
+			if err == nil {
+				params = request.PostForm
+			} else {
+				params = emptyParams
+				req.Logger().Warnln(err)
+			}
 		}
 		req.params = params
 	}

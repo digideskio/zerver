@@ -122,8 +122,6 @@ serer.AddComponent(components.CMP_REDIS, zerver.ComponentState{
 })
 
 redis, err := server.Component(zerver.CMP_REDIS)
-
-server.ManageComponent(customedComponent) // anonymous component
 ```
 
 ### Config
@@ -189,7 +187,7 @@ Enviroment interface {
     Server() *Server
     Logger() Logger
     StartTask(path string, value interface{})
-    Component(name string) (Component, error)
+    Component(name string) (interface{}, error)
 }
 ```
 

@@ -573,8 +573,8 @@ func isInvalidSection(s string) bool {
 }
 
 var (
-	// nilVars is empty variable map
-	nilVars = make(map[string]int)
+	// emptyVars is empty variable map
+	emptyVars = make(map[string]int)
 )
 
 // compile compile a url path to a clean path that replace all named variable
@@ -631,7 +631,7 @@ func compile(path string) (newPath string, vars map[string]int) {
 	}
 	newPath = string(new)
 	if vars == nil {
-		vars = nilVars
+		vars = emptyVars
 	}
 	return
 }

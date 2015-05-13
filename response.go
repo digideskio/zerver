@@ -71,7 +71,7 @@ type (
 		// Send send marshaled value to client
 		Send(string, interface{}) error
 
-		destroy()
+		destroy() error
 	}
 
 	ErrorWriter interface {
@@ -105,18 +105,22 @@ func (resp *response) init(env Enviroment, r resource.Resource, w http.ResponseW
 	return resp
 }
 
-func (resp *response) destroy() {
+func (resp *response) destroy() error {
 	resp.flushHeader()
 	resp.statusWrited = false
 	resp.header = nil
 	resp.value = nil
 	resp.err = nil
+
+	var err error
 	if resp.needClose && !resp.hijacked {
 		resp.needClose = false
-		resp.ResponseWriter.(io.Closer).Close()
+		err = resp.ResponseWriter.(io.Closer).Close()
 	}
 	resp.hijacked = false
 	resp.ResponseWriter = nil
+
+	return err
 }
 
 func (resp *response) Wrap(fn ResponseWrapper) {
