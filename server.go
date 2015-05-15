@@ -71,7 +71,7 @@ type (
 		ResMaster   resource.Master
 		Log         Logger
 
-		components        map[string]ComponentState
+		components        map[string]*ComponentState
 		managedComponents []Component
 		sync.RWMutex
 
@@ -81,6 +81,8 @@ type (
 		listener    net.Listener
 		state       int32          // destroy or normal running
 		activeConns sync.WaitGroup // connections in service, don't include hijacked and websocket connections
+
+		currComp string // current component of Server.Component
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -117,7 +119,7 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 		Router:        rt,
 		AttrContainer: NewLockedAttrContainer(),
 		RootFilters:   filters,
-		components:    make(map[string]ComponentState),
+		components:    make(map[string]*ComponentState),
 		ResMaster:     resource.NewMaster(),
 	}
 }
@@ -136,29 +138,18 @@ func (s *Server) ResourceMaster() *resource.Master {
 
 func (s *Server) Component(name string) (interface{}, error) {
 	s.RLock()
-	c, has := s.components[name]
+	cs, has := s.components[name]
 	if !has {
 		s.RUnlock()
 		return nil, ErrComponentNotFound
 	}
 	s.RUnlock()
 
-	if c.value != nil {
-		return c.value, nil
+	if cs.value != nil {
+		return cs.value, nil
 	}
 
-	var err error
-	if !c.Initialized {
-		s.Lock()
-		if !c.Initialized {
-			if err = c.Component.(Component).Init(s); err == nil { // must be a Component
-				c.Initialized = true
-			}
-		}
-		s.Unlock()
-	}
-
-	return c.Component, err
+	return cs.Comp, cs.Init(s)
 }
 
 // AddComponent let server manage this component and it's lifetime.
@@ -178,36 +169,31 @@ func (s *Server) AddComponent(name string, component interface{}) error {
 		return nil
 	}
 
-	comp := convertComponentState(component)
-	if !comp.Initialized && comp.NoLazy {
-		if err := comp.Init(s); err != nil {
+	cs := convertComponentState(name, component)
+	if cs.NoLazy {
+		if err := cs.Init(s); err != nil {
 			return err
-		} else {
-			comp.Initialized = true
 		}
 	}
 
 	s.Lock()
-	s.components[name] = comp
+	s.components[name] = cs
 	s.Unlock()
 
 	return nil
 }
 
 func (s *Server) RemoveComponent(name string) {
-	if name != "" {
-		s.Lock()
-		if cs, has := s.components[name]; has {
-			if cs.Initialized {
-				defer s.Unlock()
-				cs.Destroy()
-				delete(s.components, name)
-				return
-			}
-		}
-		delete(s.components, name)
+	s.Lock()
+	cs, has := s.components[name]
+	if !has {
 		s.Unlock()
+		return
 	}
+
+	defer s.Unlock()
+	cs.Destroy()
+	delete(s.components, name)
 }
 
 // StartTask start a task synchronously, the value will be passed to task handler
@@ -245,8 +231,8 @@ func (s *Server) serveWebSocket(w http.ResponseWriter, request *http.Request) {
 		if err == nil {
 			handler.Handle(newWebSocketConn(s, conn, indexer))
 			indexer.destroySelf()
-		}
-	} // else connecion will be auto-closed when error occoured,
+		} // else connecion will be auto-closed when error occoured,
+	}
 }
 
 // serveHTTP serve for http protocal
@@ -459,8 +445,8 @@ func (s *Server) Destroy() {
 		s.RootFilters.Destroy()
 		s.Router.Destroy()
 
-		for _, c := range s.components {
-			c.Destroy()
+		for _, cs := range s.components {
+			cs.Destroy()
 		}
 		for i := range s.managedComponents {
 			s.managedComponents[i].Destroy()

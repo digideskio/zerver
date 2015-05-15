@@ -9,6 +9,10 @@ type (
 	// FilterFunc represent common filter function type,
 	FilterFunc func(Request, Response, FilterChain)
 
+	// FilterChain represent a chain of filter, the last is final handler,
+	// to continue the chain, must call chain(Request, Response)
+	FilterChain HandleFunc
+
 	// Filter is an filter that run before or after handler,
 	// to modify or check request and response
 	// it will be inited on server started, destroyed on server stopped
@@ -16,10 +20,6 @@ type (
 		Component
 		Filter(Request, Response, FilterChain)
 	}
-
-	// FilterChain represent a chain of filter, the last is final handler,
-	// to continue the chain, must call chain(Request, Response)
-	FilterChain HandleFunc
 
 	// filterChain holds filters and handler
 	// if there is no filters, the final handler will be called

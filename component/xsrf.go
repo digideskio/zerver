@@ -17,15 +17,15 @@ import (
 )
 
 const (
-	DEF_XSRF_TIMEOUT  = 10 * 60 // 10 minutes
-	DEF_BUF_SIZE      = 256
+	_DEF_XSRF_TIMEOUT = 10 * 60 // 10 minutes
+	_DEF_BUF_SIZE     = 256
 	_HEADER_XSRFTOKEN = "X-XSRFToken"
 	_HEADER_CSRFTOKEN = "X-CSRFToken"
 	_XSRF_PARAM_NAME  = "_xsrf"
 	_XSRF_FORMHEAD    = `<input type="hidden" name="` + _XSRF_PARAM_NAME + `" value="`
 	_XSRF_FORMEND     = `"/>`
 
-	COMP_XSRF = "XsrfComponent"
+	XSRF = "XsrfComponent"
 )
 
 var _ENCODING = base64.URLEncoding
@@ -78,7 +78,7 @@ func (x *Xsrf) Init(zerver.Enviroment) error {
 		return errors.Err("xsrf secret can't be empty")
 	}
 
-	defval.Int64(&x.Timeout, DEF_XSRF_TIMEOUT)
+	defval.Int64(&x.Timeout, _DEF_XSRF_TIMEOUT)
 	defval.Nil(&x.HashMethod, sha256.New)
 	defval.String(&x.Error, "xsrf token is invalid or not found")
 

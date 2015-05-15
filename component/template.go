@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	OPT_TEMPLATE  = "TemplateOption"
-	COMP_TEMPLATE = "TemplateComponent"
+	TEMPLATE = "Template"
 )
 
 type (
@@ -45,12 +44,13 @@ func NewTemplate() *Template {
 }
 
 func (t *Template) Init(env zerver.Enviroment) error {
+	compEnv := env.(zerver.ComponentEnviroment)
 	var o *TemplateOption
-	if op := env.Server().Attr(OPT_TEMPLATE); op == nil {
+	if op := compEnv.Attr(TEMPLATE); op == nil {
 		o = &TemplateOption{}
 	} else {
 		o = op.(*TemplateOption)
-		env.Server().RemoveAttr(OPT_TEMPLATE)
+		compEnv.RemoveAttr(TEMPLATE)
 	}
 	o.init()
 

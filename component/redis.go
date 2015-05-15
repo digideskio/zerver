@@ -8,8 +8,7 @@ import (
 )
 
 const (
-	OPT_REDIS  = "RedisOption"
-	COMP_REDIS = "RedisComponent"
+	REDIS = "Redis"
 )
 
 type (
@@ -56,12 +55,13 @@ func NewRedis() *Redis {
 }
 
 func (r *Redis) Init(env zerver.Enviroment) error {
+	compEnv := env.(zerver.ComponentEnviroment)
 	var o *RedisOption
-	if op := env.Server().Attr(OPT_REDIS); op == nil {
+	if op := compEnv.Attr(REDIS); op == nil {
 		o = &RedisOption{}
 	} else {
 		o = op.(*RedisOption)
-		env.Server().RemoveAttr(OPT_REDIS)
+		compEnv.RemoveAttr(REDIS)
 	}
 	o.init()
 
