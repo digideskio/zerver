@@ -25,7 +25,7 @@ const (
 	_XSRF_FORMHEAD    = `<input type="hidden" name="` + _XSRF_PARAM_NAME + `" value="`
 	_XSRF_FORMEND     = `"/>`
 
-	XSRF = "XsrfComponent"
+	XSRF = "Xsrf"
 )
 
 var _ENCODING = base64.URLEncoding
@@ -33,7 +33,7 @@ var _ENCODING = base64.URLEncoding
 type (
 	Xsrf struct {
 		Timeout    int64            // seconds
-		Secret     []byte           // secret key
+		Secret     string           // secret key
 		HashMethod func() hash.Hash // hash method for signing data
 		Error      string           // error message for invalid token
 		FilterGet  bool             // whether filter GET/HEAD/OPTIONS request
@@ -42,7 +42,6 @@ type (
 		Pool    bytes2.Pool
 
 		TokenInfo TokenInfo // marshal/unmarshal token info, default use jsonToken
-
 	}
 
 	TokenInfo interface {
@@ -74,7 +73,7 @@ func (j jsonToken) Unmarshal(bs []byte) (int64, string, string) {
 }
 
 func (x *Xsrf) Init(zerver.Enviroment) error {
-	if x.Secret == nil {
+	if x.Secret == "" {
 		return errors.Err("xsrf secret can't be empty")
 	}
 
@@ -163,8 +162,12 @@ func (x *Xsrf) VerifyFor(req zerver.Request) bool {
 	return false
 }
 
+func (x *Xsrf) hash() hash.Hash {
+	return hmac.New(x.HashMethod, unsafe2.Bytes(x.Secret))
+}
+
 func (x *Xsrf) sign(data []byte) []byte {
-	hash := hmac.New(x.HashMethod, x.Secret)
+	hash := x.hash()
 	hash.Write(data)
 	signing := hash.Sum(nil)
 
@@ -185,7 +188,7 @@ func (x *Xsrf) verify(signing []byte) []byte {
 	n, err := _ENCODING.Decode(dst, signing)
 	if err == nil {
 		dst = dst[:n]
-		hash := hmac.New(x.HashMethod, x.Secret)
+		hash := x.hash()
 
 		sep := len(dst) - hash.Size()
 		if sep > 0 {

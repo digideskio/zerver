@@ -9,9 +9,10 @@ import (
 
 func TestXsrf(t *testing.T) {
 	tt := testing2.Wrap(t)
-	data := []byte("123456789")
+	key := "123456789"
+	data := []byte(key)
 	xsrf := &Xsrf{
-		Secret: data,
+		Secret: key,
 	}
 	xsrf.Init(nil)
 	signing := xsrf.sign(data)
