@@ -1,9 +1,5 @@
 package zerver
 
-import (
-	"sync"
-)
-
 type (
 	// Component is a Object which will automaticlly initial/destroyed by server
 	// if it's added to server, else it should initial manually
@@ -15,21 +11,17 @@ type (
 	ComponentEnviroment interface {
 		Name() string
 		Attr(name string) interface{}
-		RemoveAttr(name string)
+		SetAttr(name string, value interface{})
+		GetSetAttr(name string, value interface{}) interface{}
 		Enviroment
 	}
 
-	// ComponentState keeps states for global component, only Initialized, NoLazy, Comp
-	// can setup
-	ComponentState struct {
-		Initialized bool
-		NoLazy      bool
-		Comp        Component
-		value       interface{}
+	componentEnv struct {
+		comp  Component
+		value interface{}
 
 		name string
 		Enviroment
-		lock sync.RWMutex
 	}
 
 	FakeComponent struct{}
@@ -39,72 +31,67 @@ func (FakeComponent) Init(Enviroment) error { return nil }
 
 func (FakeComponent) Destroy() {}
 
-func convertComponentState(name string, c interface{}) *ComponentState {
-	var cs *ComponentState
+func convertComponentEnv(name string, c interface{}) componentEnv {
+	env := componentEnv{name: name}
 
 	switch c := c.(type) {
 	case Component:
-		cs = &ComponentState{
-			Comp: c,
-		}
-	case ComponentState:
-		cs = &c
-	case *ComponentState:
-		cs = c
+		env.comp = c
 	default:
-		cs = &ComponentState{
-			Initialized: true,
-			value:       c,
-		}
+		env.value = c
 	}
-	cs.name = name
 
-	return cs
+	return env
 }
 
-func (cs *ComponentState) Init(env Enviroment) (err error) {
-	if cs.value != nil || cs.Initialized {
-		return
+// NewComponentEnv is only a quick way get/set component attributes
+func NewComponentEnv(env Enviroment, name string) ComponentEnviroment {
+	return componentEnv{
+		Enviroment: env,
+		name:       name,
+	}
+}
+
+func (env componentEnv) componentValue() interface{} {
+	if env.value != nil {
+		return env.value
 	}
 
-	cs.lock.Lock()
+	return env.comp
+}
 
-	if cs.Initialized {
-		cs.lock.Unlock()
-		return
+func (env componentEnv) Init(e Enviroment) (err error) {
+	if env.value == nil {
+		env.Enviroment = e
+		err = env.comp.Init(e)
+		env.Enviroment = nil
 	}
-
-	cs.Enviroment = env
-	defer cs.lock.Unlock()
-	if err = cs.Comp.Init(cs); err == nil {
-		cs.Initialized = true
-	}
-	cs.Enviroment = nil
 
 	return
 }
 
-func (cs *ComponentState) Destroy() {
-	if cs.value == nil && cs.Initialized {
-		cs.lock.Lock()
-		defer cs.lock.Unlock()
-		cs.Comp.Destroy()
-		cs.Initialized = false
+func (env componentEnv) Destroy() {
+	if env.value == nil {
+		env.comp.Destroy()
 	}
 }
 
-func (c *ComponentState) Name() string {
-	return c.name
+func (env componentEnv) Name() string {
+	return env.name
 }
 
-func (c *ComponentState) Attr(name string) interface{} {
-	return c.Server().Attr(ComponentAttrName(c.name, name))
+func (env componentEnv) Attr(name string) interface{} {
+	return env.Server().Attr(ComponentAttr(env.name, name))
 }
 
-func (c *ComponentState) RemoveAttr(name string) {
-	c.Server().RemoveAttr(ComponentAttrName(c.name, name))
+func (env componentEnv) SetAttr(name string, value interface{}) {
+	env.Server().SetAttr(ComponentAttr(env.name, name), value)
 }
 
-func ComponentAttrName(comp, attr string) string {
+func (env componentEnv) GetSetAttr(name string, val interface{}) interface{} {
+	return env.Server().GetSetAttr(ComponentAttr(env.name, name), val)
+}
+
+func ComponentAttr(comp, attr string) string {
 	return comp + ":" + attr
 }

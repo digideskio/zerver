@@ -3,6 +3,7 @@ package zerver
 import (
 	"sync"
 
+	"github.com/cosiner/gohper/attrs"
 	"github.com/cosiner/gohper/errors"
 )
 
@@ -35,7 +36,7 @@ func init() {
 
 	_defaultPool.requestEnvPool.New = func() interface{} {
 		env := &requestEnv{}
-		env.req.AttrContainer = NewAttrContainer()
+		env.req.Attrs = attrs.New()
 		return env
 	}
 

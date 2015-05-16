@@ -46,11 +46,10 @@ func NewTemplate() *Template {
 func (t *Template) Init(env zerver.Enviroment) error {
 	compEnv := env.(zerver.ComponentEnviroment)
 	var o *TemplateOption
-	if op := compEnv.Attr(TEMPLATE); op == nil {
+	if op := compEnv.GetSetAttr(TEMPLATE, nil); op == nil {
 		o = &TemplateOption{}
 	} else {
 		o = op.(*TemplateOption)
-		compEnv.RemoveAttr(TEMPLATE)
 	}
 	o.init()
 

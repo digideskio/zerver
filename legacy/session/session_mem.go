@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cosiner/gohper/attrs"
 	"github.com/cosiner/ygo/config"
-	"github.com/cosiner/zerver"
 )
 
 type (
@@ -14,7 +14,7 @@ type (
 	memStoreNode struct {
 		time     uint64
 		lifetime int64 // if lifetime < 0, means never expired
-		value    zerver.Values
+		value    attrs.Values
 	}
 
 	// memStore is a store in memory with lifetime manage
@@ -32,7 +32,7 @@ func unixNow() uint64 {
 }
 
 // newMemStoreNode create a new store node for memStore
-func newMemStoreNode(values zerver.Values, lifetime int64) (msn *memStoreNode) {
+func newMemStoreNode(values attrs.Values, lifetime int64) (msn *memStoreNode) {
 	if lifetime != 0 {
 		msn = &memStoreNode{
 			time:     unixNow(),
@@ -94,7 +94,7 @@ func (ms *memStore) IsExist(id string) bool {
 }
 
 // Get return values bind with given id, if id already expired, then remove it
-func (ms *memStore) Get(id string) (values zerver.Values) {
+func (ms *memStore) Get(id string) (values attrs.Values) {
 	ms.lock.RLock()
 	msn := ms.values[id]
 	ms.lock.RUnlock()
@@ -105,7 +105,7 @@ func (ms *memStore) Get(id string) (values zerver.Values) {
 }
 
 // Save save values with given id and lifetime time
-func (ms *memStore) Save(id string, values zerver.Values, lifetime int64) {
+func (ms *memStore) Save(id string, values attrs.Values, lifetime int64) {
 	if msn := newMemStoreNode(values, lifetime); msn != nil {
 		ms.lock.Lock()
 		ms.values[id] = msn

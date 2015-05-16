@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cosiner/zerver"
+	"github.com/cosiner/gohper/attrs"
 
 	. "github.com/cosiner/gohper/errors"
 )
@@ -25,7 +25,7 @@ type (
 	// Session represent a server session
 	Session struct {
 		id string
-		zerver.AttrContainer
+		attrs.Attrs
 	}
 
 	// SessionStore is common interface of session store
@@ -41,9 +41,9 @@ type (
 		// Save save values with given id and lifetime time
 		// lifetime :<0 means never expired, 0 means delete right now, >0 means
 		// set up lifetime
-		Save(id string, values zerver.Values, lifetime int64)
+		Save(id string, values attrs.Values, lifetime int64)
 		// Get return values of given id
-		Get(id string) zerver.Values
+		Get(id string) attrs.Values
 		// Rename move values exist in old id to new id
 		Rename(oldId, newId string)
 	}
@@ -87,16 +87,18 @@ type (
 // newSession create a new session with given id
 func NewSession(id string) *Session {
 	return &Session{
-		id:            id,
-		AttrContainer: zerver.NewLockedAttrContainer(),
+		id:    id,
+		Attrs: attrs.NewLocked(),
 	}
 }
 
 // NewSessionWith create a new session with given id an initial attributes
-func NewSessionWith(id string, values zerver.Values) *Session {
+func NewSessionWith(id string, values attrs.Values) *Session {
 	return &Session{
-		id:            id,
-		AttrContainer: zerver.NewLockedAttrContainerWith(values),
+		id: id,
+		Attrs: &attrs.LockedValues{
+			Values: values,
+		},
 	}
 }
 
@@ -184,15 +186,15 @@ func (sm *sessionManager) StoreSession(sess *Session) {
 	lock.Lock()
 	sn := sm.sessions[id]
 	if sn == nil {
+		lock.Unlock()
 		panic("Unexpected: session haven't stored in server.sessions")
 	}
+
 	sn.refs--
 	if sn.refs == 0 {
 		delete(sm.sessions, id)
 		lock.Unlock()
-		sn.sess.AccessAllAttrs(func(values zerver.Values) {
-			sm.store.Save(id, values, sm.lifetime)
-		})
+		sm.store.Save(id, sn.sess.AllAttrs(), sm.lifetime)
 	} else {
 		lock.Unlock()
 	}

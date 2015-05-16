@@ -57,11 +57,10 @@ func NewRedis() *Redis {
 func (r *Redis) Init(env zerver.Enviroment) error {
 	compEnv := env.(zerver.ComponentEnviroment)
 	var o *RedisOption
-	if op := compEnv.Attr(REDIS); op == nil {
+	if op := compEnv.GetSetAttr(REDIS, nil); op == nil {
 		o = &RedisOption{}
 	} else {
 		o = op.(*RedisOption)
-		compEnv.RemoveAttr(REDIS)
 	}
 	o.init()
 

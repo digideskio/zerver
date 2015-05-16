@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cosiner/gohper/attrs"
+
 	"github.com/cosiner/gohper/crypto/tls2"
 	"github.com/cosiner/gohper/defval"
 	"github.com/cosiner/gohper/errors"
@@ -66,12 +68,12 @@ type (
 	// Server represent a web server
 	Server struct {
 		Router
-		AttrContainer
+		attrs.Attrs
 		RootFilters RootFilters // Match Every Routes
 		ResMaster   resource.Master
 		Log         Logger
 
-		components        map[string]*ComponentState
+		components        map[string]componentEnv
 		managedComponents []Component
 		sync.RWMutex
 
@@ -81,8 +83,6 @@ type (
 		listener    net.Listener
 		state       int32          // destroy or normal running
 		activeConns sync.WaitGroup // connections in service, don't include hijacked and websocket connections
-
-		currComp string // current component of Server.Component
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -97,7 +97,7 @@ type (
 		ResourceMaster() *resource.Master
 		Logger() Logger
 		StartTask(path string, value interface{})
-		Component(name string) (interface{}, error)
+		Component(name string) interface{}
 	}
 )
 
@@ -116,11 +116,11 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 	}
 
 	return &Server{
-		Router:        rt,
-		AttrContainer: NewLockedAttrContainer(),
-		RootFilters:   filters,
-		components:    make(map[string]*ComponentState),
-		ResMaster:     resource.NewMaster(),
+		Router:      rt,
+		Attrs:       attrs.NewLocked(),
+		RootFilters: filters,
+		components:  make(map[string]componentEnv),
+		ResMaster:   resource.NewMaster(),
 	}
 }
 
@@ -136,20 +136,15 @@ func (s *Server) ResourceMaster() *resource.Master {
 	return &s.ResMaster
 }
 
-func (s *Server) Component(name string) (interface{}, error) {
+func (s *Server) Component(name string) interface{} {
+	var comp interface{}
 	s.RLock()
-	cs, has := s.components[name]
-	if !has {
-		s.RUnlock()
-		return nil, ErrComponentNotFound
+	if cs, has := s.components[name]; has {
+		comp = cs.componentValue()
 	}
 	s.RUnlock()
 
-	if cs.value != nil {
-		return cs.value, nil
-	}
-
-	return cs.Comp, cs.Init(s)
+	return comp
 }
 
 // AddComponent let server manage this component and it's lifetime.
@@ -157,11 +152,8 @@ func (s *Server) Component(name string) (interface{}, error) {
 // If name is "", component must implements Component, and it will initialized at
 // server start and can't be accessed by name.
 //
-// Otherwise, it can be a Component, ComponentState, or others.
-// Component is treat as Not Initialized, and is not NoLazy.
-// ComponentState use it's own way.
-// Others treat as Initialized.
-func (s *Server) AddComponent(name string, component interface{}) error {
+// Otherwise, it can be a Component, or others.
+func (s *Server) AddComponent(name string, component interface{}) ComponentEnviroment {
 	if name == "" {
 		if c, is := component.(Component); is {
 			s.managedComponents = append(s.managedComponents, c)
@@ -169,18 +161,12 @@ func (s *Server) AddComponent(name string, component interface{}) error {
 		return nil
 	}
 
-	cs := convertComponentState(name, component)
-	if cs.NoLazy {
-		if err := cs.Init(s); err != nil {
-			return err
-		}
-	}
-
+	cs := convertComponentEnv(name, component)
 	s.Lock()
 	s.components[name] = cs
 	s.Unlock()
 
-	return nil
+	return cs
 }
 
 func (s *Server) RemoveComponent(name string) {
@@ -302,14 +288,20 @@ func (s *Server) config(o *ServerOption) {
 	log.Println("FilterCountPerRoute:", o.FilterCount)
 	filterCount = o.FilterCount
 
-	log.Println("Init managed components")
+	log.Println("Init anonymous components:")
 	for i := range s.managedComponents {
 		panicError(s.managedComponents[i].Init(s))
 	}
 
-	log.Println("Init root filters")
+	log.Println("Init global components:")
+	for name, comp := range s.components {
+		log.Println(name + ":")
+		panicError(comp.Init(s))
+	}
+
+	log.Println("Init root filters:")
 	panicError(s.RootFilters.Init(s))
-	log.Println("Init Handlers and Filters")
+	log.Println("Init Handlers and Filters:")
 	panicError(s.Router.Init(s))
 
 	// destroy temporary data store

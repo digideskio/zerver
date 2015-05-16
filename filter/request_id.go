@@ -78,17 +78,15 @@ func (m *MemIDStore) Remove(id string) error {
 }
 
 func (r *RedisIDStore) Init(env zerver.Enviroment) error {
-	redis, err := env.Component(component.REDIS)
-	if err == nil {
-		if redis == nil {
-			err = errors.Err("component redis isn't loaded")
-		} else {
-			r.redis = redis.(*component.Redis)
-			defval.String(&r.Key, "RequestID")
-		}
+	redis := env.Component(component.REDIS)
+	if redis == nil {
+		return errors.Err("component redis isn't loaded")
+	} else {
+		r.redis = redis.(*component.Redis)
+		defval.String(&r.Key, "RequestID")
 	}
 
-	return err
+	return nil
 }
 
 func (r *RedisIDStore) Destroy() {

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/cosiner/gohper/attrs"
 	"github.com/cosiner/gohper/strings2"
 	"github.com/cosiner/ygo/resource"
 )
@@ -37,7 +38,7 @@ type (
 		Param(name string) string
 		Params(name string) []string
 
-		AttrContainer
+		attrs.Attrs
 
 		Enviroment
 
@@ -52,7 +53,7 @@ type (
 	request struct {
 		URLVarIndexer
 		Enviroment
-		AttrContainer
+		attrs.Attrs
 
 		request   *http.Request
 		method    string
@@ -87,7 +88,7 @@ func (req *request) init(e Enviroment, r resource.Resource, requ *http.Request, 
 }
 
 func (req *request) destroy() error {
-	req.AttrContainer.Clear()
+	req.Attrs.Clear()
 	req.Enviroment = nil
 	req.header = nil
 	req.URLVarIndexer.destroySelf() // who owns resource, who releases resource
