@@ -70,7 +70,8 @@ func (r *Redis) Init(env zerver.Enviroment) error {
 	r.Dial = o.Dial
 	r.logger = env.Logger()
 
-	return r.Update("PING")
+	_, err := r.Get().Do("PING")
+	return err
 }
 
 func (r *Redis) Conn() redis.Conn {

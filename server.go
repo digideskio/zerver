@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cosiner/gohper/termcolor"
+
 	"github.com/cosiner/gohper/attrs"
 
 	"github.com/cosiner/gohper/crypto/tls2"
@@ -161,7 +163,7 @@ func (s *Server) AddComponent(name string, component interface{}) ComponentEnvir
 		return nil
 	}
 
-	cs := convertComponentEnv(name, component)
+	cs := convertComponentEnv(s, name, component)
 	s.Lock()
 	s.components[name] = cs
 	s.Unlock()
@@ -275,7 +277,7 @@ func (s *Server) config(o *ServerOption) {
 
 	s.Log = o.Logger
 
-	log.Println("ContentType:", o.ContentType)
+	log.Print(termcolor.Green.Sprint("ContentType:", o.ContentType))
 	s.contentType = o.ContentType
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 
@@ -283,30 +285,36 @@ func (s *Server) config(o *ServerOption) {
 		s.ResMaster.DefUse(resource.RES_JSON, resource.JSON{})
 	}
 
-	log.Println("VarCountPerRoute:", o.PathVarCount)
+	log.Print(termcolor.Green.Sprint("VarCountPerRoute:", o.PathVarCount))
 	pathVarCount = o.PathVarCount
-	log.Println("FilterCountPerRoute:", o.FilterCount)
+	log.Print(termcolor.Green.Sprint("FilterCountPerRoute:", o.FilterCount))
 	filterCount = o.FilterCount
 
-	log.Println("Init anonymous components:")
+	log.Print(termcolor.Green.Sprint("Init anonymous components"))
 	for i := range s.managedComponents {
 		panicError(s.managedComponents[i].Init(s))
 	}
 
-	log.Println("Init global components:")
+	log.Print(termcolor.Green.Sprint("Init global components:"))
 	for name, comp := range s.components {
-		log.Println(name + ":")
+		log.Print(termcolor.Green.Sprint(" " + name))
 		panicError(comp.Init(s))
 	}
 
-	log.Println("Init root filters:")
+	log.Print(termcolor.Green.Sprint("Init root filters:"))
 	panicError(s.RootFilters.Init(s))
-	log.Println("Init Handlers and Filters:")
+	log.Print(termcolor.Green.Sprint("Init Handlers and Filters:"))
 	panicError(s.Router.Init(s))
+
+	log.Print(termcolor.Green.Sprint("Execute registered init funcs:"))
+	funcs := s.initFuncs()
+	for _, f := range funcs {
+		panicError(f())
+	}
 
 	// destroy temporary data store
 	tmpDestroy()
-	log.Println("Server Start:", o.ListenAddr)
+	log.Print(termcolor.Green.Sprint("Server Start: ", o.ListenAddr))
 
 	runtime.GC()
 }
@@ -444,4 +452,16 @@ func (s *Server) Destroy() {
 			s.managedComponents[i].Destroy()
 		}
 	}
+}
+
+func (s *Server) initFuncs() []func() error {
+	funcs := TmpHGet(s, "initfuncs")
+	if funcs == nil {
+		return nil
+	}
+	return funcs.([]func() error)
+}
+
+func (s *Server) AddInitFuncs(fn ...func() error) {
+	TmpHSet(s, "initfuncs", append(s.initFuncs(), fn...))
 }

@@ -31,8 +31,11 @@ func (FakeComponent) Init(Enviroment) error { return nil }
 
 func (FakeComponent) Destroy() {}
 
-func convertComponentEnv(name string, c interface{}) componentEnv {
-	env := componentEnv{name: name}
+func convertComponentEnv(e Enviroment, name string, c interface{}) componentEnv {
+	env := componentEnv{
+		name:       name,
+		Enviroment: e,
+	}
 
 	switch c := c.(type) {
 	case Component:
@@ -62,9 +65,7 @@ func (env componentEnv) componentValue() interface{} {
 
 func (env componentEnv) Init(e Enviroment) (err error) {
 	if env.value == nil {
-		env.Enviroment = e
-		err = env.comp.Init(e)
-		env.Enviroment = nil
+		err = env.comp.Init(env)
 	}
 
 	return
