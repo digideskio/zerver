@@ -11,13 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cosiner/gohper/termcolor"
-
 	"github.com/cosiner/gohper/attrs"
-
 	"github.com/cosiner/gohper/crypto/tls2"
 	"github.com/cosiner/gohper/defval"
 	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/gohper/termcolor"
 	"github.com/cosiner/ygo/resource"
 	websocket "github.com/cosiner/zerver_websocket"
 )
@@ -75,7 +73,7 @@ type (
 		ResMaster   resource.Master
 		Log         Logger
 
-		components        map[string]componentEnv
+		components        map[string]*componentEnv
 		managedComponents []Component
 		sync.RWMutex
 
@@ -121,7 +119,7 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 		Router:      rt,
 		Attrs:       attrs.NewLocked(),
 		RootFilters: filters,
-		components:  make(map[string]componentEnv),
+		components:  make(map[string]*componentEnv),
 		ResMaster:   resource.NewMaster(),
 	}
 }
@@ -142,6 +140,7 @@ func (s *Server) Component(name string) interface{} {
 	var comp interface{}
 	s.RLock()
 	if cs, has := s.components[name]; has {
+		panicOnInit(cs.Init(s)) // if first init, just panic, otherwise, no error will returned
 		comp = cs.componentValue()
 	}
 	s.RUnlock()
@@ -269,12 +268,6 @@ func (o *ServerOption) init() {
 // all log message before server start will use standard log package
 func (s *Server) config(o *ServerOption) {
 	o.init()
-	var panicError = func(err error) {
-		if err != nil {
-			log.Panicln(err)
-		}
-	}
-
 	s.Log = o.Logger
 
 	log.Print(termcolor.Green.Sprint("ContentType:", o.ContentType))
@@ -292,24 +285,24 @@ func (s *Server) config(o *ServerOption) {
 
 	log.Print(termcolor.Green.Sprint("Init anonymous components"))
 	for i := range s.managedComponents {
-		panicError(s.managedComponents[i].Init(s))
+		panicOnInit(s.managedComponents[i].Init(s))
 	}
 
 	log.Print(termcolor.Green.Sprint("Init global components:"))
 	for name, comp := range s.components {
 		log.Print(termcolor.Green.Sprint(" " + name))
-		panicError(comp.Init(s))
+		panicOnInit(comp.Init(s))
 	}
 
 	log.Print(termcolor.Green.Sprint("Init root filters:"))
-	panicError(s.RootFilters.Init(s))
+	panicOnInit(s.RootFilters.Init(s))
 	log.Print(termcolor.Green.Sprint("Init Handlers and Filters:"))
-	panicError(s.Router.Init(s))
+	panicOnInit(s.Router.Init(s))
 
 	log.Print(termcolor.Green.Sprint("Execute registered init funcs:"))
 	funcs := s.initFuncs()
 	for _, f := range funcs {
-		panicError(f())
+		panicOnInit(f())
 	}
 
 	// destroy temporary data store
@@ -430,6 +423,12 @@ func (s *Server) connStateHook(conn net.Conn, state http.ConnState) {
 		s.activeConns.Done()
 	case http.StateHijacked:
 		s.activeConns.Done()
+	}
+}
+
+func panicOnInit(err error) {
+	if err != nil {
+		log.Panicln(err)
 	}
 }
 
