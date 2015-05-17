@@ -46,6 +46,7 @@ func (s initialState) String() string {
 	case _INITIALIZED:
 		return "Initialized"
 	}
+
 	panic("unexpected initial state")
 }
 
@@ -86,9 +87,9 @@ func (env *componentEnv) componentValue() interface{} {
 	return env.comp
 }
 
-func (env *componentEnv) Init(e Enviroment) (err error) {
+func (env *componentEnv) Init(e Enviroment) error {
 	if env.value != nil || env.initialState == _INITIALIZED {
-		return
+		return nil
 	}
 
 	if env.initialState == _WAITING {
@@ -96,10 +97,10 @@ func (env *componentEnv) Init(e Enviroment) (err error) {
 	}
 
 	env.initialState = _WAITING
-	err = env.comp.Init(env)
+	err := env.comp.Init(env)
 	env.initialState = _INITIALIZED
 
-	return
+	return err
 }
 
 func (env *componentEnv) Destroy() {

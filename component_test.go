@@ -9,7 +9,7 @@ import (
 type Dep string
 
 func (d Dep) Init(env Enviroment) error {
-	_ = env.Component(string(d))
+	_, _ = env.Component(string(d))
 	return nil
 }
 

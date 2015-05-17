@@ -14,14 +14,12 @@ import (
 	"github.com/cosiner/gohper/attrs"
 	"github.com/cosiner/gohper/crypto/tls2"
 	"github.com/cosiner/gohper/defval"
-	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/termcolor"
 	"github.com/cosiner/ygo/resource"
 	websocket "github.com/cosiner/zerver_websocket"
 )
 
 const (
-	ErrComponentNotFound = errors.Err("The required component is not found")
 	// server status
 	_NORMAL    = 0
 	_DESTROYED = 1
@@ -97,9 +95,19 @@ type (
 		ResourceMaster() *resource.Master
 		Logger() Logger
 		StartTask(path string, value interface{})
-		Component(name string) interface{}
+		Component(name string) (interface{}, error)
 	}
+
+	ComponentNotFoundError string
 )
+
+func (err ComponentNotFoundError) Name() string {
+	return string(err)
+}
+
+func (err ComponentNotFoundError) Error() string {
+	return "component \"" + string(err) + "\" is not found"
+}
 
 // NewServer create a new server with default router
 func NewServer() *Server {
@@ -136,16 +144,20 @@ func (s *Server) ResourceMaster() *resource.Master {
 	return &s.ResMaster
 }
 
-func (s *Server) Component(name string) interface{} {
-	var comp interface{}
+func (s *Server) Component(name string) (interface{}, error) {
 	s.RLock()
-	if cs, has := s.components[name]; has {
-		panicOnInit(cs.Init(s)) // if first init, just panic, otherwise, no error will returned
-		comp = cs.componentValue()
-	}
+	env, has := s.components[name]
 	s.RUnlock()
 
-	return comp
+	if !has {
+		return nil, ComponentNotFoundError(name)
+	}
+
+	if err := env.Init(s); err != nil { // only first time will execute
+		return nil, err
+	}
+
+	return env.componentValue(), nil
 }
 
 // AddComponent let server manage this component and it's lifetime.
