@@ -45,15 +45,15 @@ type (
 		// filters count for each route, RootFilters is not include, default 5
 		FilterCount int
 
-		// read timeout by millseconds
-		ReadTimeout int
-		// write timeout by millseconds
-		WriteTimeout int
+		// read timeout
+		ReadTimeout time.Duration
+		// write timeout
+		WriteTimeout time.Duration
 		// max header bytes
 		MaxHeaderBytes int
 		// tcp keep-alive period by minutes,
-		// default 3, same as predefined in standard http package
-		KeepAlivePeriod int
+		// default 3 minute, same as predefined in standard http package
+		KeepAlivePeriod time.Duration
 
 		// CA pem files to verify client certs
 		CAs []string
@@ -221,7 +221,9 @@ func (o *ServerOption) init() {
 	defval.String(&o.ContentType, resource.CONTENTTYPE_JSON)
 	defval.Int(&o.PathVarCount, 3)
 	defval.Int(&o.FilterCount, 5)
-	defval.Int(&o.KeepAlivePeriod, 3) // same as net/http/server.go:tcpKeepAliveListener
+	if o.KeepAlivePeriod == 0 {
+		o.KeepAlivePeriod = 3 * time.Minute // same as net/http/server.go:tcpKeepAliveListener
+	}
 	if o.Logger == nil {
 		o.Logger = DefaultLogger()
 	}
@@ -301,8 +303,8 @@ func (s *Server) Start(opt *ServerOption) error {
 	if err == nil {
 		s.listener = l
 		srv := &http.Server{
-			ReadTimeout:  time.Duration(opt.ReadTimeout) * time.Millisecond,
-			WriteTimeout: time.Duration(opt.WriteTimeout) * time.Millisecond,
+			ReadTimeout:  opt.ReadTimeout,
+			WriteTimeout: opt.WriteTimeout,
 			Handler:      s,
 			ConnState:    s.connStateHook,
 		}
@@ -315,7 +317,7 @@ func (s *Server) Start(opt *ServerOption) error {
 // from net/http/server/go
 type tcpKeepAliveListener struct {
 	*net.TCPListener
-	AlivePeriod int // alive period by minutes
+	AlivePeriod time.Duration
 }
 
 func (ln *tcpKeepAliveListener) Accept() (c net.Conn, err error) {
@@ -396,21 +398,38 @@ func panicOnInit(err error) {
 	}
 }
 
-// Destroy stop server, release all resources, if destroyed, server can't be reused,
-// instead, create a new one.
-// It only wait for managed connections, hijacked/websocket connections is not
-func (s *Server) Destroy() {
+// Destroy server, release all resources, if destroyed, server can't be reused
+// It only wait for managed connections, hijacked/websocket connections will not waiting
+// if timeout or server already destroyed, false was returned
+func (s *Server) Destroy(timeout time.Duration) bool {
 	if !atomic.CompareAndSwapInt32(&s.state, _NORMAL, _DESTROYED) { // signal close idle connections
-		return
+		return false
 	}
 
+	var isTimeout = true
 	s.warnLog(s.listener.Close()) // don't accept connections
-	s.activeConns.Wait()          // wait connections in service to be idle
+	if timeout > 0 {
+		c := make(chan struct{})
+		go func(s *Server, c chan struct{}) {
+			s.activeConns.Wait() // wait connections in service to be idle
+			close(c)
+		}(s, c)
+
+		select {
+		case <-time.NewTicker(timeout).C:
+		case <-c:
+			isTimeout = false
+		}
+	} else {
+		s.activeConns.Wait() // wait connections in service to be idle
+	}
 
 	// release resources
 	s.RootFilters.Destroy()
 	s.Router.Destroy()
 	s.ComponentManager.Destroy()
+
+	return !isTimeout
 }
 
 func (s *Server) initFuncs() []func() error {

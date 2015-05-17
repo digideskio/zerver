@@ -1,26 +1,28 @@
 package zerver
 
 import (
-	"strings"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/cosiner/gohper/testing2"
 )
 
-func TestServer(t *testing.T) {
-	s := NewServer()
-	s.Get("/", func(_ Request, resp Response) {
-		resp.WriteString("Hello World")
-	})
-	var err error
-	go func(s *Server, err *error) {
-		time.Sleep(time.Millisecond)
-		if *err == nil {
-			s.Destroy()
-		}
-	}(s, &err)
+func TestServerDestroyTimeout(t *testing.T) {
+	tt := testing2.Wrap(t)
 
-	err = s.Start(nil)
-	testing2.True(t, strings.Contains(err.Error(), "closed"))
+	var handler = func(Request, Response) {
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	s := NewServer()
+	s.Get("/", handler)
+
+	go s.Start(nil)
+	go func() {
+		http.Get("http://localhost:4000/")
+	}()
+
+	time.Sleep(10 * time.Millisecond)
+	tt.False(s.Destroy(10 * time.Millisecond))
 }
