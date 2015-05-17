@@ -52,7 +52,7 @@ func NewServer(p string) (*zerver.Server, error) {
 	// 	req.Server().Destroy()
 	// })
 	// infos["/stop"] = "stop pprof server"
-	return s, Enable("/", s, s.RootFilters)
+	return s, Enable("/", s.Router, s.RootFilters)
 }
 
 func globalFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {

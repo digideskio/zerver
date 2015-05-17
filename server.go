@@ -70,10 +70,7 @@ type (
 		RootFilters RootFilters // Match Every Routes
 		ResMaster   resource.Master
 		Log         Logger
-
-		components        map[string]*componentEnv
-		managedComponents []Component
-		sync.RWMutex
+		ComponentManager
 
 		checker     websocket.HandshakeChecker
 		contentType string // default content type
@@ -124,11 +121,11 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 	}
 
 	return &Server{
-		Router:      rt,
-		Attrs:       attrs.NewLocked(),
-		RootFilters: filters,
-		components:  make(map[string]*componentEnv),
-		ResMaster:   resource.NewMaster(),
+		Router:           rt,
+		Attrs:            attrs.NewLocked(),
+		RootFilters:      filters,
+		ResMaster:        resource.NewMaster(),
+		ComponentManager: NewComponentManager(),
 	}
 }
 
@@ -144,55 +141,8 @@ func (s *Server) ResourceMaster() *resource.Master {
 	return &s.ResMaster
 }
 
-func (s *Server) Component(name string) (interface{}, error) {
-	s.RLock()
-	env, has := s.components[name]
-	s.RUnlock()
-
-	if !has {
-		return nil, ComponentNotFoundError(name)
-	}
-
-	if err := env.Init(s); err != nil { // only first time will execute
-		return nil, err
-	}
-
-	return env.componentValue(), nil
-}
-
-// AddComponent let server manage this component and it's lifetime.
-//
-// If name is "", component must implements Component, and it will initialized at
-// server start and can't be accessed by name.
-//
-// Otherwise, it can be a Component, or others.
-func (s *Server) AddComponent(name string, component interface{}) ComponentEnviroment {
-	if name == "" {
-		if c, is := component.(Component); is {
-			s.managedComponents = append(s.managedComponents, c)
-		}
-		return nil
-	}
-
-	cs := convertComponentEnv(s, name, component)
-	s.Lock()
-	s.components[name] = cs
-	s.Unlock()
-
-	return cs
-}
-
-func (s *Server) RemoveComponent(name string) {
-	s.Lock()
-	cs, has := s.components[name]
-	if !has {
-		s.Unlock()
-		return
-	}
-
-	defer s.Unlock()
-	cs.Destroy()
-	delete(s.components, name)
+func (s *Server) RegisterComponent(name string, component interface{}) ComponentEnviroment {
+	return s.ComponentManager.RegisterComponent(s, name, component)
 }
 
 // StartTask start a task synchronously, the value will be passed to task handler
@@ -295,19 +245,21 @@ func (s *Server) config(o *ServerOption) {
 	log.Print(termcolor.Green.Sprint("FilterCountPerRoute:", o.FilterCount))
 	filterCount = o.FilterCount
 
-	log.Print(termcolor.Green.Sprint("Init anonymous components"))
-	for i := range s.managedComponents {
-		panicOnInit(s.managedComponents[i].Init(s))
+	s.ComponentManager.initHook = func(name string) {
+		switch name {
+		case _GLOBAL_COMPONENT:
+			log.Print(termcolor.Green.Sprint("Init global components"))
+		case _ANONYMOUS_COMPONENT:
+			log.Print(termcolor.Green.Sprint("Init anonymous components"))
+		default:
+			log.Print(termcolor.Green.Sprint("  " + name))
+		}
 	}
-
-	log.Print(termcolor.Green.Sprint("Init global components:"))
-	for name, comp := range s.components {
-		log.Print(termcolor.Green.Sprint(" " + name))
-		panicOnInit(comp.Init(s))
-	}
+	panicOnInit(s.ComponentManager.Init(s))
 
 	log.Print(termcolor.Green.Sprint("Init root filters:"))
 	panicOnInit(s.RootFilters.Init(s))
+
 	log.Print(termcolor.Green.Sprint("Init Handlers and Filters:"))
 	panicOnInit(s.Router.Init(s))
 
@@ -338,7 +290,7 @@ func (s *Server) warnLog(err error) {
 	}
 }
 
-// Start start server as http server, if opt is nil, use default configurations
+// Start server as http server, if opt is nil, use default configurations
 func (s *Server) Start(opt *ServerOption) error {
 	if opt == nil {
 		opt = &ServerOption{}
@@ -448,21 +400,17 @@ func panicOnInit(err error) {
 // instead, create a new one.
 // It only wait for managed connections, hijacked/websocket connections is not
 func (s *Server) Destroy() {
-	if atomic.CompareAndSwapInt32(&s.state, _NORMAL, _DESTROYED) { // signal close idle connections
-		s.warnLog(s.listener.Close()) // don't accept connections
-		s.activeConns.Wait()          // wait connections in service to be idle
-
-		// release resources
-		s.RootFilters.Destroy()
-		s.Router.Destroy()
-
-		for _, cs := range s.components {
-			cs.Destroy()
-		}
-		for i := range s.managedComponents {
-			s.managedComponents[i].Destroy()
-		}
+	if !atomic.CompareAndSwapInt32(&s.state, _NORMAL, _DESTROYED) { // signal close idle connections
+		return
 	}
+
+	s.warnLog(s.listener.Close()) // don't accept connections
+	s.activeConns.Wait()          // wait connections in service to be idle
+
+	// release resources
+	s.RootFilters.Destroy()
+	s.Router.Destroy()
+	s.ComponentManager.Destroy()
 }
 
 func (s *Server) initFuncs() []func() error {

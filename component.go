@@ -1,5 +1,7 @@
 package zerver
 
+import "sync"
+
 const (
 	_UNINITIALIZE initialState = iota
 	_WAITING
@@ -15,6 +17,8 @@ type (
 		Init(Enviroment) error
 		Destroy()
 	}
+
+	FakeComponent struct{}
 
 	ComponentEnviroment interface {
 		Name() string
@@ -34,7 +38,13 @@ type (
 		initialState
 	}
 
-	FakeComponent struct{}
+	ComponentManager struct {
+		components  map[string]*componentEnv
+		anonymouses []Component
+		lock        sync.RWMutex
+
+		initHook func(name string)
+	}
 )
 
 func (s initialState) String() string {
@@ -54,29 +64,29 @@ func (FakeComponent) Init(Enviroment) error { return nil }
 
 func (FakeComponent) Destroy() {}
 
-func convertComponentEnv(e Enviroment, name string, c interface{}) *componentEnv {
+// NewComponentEnv is only a quick way get/set component attributes
+func NewComponentEnv(env Enviroment, name string) ComponentEnviroment {
+	return newComponentEnv(env, name, nil)
+}
+
+func newComponentEnv(e Enviroment, name string, c interface{}) *componentEnv {
 	env := &componentEnv{
-		name:         name,
-		Enviroment:   e,
-		initialState: _UNINITIALIZE,
+		name:       name,
+		Enviroment: e,
 	}
 
-	switch c := c.(type) {
-	case Component:
-		env.comp = c
-	default:
-		env.value = c
+	if c != nil {
+		switch c := c.(type) {
+		case Component:
+			env.comp = c
+			env.initialState = _UNINITIALIZE
+		default:
+			env.value = c
+			env.initialState = _INITIALIZED
+		}
 	}
 
 	return env
-}
-
-// NewComponentEnv is only a quick way get/set component attributes
-func NewComponentEnv(env Enviroment, name string) ComponentEnviroment {
-	return &componentEnv{
-		Enviroment: env,
-		name:       name,
-	}
 }
 
 func (env *componentEnv) componentValue() interface{} {
@@ -88,7 +98,7 @@ func (env *componentEnv) componentValue() interface{} {
 }
 
 func (env *componentEnv) Init(e Enviroment) error {
-	if env.value != nil || env.initialState == _INITIALIZED {
+	if env.initialState == _INITIALIZED {
 		return nil
 	}
 
@@ -104,9 +114,13 @@ func (env *componentEnv) Init(e Enviroment) error {
 }
 
 func (env *componentEnv) Destroy() {
-	if env.value == nil {
+	if env.value == nil && env.initialState == _INITIALIZED {
 		env.comp.Destroy()
 	}
+}
+
+func ComponentAttr(comp, attr string) string {
+	return comp + ":" + attr
 }
 
 func (env *componentEnv) Name() string {
@@ -129,6 +143,114 @@ func (env *componentEnv) String() string {
 	return env.name + ":" + env.initialState.String()
 }
 
-func ComponentAttr(comp, attr string) string {
-	return comp + ":" + attr
+func NewComponentManager() ComponentManager {
+	return ComponentManager{
+		components: make(map[string]*componentEnv),
+	}
+}
+
+const (
+	_GLOBAL_COMPONENT    = "_Global_"
+	_ANONYMOUS_COMPONENT = ""
+)
+
+func (cm *ComponentManager) Init(env Enviroment) error {
+	// initial named component first for anonymouses may depend on them
+	hook := cm.initHook
+	if hook == nil {
+		hook = func(string) {}
+	} else {
+		defer func(cm *ComponentManager) {
+			cm.initHook = nil
+		}(cm)
+	}
+
+	hook(_GLOBAL_COMPONENT)
+	for name, comp := range cm.components {
+		hook(name)
+		if err := comp.Init(env); err != nil {
+			return err
+		}
+	}
+
+	hook(_ANONYMOUS_COMPONENT)
+	for _, c := range cm.anonymouses {
+		if err := c.Init(env); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (cm *ComponentManager) Destroy() {
+	cm.lock.Lock()
+	for _, cs := range cm.components {
+		cs.Destroy()
+	}
+
+	for _, c := range cm.anonymouses {
+		c.Destroy()
+	}
+	cm.lock.Unlock()
+}
+
+func (cm *ComponentManager) Component(name string) (interface{}, error) {
+	cm.lock.RLock()
+	env, has := cm.components[name]
+	cm.lock.RUnlock()
+
+	if !has {
+		return nil, ComponentNotFoundError(name)
+	}
+
+	if err := env.Init(env); err != nil { // only first time will execute
+		return nil, err
+	}
+
+	return env.componentValue(), nil
+}
+
+// RegisterComponent let server manage this component and it's lifetime.
+// If name is "", component must implements Component, and it will initialized at
+// server start and can't be accessed by name.
+// Otherwise, it can be a Component, or others.
+//
+// If component is added before server start, it will be initialized when server start,
+// otherwise, initialized when first required by Server.Compoenent
+//
+// When global component is initializing, the Enviroment passed to Init is exactly a
+// ComponentEnviroment
+func (cm *ComponentManager) RegisterComponent(
+	env Enviroment,
+	name string,
+	component interface{},
+) ComponentEnviroment {
+
+	if name == "" {
+		if c, is := component.(Component); is {
+			cm.anonymouses = append(cm.anonymouses, c)
+		}
+		return nil
+	}
+
+	cs := newComponentEnv(env, name, component)
+	cm.lock.Lock()
+	cm.components[name] = cs
+	cm.lock.Unlock()
+
+	return cs
+}
+
+func (cm *ComponentManager) RemoveComponent(name string) {
+	cm.lock.Lock()
+	cs, has := cm.components[name]
+	if !has {
+		cm.lock.Unlock()
+		return
+	}
+
+	defer cm.lock.Unlock()
+	cs.Destroy()
+	delete(cm.components, name)
 }

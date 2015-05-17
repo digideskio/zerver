@@ -20,8 +20,8 @@ func TestCycleDependenced(t *testing.T) {
 
 	s := NewServer()
 
-	s.AddComponent("Comp1", Dep("Comp2"))
-	s.AddComponent("Comp2", Dep("Comp1"))
+	s.RegisterComponent("Comp1", Dep("Comp2"))
+	s.RegisterComponent("Comp2", Dep("Comp1"))
 	for _, comp := range s.components {
 		comp.Init(s)
 	}
