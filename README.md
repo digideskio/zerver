@@ -112,16 +112,11 @@ server.Post("/auth", zerver.Intercept(
 
 * component
 ```Go
-serer.AddComponent(zerver.CMP_RESOURCE, zerver.ComponentState{
-    Initialized:true,
-    Component:components.Ffjson{},
-})
-serer.AddComponent(components.CMP_REDIS, zerver.ComponentState{
-    NoLazy:true,
-    Component:&components.Redis{},
-})
+env := serer.RegisterComponent(name, component)
+env.SetAttr("Attr1", 100)
+env.SetAttr("Attr2", "100")
 
-redis, err := server.Component(zerver.CMP_REDIS)
+comp, err := server.Component(name)
 ```
 
 ### Config
@@ -176,6 +171,7 @@ Server struct {
     RootFilters RootFilters // root filters, Match Every Routes
     ResMaster ResourceMaster // resource master, manage resource types
     Log     Logger // server has another method called Logger()
+    ComponentManager // manage global/anonymous components
 }
 ```
 

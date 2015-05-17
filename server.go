@@ -421,6 +421,9 @@ func (s *Server) initFuncs() []func() error {
 	return funcs.([]func() error)
 }
 
+// AddInitFuncs add functions to execute after all others done and before server start
+// don't register component or add handler, filter in these functions unless you know
+// what are you doing
 func (s *Server) AddInitFuncs(fn ...func() error) {
 	TmpHSet(s, "initfuncs", append(s.initFuncs(), fn...))
 }
