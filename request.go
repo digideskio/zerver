@@ -7,9 +7,15 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/cosiner/gohper/errors"
+
 	"github.com/cosiner/gohper/attrs"
 	"github.com/cosiner/gohper/strings2"
 	"github.com/cosiner/ygo/resource"
+)
+
+const (
+	ErrNoResourceType = errors.Err("there is no this resource type on server")
 )
 
 type (
@@ -29,7 +35,7 @@ type (
 		RemoteAddr() string
 		RemoteIP() string
 		UserAgent() string
-		ContentType() string
+		Accepts() string
 		AcceptEncodings() string
 		Authorization() (string, bool)
 		BasicAuth() (string, string)
@@ -183,9 +189,9 @@ func (req *request) UserAgent() string {
 	return req.Header(HEADER_USERAGENT)
 }
 
-// ContentType extract content type form request header
-func (req *request) ContentType() string {
-	return req.Header(HEADER_CONTENTTYPE)
+// Accepts extract content type form request header
+func (req *request) Accepts() string {
+	return req.Header(HEADER_ACCEPT)
 }
 
 func (req *request) AcceptEncodings() string {
@@ -234,7 +240,7 @@ func (req *request) Header(name string) string {
 
 func (req *request) Receive(v interface{}) error {
 	if req.res == nil {
-		req.Logger().Panicln("There is no resource type match this request:" + req.ContentType())
+		return ErrNoResourceType
 	}
 
 	return req.res.Receive(req, v)

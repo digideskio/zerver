@@ -124,8 +124,6 @@ comp, err := server.Component(name)
 ServerOption struct {
     // server listening address, default :4000
     ListenAddr string
-    // content type for each request, default application/json;charset=utf-8
-    ContentType string
 
     // check websocket header, default nil
     WebSocketChecker HeaderChecker
@@ -156,7 +154,6 @@ ServerOption struct {
 }
 
 server.Start(&ServerOption{
-    ContentType:"text/plain;charset=utf-8",
     ListenAddr:":8000",
 })
 ```

@@ -34,8 +34,8 @@ type (
 
 		SetContentEncoding(enc string)
 
-		// SetContentType will cause Resource change
-		SetContentType(typ string)
+		// SetContentType will cause Resource change if it's not nil
+		SetContentType(typ string, res resource.Resource)
 
 		SetAdvancedCookie(c *http.Cookie)
 		SetCookie(name, value string, lifetime int)
@@ -200,9 +200,12 @@ func (resp *response) RemoveHeader(name string) {
 	resp.header.Del(name)
 }
 
-func (resp *response) SetContentType(typ string) {
-	resp.res = resp.env.ResourceMaster().Resource(typ)
+func (resp *response) SetContentType(typ string, res resource.Resource) {
 	resp.SetHeader(HEADER_CONTENTTYPE, typ)
+
+	if res != nil {
+		resp.res = res
+	}
 }
 
 // SetContentEncoding set content encoding of response
@@ -254,7 +257,7 @@ func (resp *response) Resource() resource.Resource {
 
 func (resp *response) Send(key string, value interface{}) error {
 	if resp.res == nil {
-		resp.env.Logger().Panicln("There is no resource type match this request")
+		return ErrNoResourceType
 	}
 
 	return resp.res.Send(resp, key, value)

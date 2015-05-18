@@ -23,17 +23,12 @@ const (
 	// server status
 	_NORMAL    = 0
 	_DESTROYED = 1
-
-	_CONTENTTYPE_DISABLE = "-"
 )
 
 type (
 	ServerOption struct {
 		// server listening address, default :4000
 		ListenAddr string
-		// content type for each request, default application/json;charset=utf-8,
-		// use "-" to disable the automation
-		ContentType string
 
 		// check websocket header, default nil
 		WebSocketChecker HeaderChecker
@@ -44,6 +39,11 @@ type (
 		PathVarCount int
 		// filters count for each route, RootFilters is not include, default 5
 		FilterCount int
+
+		// whether process user request or not when
+		// header value of "Accept" is not acceptable and there is no default
+		// resource type
+		ProcessNotAcceptable bool
 
 		// read timeout
 		ReadTimeout time.Duration
@@ -70,10 +70,10 @@ type (
 		RootFilters RootFilters // Match Every Routes
 		ResMaster   resource.Master
 		Log         Logger
-		ComponentManager
+		componentManager
 
-		checker     websocket.HandshakeChecker
-		contentType string // default content type
+		checker              websocket.HandshakeChecker
+		processNotAcceptable bool
 
 		listener    net.Listener
 		state       int32          // destroy or normal running
@@ -125,7 +125,7 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 		Attrs:            attrs.NewLocked(),
 		RootFilters:      filters,
 		ResMaster:        resource.NewMaster(),
-		ComponentManager: NewComponentManager(),
+		componentManager: newComponentManager(),
 	}
 }
 
@@ -141,8 +141,18 @@ func (s *Server) ResourceMaster() *resource.Master {
 	return &s.ResMaster
 }
 
+// RegisterComponent let server manage this component and it's lifetime.
+// If name is "", component must implements Component, and it will initialized at
+// server start and can't be accessed by name.
+// Otherwise, it can be a Component, or others.
+//
+// If component is added before server start, it will be initialized when server start,
+// otherwise, initialized when first required by Server.Compoenent
+//
+// When global component is initializing, the Enviroment passed to Init is exactly a
+// ComponentEnviroment
 func (s *Server) RegisterComponent(name string, component interface{}) ComponentEnviroment {
-	return s.ComponentManager.RegisterComponent(s, name, component)
+	return s.componentManager.RegisterComponent(s, name, component)
 }
 
 // StartTask start a task synchronously, the value will be passed to task handler
@@ -190,19 +200,21 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	url.Host = request.Host
 	handler, indexer, filters := s.MatchHandlerFilters(url)
 
+	res, resType := s.ResMaster.Resource(request.Header.Get(HEADER_ACCEPT))
+
 	reqEnv := newRequestEnvFromPool()
-	res := s.ResMaster.Resource(reqEnv.req.ContentType())
 	req := reqEnv.req.init(s, res, request, indexer)
 	resp := reqEnv.resp.init(s, res, w)
-	if s.contentType != _CONTENTTYPE_DISABLE {
-		resp.SetContentType(s.contentType)
-	}
 
 	var chain FilterChain
 	if handler == nil {
 		resp.ReportNotFound()
+	} else if res == nil && !s.processNotAcceptable {
+		resp.ReportNotAcceptable()
 	} else if chain = FilterChain(handler.Handler(req.Method())); chain == nil {
 		resp.ReportMethodNotAllowed()
+	} else {
+		resp.SetContentType(resType, res)
 	}
 
 	newFilterChain(s.RootFilters.Filters(url),
@@ -218,7 +230,6 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 
 func (o *ServerOption) init() {
 	defval.String(&o.ListenAddr, ":4000")
-	defval.String(&o.ContentType, resource.CONTENTTYPE_JSON)
 	defval.Int(&o.PathVarCount, 3)
 	defval.Int(&o.FilterCount, 5)
 	if o.KeepAlivePeriod == 0 {
@@ -231,49 +242,65 @@ func (o *ServerOption) init() {
 
 // all log message before server start will use standard log package
 func (s *Server) config(o *ServerOption) {
+	var (
+		panicOnError = func(err error) {
+			if err != nil {
+				log.Panicln(err)
+			}
+		}
+
+		log = func(args ...interface{}) {
+			log.Print(termcolor.Green.Sprint(args...))
+		}
+	)
+
 	o.init()
 	s.Log = o.Logger
 
-	log.Print(termcolor.Green.Sprint("ContentType:", o.ContentType))
-	s.contentType = o.ContentType
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 
 	if len(s.ResMaster.Resources) == 0 {
+		log("Use default resource:", resource.RES_JSON)
 		s.ResMaster.DefUse(resource.RES_JSON, resource.JSON{})
+	} else {
+		log("Resource types:", s.ResMaster.Types, "Default:", s.ResMaster.Default)
 	}
 
-	log.Print(termcolor.Green.Sprint("VarCountPerRoute:", o.PathVarCount))
+	s.processNotAcceptable = o.ProcessNotAcceptable
+	log("Process non-acceptable request:", s.processNotAcceptable)
+
+	log("VarCountPerRoute:", o.PathVarCount)
 	pathVarCount = o.PathVarCount
-	log.Print(termcolor.Green.Sprint("FilterCountPerRoute:", o.FilterCount))
+	log("FilterCountPerRoute:", o.FilterCount)
 	filterCount = o.FilterCount
 
-	s.ComponentManager.initHook = func(name string) {
+	s.componentManager.initHook = func(name string) {
 		switch name {
 		case _GLOBAL_COMPONENT:
-			log.Print(termcolor.Green.Sprint("Init global components"))
+			log("Init global components")
 		case _ANONYMOUS_COMPONENT:
-			log.Print(termcolor.Green.Sprint("Init anonymous components"))
+			log("Init anonymous components")
 		default:
-			log.Print(termcolor.Green.Sprint("  " + name))
+			log("  " + name)
 		}
 	}
-	panicOnInit(s.ComponentManager.Init(s))
+	panicOnError(s.componentManager.Init(s))
 
-	log.Print(termcolor.Green.Sprint("Init root filters:"))
-	panicOnInit(s.RootFilters.Init(s))
+	log("Init root filters:")
+	panicOnError(s.RootFilters.Init(s))
 
-	log.Print(termcolor.Green.Sprint("Init Handlers and Filters:"))
-	panicOnInit(s.Router.Init(s))
+	log("Init Handlers and Filters:")
+	panicOnError(s.Router.Init(s))
 
-	log.Print(termcolor.Green.Sprint("Execute registered init funcs:"))
+	log("Execute registered init funcs:")
 	funcs := s.initFuncs()
 	for _, f := range funcs {
-		panicOnInit(f())
+		panicOnError(f())
 	}
 
 	// destroy temporary data store
 	tmpDestroy()
-	log.Print(termcolor.Green.Sprint("Server Start: ", o.ListenAddr))
+	log("Server Start: ", o.ListenAddr)
 
 	runtime.GC()
 }
@@ -392,12 +419,6 @@ func (s *Server) connStateHook(conn net.Conn, state http.ConnState) {
 	}
 }
 
-func panicOnInit(err error) {
-	if err != nil {
-		log.Panicln(err)
-	}
-}
-
 // Destroy server, release all resources, if destroyed, server can't be reused
 // It only wait for managed connections, hijacked/websocket connections will not waiting
 // if timeout or server already destroyed, false was returned
@@ -427,7 +448,7 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 	// release resources
 	s.RootFilters.Destroy()
 	s.Router.Destroy()
-	s.ComponentManager.Destroy()
+	s.componentManager.Destroy()
 
 	return !isTimeout
 }

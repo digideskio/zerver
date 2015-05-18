@@ -38,7 +38,7 @@ type (
 		initialState
 	}
 
-	ComponentManager struct {
+	componentManager struct {
 		components  map[string]*componentEnv
 		anonymouses []Component
 		lock        sync.RWMutex
@@ -143,8 +143,8 @@ func (env *componentEnv) String() string {
 	return env.name + ":" + env.initialState.String()
 }
 
-func NewComponentManager() ComponentManager {
-	return ComponentManager{
+func newComponentManager() componentManager {
+	return componentManager{
 		components: make(map[string]*componentEnv),
 	}
 }
@@ -154,13 +154,13 @@ const (
 	_ANONYMOUS_COMPONENT = ""
 )
 
-func (cm *ComponentManager) Init(env Enviroment) error {
+func (cm *componentManager) Init(env Enviroment) error {
 	// initial named component first for anonymouses may depend on them
 	hook := cm.initHook
 	if hook == nil {
 		hook = func(string) {}
 	} else {
-		defer func(cm *ComponentManager) {
+		defer func(cm *componentManager) {
 			cm.initHook = nil
 		}(cm)
 	}
@@ -183,7 +183,7 @@ func (cm *ComponentManager) Init(env Enviroment) error {
 	return nil
 }
 
-func (cm *ComponentManager) Destroy() {
+func (cm *componentManager) Destroy() {
 	cm.lock.Lock()
 	for _, cs := range cm.components {
 		cs.Destroy()
@@ -195,7 +195,7 @@ func (cm *ComponentManager) Destroy() {
 	cm.lock.Unlock()
 }
 
-func (cm *ComponentManager) Component(name string) (interface{}, error) {
+func (cm *componentManager) Component(name string) (interface{}, error) {
 	cm.lock.RLock()
 	env, has := cm.components[name]
 	cm.lock.RUnlock()
@@ -211,17 +211,7 @@ func (cm *ComponentManager) Component(name string) (interface{}, error) {
 	return env.componentValue(), nil
 }
 
-// RegisterComponent let server manage this component and it's lifetime.
-// If name is "", component must implements Component, and it will initialized at
-// server start and can't be accessed by name.
-// Otherwise, it can be a Component, or others.
-//
-// If component is added before server start, it will be initialized when server start,
-// otherwise, initialized when first required by Server.Compoenent
-//
-// When global component is initializing, the Enviroment passed to Init is exactly a
-// ComponentEnviroment
-func (cm *ComponentManager) RegisterComponent(
+func (cm *componentManager) RegisterComponent(
 	env Enviroment,
 	name string,
 	component interface{},
@@ -242,7 +232,7 @@ func (cm *ComponentManager) RegisterComponent(
 	return cs
 }
 
-func (cm *ComponentManager) RemoveComponent(name string) {
+func (cm *componentManager) RemoveComponent(name string) {
 	cm.lock.Lock()
 	cs, has := cm.components[name]
 	if !has {

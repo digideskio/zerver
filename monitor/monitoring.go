@@ -56,7 +56,7 @@ func NewServer(p string) (*zerver.Server, error) {
 }
 
 func globalFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-	resp.SetContentType("text/plain")
+	resp.SetContentType("text/plain", nil)
 
 	if resp.Status() == http.StatusNotFound {
 		resp.SetHeader("Location", path+"/options?from="+url.QueryEscape(req.URL().Path))

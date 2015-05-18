@@ -13,11 +13,13 @@ var _tmp = make(map[interface{}]interface{})
 
 func TmpSet(key, value interface{}) {
 	_tmpCheck()
+
 	_tmp[key] = value
 }
 
 func TmpHSet(key, key2, value interface{}) {
 	_tmpCheck()
+
 	if vs := _tmp[key]; vs == nil {
 		vs := map[interface{}]interface{}{
 			key2: value,
@@ -30,15 +32,19 @@ func TmpHSet(key, key2, value interface{}) {
 
 func TmpGet(key interface{}) interface{} {
 	_tmpCheck()
+
 	return _tmp[key]
 }
 
 func TmpHGet(key, key2 interface{}) interface{} {
 	_tmpCheck()
-	if values := _tmp[key]; values != nil {
-		return values.(map[interface{}]interface{})[key2]
+
+	values := _tmp[key]
+	if values == nil {
+		return nil
 	}
-	return nil
+
+	return values.(map[interface{}]interface{})[key2]
 }
 
 func tmpDestroy() {
@@ -47,6 +53,6 @@ func tmpDestroy() {
 
 func _tmpCheck() {
 	if _tmp == nil {
-		log.Panicf("Temporary data store has been destroyed: %s\n", runtime2.Caller(2))
+		log.Panicln("Temporary data store has been destroyed: " + runtime2.Caller(2))
 	}
 }

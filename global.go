@@ -1,10 +1,6 @@
 package zerver
 
-import (
-	"strings"
-
-	"github.com/cosiner/ygo/resource"
-)
+import "strings"
 
 const (
 	// Http Header
@@ -14,6 +10,7 @@ const (
 	HEADER_REFER           = "Referer"
 	HEADER_CONTENTENCODING = "Content-Encoding"
 	HEADER_USERAGENT       = "User-Agent"
+	HEADER_ACCEPT          = "Accept"
 	HEADER_ACCEPTENCODING  = "Accept-Encoding"
 	HEADER_CACHECONTROL    = "Cache-Control"
 	HEADER_EXPIRES         = "Expires"
@@ -43,13 +40,4 @@ func parseRequestMethod(s string) string {
 	}
 
 	return strings.ToUpper(s)
-}
-
-// parseContentType parse content type
-func parseContentType(str string) string {
-	if str == "" {
-		return resource.CONTENTTYPE_JSON
-	}
-
-	return strings.ToLower(strings.TrimSpace(str))
 }
