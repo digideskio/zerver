@@ -45,7 +45,7 @@ type (
 	}
 )
 
-func (m *MemIDStore) Init(zerver.Enviroment) error {
+func (m *MemIDStore) Init(zerver.Environment) error {
 	m.requests = make(map[string]struct{})
 	m.lock = sync.RWMutex{}
 
@@ -77,7 +77,7 @@ func (m *MemIDStore) Remove(id string) error {
 	return nil
 }
 
-func (r *RedisIDStore) Init(env zerver.Enviroment) error {
+func (r *RedisIDStore) Init(env zerver.Environment) error {
 	redis, err := env.Component(component.REDIS)
 	if err != nil {
 		return err
@@ -108,7 +108,7 @@ func (r *RedisIDStore) Remove(ip, id string) error {
 	return err
 }
 
-func (ri *RequestId) Init(env zerver.Enviroment) error {
+func (ri *RequestId) Init(env zerver.Environment) error {
 	defval.Nil(&ri.Store, new(MemIDStore))
 	ri.Store.Init(env)
 	defval.String(&ri.HeaderName, "X-Request-Id")

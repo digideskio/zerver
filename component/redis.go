@@ -54,8 +54,8 @@ func NewRedis() *Redis {
 	return &Redis{}
 }
 
-func (r *Redis) Init(env zerver.Enviroment) error {
-	compEnv := env.(zerver.ComponentEnviroment)
+func (r *Redis) Init(env zerver.Environment) error {
+	compEnv := env.(zerver.ComponentEnvironment)
 	var o *RedisOption
 	if op := compEnv.GetSetAttr(REDIS, nil); op == nil {
 		o = &RedisOption{}

@@ -11,7 +11,7 @@ type Log struct {
 	CountTime bool
 }
 
-func (l *Log) Init(env zerver.Enviroment) error {
+func (l *Log) Init(env zerver.Environment) error {
 	l.logger = env.Logger()
 	return nil
 }

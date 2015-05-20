@@ -13,7 +13,7 @@ type Recovery struct {
 	NoStack bool
 }
 
-func (r *Recovery) Init(env zerver.Enviroment) error {
+func (r *Recovery) Init(env zerver.Environment) error {
 	defval.Int(&r.Bufsize, 1024*8)
 	return nil
 }

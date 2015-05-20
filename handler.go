@@ -79,7 +79,7 @@ func convertHandler(i interface{}) Handler {
 	return nil
 }
 
-func (HandlerFunc) Init(Enviroment) error { return nil }
+func (HandlerFunc) Init(Environment) error { return nil }
 
 func (HandlerFunc) Destroy() {}
 
@@ -102,7 +102,7 @@ func (s standardHandler) Handler(method string) HandleFunc {
 	return nil
 }
 
-func (mh MapHandler) Init(Enviroment) error {
+func (mh MapHandler) Init(Environment) error {
 	for m, h := range mh {
 		delete(mh, m)
 		mh[strings.ToUpper(m)] = h

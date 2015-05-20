@@ -26,7 +26,7 @@ func (r *RootFilters) AddRootFilters(host string, rfs zerver.RootFilters) {
 	r.hosts, r.filters = hosts, filters
 }
 
-func (r *RootFilters) Init(env zerver.Enviroment) error {
+func (r *RootFilters) Init(env zerver.Environment) error {
 	var err error
 	for i := 0; i < len(r.filters) && err == nil; i++ {
 		err = r.filters[i].Init(env)

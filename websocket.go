@@ -18,7 +18,7 @@ type (
 	WebSocketConn interface {
 		URLVarIndexer
 		io.ReadWriteCloser
-		Enviroment
+		Environment
 
 		WriteString(string) (int, error)
 		SetDeadline(t time.Time) error
@@ -32,7 +32,7 @@ type (
 
 	// webSocketConn is the actual websocket connection
 	webSocketConn struct {
-		Enviroment
+		Environment
 		URLVarIndexer
 		*websocket.Conn
 		request *http.Request
@@ -50,9 +50,9 @@ type (
 
 // newWebSocketConn wrap a exist websocket connection and url variables to a
 // new webSocketConn
-func newWebSocketConn(e Enviroment, conn *websocket.Conn, varIndexer URLVarIndexer) *webSocketConn {
+func newWebSocketConn(e Environment, conn *websocket.Conn, varIndexer URLVarIndexer) *webSocketConn {
 	return &webSocketConn{
-		Enviroment:    e,
+		Environment:    e,
 		Conn:          conn,
 		URLVarIndexer: varIndexer,
 		request:       conn.Request(),
@@ -94,6 +94,6 @@ func convertWebSocketHandler(i interface{}) WebSocketHandler {
 	return nil
 }
 
-func (WebSocketHandlerFunc) Init(Enviroment) error        { return nil }
+func (WebSocketHandlerFunc) Init(Environment) error        { return nil }
 func (fn WebSocketHandlerFunc) Handle(conn WebSocketConn) { fn(conn) }
 func (WebSocketHandlerFunc) Destroy()                     {}

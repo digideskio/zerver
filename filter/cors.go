@@ -45,7 +45,7 @@ var (
 	defAllowMethods = []string{"GET", "POST", "PATCH", "PUT", "DELETE"}
 )
 
-func (c *CORS) Init(zerver.Enviroment) error {
+func (c *CORS) Init(zerver.Environment) error {
 	if l := len(c.Origins); l == 0 || (l == 1 && c.Origins[0] == "*") {
 		c.allowAll = true
 		c.Origins = nil
@@ -90,6 +90,7 @@ func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, heade
 			goto END
 		}
 	}
+
 	resp.SetHeader(_CORS_ALLOWORIGIN, origin)
 	method = strings.ToUpper(method)
 

@@ -44,7 +44,7 @@ func (r *Router) match(url *url.URL) zerver.Router {
 }
 
 // Init init handlers and filters, websocket handlers
-func (r *Router) Init(env zerver.Enviroment) (err error) {
+func (r *Router) Init(env zerver.Environment) (err error) {
 	for i := 0; i < len(r.routers) && err == nil; i++ {
 		err = r.routers[i].Init(env)
 	}
