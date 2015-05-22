@@ -12,7 +12,7 @@ func TestServerDestroyTimeout(t *testing.T) {
 	tt := testing2.Wrap(t)
 
 	var handler = func(Request, Response) {
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 
 	s := NewServer()

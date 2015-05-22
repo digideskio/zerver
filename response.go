@@ -81,7 +81,7 @@ type (
 
 	// response represent a response of request to user
 	response struct {
-		env Enviroment
+		env Environment
 		res resource.Resource
 		http.ResponseWriter
 		header       http.Header
@@ -96,7 +96,7 @@ type (
 )
 
 // newResponse create a new response, and set default content type to HTML
-func (resp *response) init(env Enviroment, r resource.Resource, w http.ResponseWriter) Response {
+func (resp *response) init(env Environment, r resource.Resource, w http.ResponseWriter) Response {
 	resp.env = env
 	resp.res = r
 	resp.ResponseWriter = w

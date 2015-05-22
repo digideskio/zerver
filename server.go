@@ -87,9 +87,9 @@ type (
 	// to terminate this request
 	HeaderChecker func(func(string) string) error
 
-	// Enviroment is a server enviroment, real implementation is the Server itself.
+	// Environment is a server enviroment, real implementation is the Server itself.
 	// it can be accessed from Request/WebsocketConn
-	Enviroment interface {
+	Environment interface {
 		Server() *Server
 		ResourceMaster() *resource.Master
 		Logger() log2.Logger
@@ -151,9 +151,9 @@ func (s *Server) ResourceMaster() *resource.Master {
 // If component is added before server start, it will be initialized when server start,
 // otherwise, initialized when first required by Server.Compoenent
 //
-// When global component is initializing, the Enviroment passed to Init is exactly a
-// ComponentEnviroment
-func (s *Server) RegisterComponent(name string, component interface{}) ComponentEnviroment {
+// When global component is initializing, the Environment passed to Init is exactly a
+// ComponentEnvironment
+func (s *Server) RegisterComponent(name string, component interface{}) ComponentEnvironment {
 	return s.componentManager.RegisterComponent(s, name, component)
 }
 
@@ -307,20 +307,6 @@ func (s *Server) config(o *ServerOption) {
 	runtime.GC()
 }
 
-// PanicLog will panic goroutine, be care to call this and note to relase resource
-// with 'defer'
-func (s *Server) PanicLog(err error) {
-	if err != nil {
-		s.Log.Panicln(err)
-	}
-}
-
-func (s *Server) warnLog(err error) {
-	if err != nil {
-		s.Log.Warnln(err)
-	}
-}
-
 // Start server as http server, if opt is nil, use default configurations
 func (s *Server) Start(opt *ServerOption) error {
 	if opt == nil {
@@ -455,11 +441,26 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 	return !isTimeout
 }
 
+// PanicLog will panic goroutine, be care to call this and note to relase resource
+// with 'defer'
+func (s *Server) PanicLog(err error) {
+	if err != nil {
+		s.Log.Panicln(err)
+	}
+}
+
+func (s *Server) warnLog(err error) {
+	if err != nil {
+		s.Log.Warnln(err)
+	}
+}
+
 func (s *Server) initFuncs() []func() error {
 	funcs := TmpHGet(s, "initfuncs")
 	if funcs == nil {
 		return nil
 	}
+
 	return funcs.([]func() error)
 }
 

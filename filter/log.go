@@ -14,7 +14,7 @@ type Log struct {
 	CountTime bool
 }
 
-func (l *Log) Init(env zerver.Enviroment) error {
+func (l *Log) Init(env zerver.Environment) error {
 	defval.String(&l.Prefix, "[Access]")
 	l.logger = env.Logger().Prefix(l.Prefix)
 	return nil

@@ -8,7 +8,7 @@ import (
 // use as callback parameter name such as ?callback=xxx
 type JSONP string
 
-func (j JSONP) Init(zerver.Enviroment) error {
+func (j JSONP) Init(zerver.Environment) error {
 	if string(j) == "" {
 		return errors.Err("callback name should not be empty")
 	}

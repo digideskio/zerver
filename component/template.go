@@ -43,8 +43,8 @@ func NewTemplate() *Template {
 	return (*Template)(tmpl.New("_tmpl_"))
 }
 
-func (t *Template) Init(env zerver.Enviroment) error {
-	compEnv := env.(zerver.ComponentEnviroment)
+func (t *Template) Init(env zerver.Environment) error {
+	compEnv := env.(zerver.ComponentEnvironment)
 	var o *TemplateOption
 	if op := compEnv.GetSetAttr(TEMPLATE, nil); op == nil {
 		o = &TemplateOption{}

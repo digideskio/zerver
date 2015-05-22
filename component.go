@@ -14,18 +14,18 @@ type (
 	// Component is a Object which will automaticlly initial/destroyed by server
 	// if it's added to server, else it should initial manually
 	Component interface {
-		Init(Enviroment) error
+		Init(Environment) error
 		Destroy()
 	}
 
 	FakeComponent struct{}
 
-	ComponentEnviroment interface {
+	ComponentEnvironment interface {
 		Name() string
 		Attr(name string) interface{}
 		SetAttr(name string, value interface{})
 		GetSetAttr(name string, value interface{}) interface{}
-		Enviroment
+		Environment
 	}
 
 	componentEnv struct {
@@ -33,7 +33,7 @@ type (
 		value interface{}
 
 		name string
-		Enviroment
+		Environment
 
 		initialState
 	}
@@ -60,19 +60,19 @@ func (s initialState) String() string {
 	panic("unexpected initial state")
 }
 
-func (FakeComponent) Init(Enviroment) error { return nil }
+func (FakeComponent) Init(Environment) error { return nil }
 
 func (FakeComponent) Destroy() {}
 
 // NewComponentEnv is only a quick way get/set component attributes
-func NewComponentEnv(env Enviroment, name string) ComponentEnviroment {
+func NewComponentEnv(env Environment, name string) ComponentEnvironment {
 	return newComponentEnv(env, name, nil)
 }
 
-func newComponentEnv(e Enviroment, name string, c interface{}) *componentEnv {
+func newComponentEnv(e Environment, name string, c interface{}) *componentEnv {
 	env := &componentEnv{
 		name:       name,
-		Enviroment: e,
+		Environment: e,
 	}
 
 	if c != nil {
@@ -97,7 +97,7 @@ func (env *componentEnv) componentValue() interface{} {
 	return env.comp
 }
 
-func (env *componentEnv) Init(e Enviroment) error {
+func (env *componentEnv) Init(e Environment) error {
 	if env.initialState == _INITIALIZED {
 		return nil
 	}
@@ -154,7 +154,7 @@ const (
 	_ANONYMOUS_COMPONENT = ""
 )
 
-func (cm *componentManager) Init(env Enviroment) error {
+func (cm *componentManager) Init(env Environment) error {
 	// initial named component first for anonymouses may depend on them
 	hook := cm.initHook
 	if hook == nil {
@@ -212,10 +212,10 @@ func (cm *componentManager) Component(name string) (interface{}, error) {
 }
 
 func (cm *componentManager) RegisterComponent(
-	env Enviroment,
+	env Environment,
 	name string,
 	component interface{},
-) ComponentEnviroment {
+) ComponentEnvironment {
 
 	if name == "" {
 		if c, is := component.(Component); is {

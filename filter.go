@@ -72,7 +72,7 @@ func panicConvertFilter(i interface{}) Filter {
 }
 
 // FilterFunc is a function Filter
-func (FilterFunc) Init(Enviroment) error { return nil }
+func (FilterFunc) Init(Environment) error { return nil }
 func (FilterFunc) Destroy()              {}
 func (fn FilterFunc) Filter(req Request, resp Response, chain FilterChain) {
 	fn(req, resp, chain)
@@ -87,7 +87,7 @@ func NewRootFilters(filters []Filter) RootFilters {
 	return &rfs
 }
 
-func (rfs *rootFilters) Init(e Enviroment) error {
+func (rfs *rootFilters) Init(e Environment) error {
 	var err error
 	for i := 0; i < len(*rfs) && err == nil; i++ {
 		err = (*rfs)[i].Init(e)

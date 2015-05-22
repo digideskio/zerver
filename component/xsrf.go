@@ -72,7 +72,7 @@ func (j jsonToken) Unmarshal(bs []byte) (int64, string, string) {
 	return j.Time, j.IP, j.Agent
 }
 
-func (x *Xsrf) Init(zerver.Enviroment) error {
+func (x *Xsrf) Init(zerver.Environment) error {
 	if x.Secret == "" {
 		return errors.Err("xsrf secret can't be empty")
 	}

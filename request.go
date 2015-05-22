@@ -46,7 +46,7 @@ type (
 
 		attrs.Attrs
 
-		Enviroment
+		Environment
 
 		io.Reader
 		URLVarIndexer
@@ -58,7 +58,7 @@ type (
 	// request represent an income request
 	request struct {
 		URLVarIndexer
-		Enviroment
+		Environment
 		attrs.Attrs
 
 		request   *http.Request
@@ -75,8 +75,8 @@ var (
 )
 
 // newRequest create a new request
-func (req *request) init(e Enviroment, r resource.Resource, requ *http.Request, varIndexer URLVarIndexer) Request {
-	req.Enviroment = e
+func (req *request) init(e Environment, r resource.Resource, requ *http.Request, varIndexer URLVarIndexer) Request {
+	req.Environment = e
 	req.request = requ
 	req.header = requ.Header
 	req.URLVarIndexer = varIndexer
@@ -95,7 +95,7 @@ func (req *request) init(e Enviroment, r resource.Resource, requ *http.Request, 
 
 func (req *request) destroy() error {
 	req.Attrs.Clear()
-	req.Enviroment = nil
+	req.Environment = nil
 	req.header = nil
 	req.URLVarIndexer.destroySelf() // who owns resource, who releases resource
 	req.URLVarIndexer = nil

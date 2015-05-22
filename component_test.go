@@ -8,7 +8,7 @@ import (
 
 type Dep string
 
-func (d Dep) Init(env Enviroment) error {
+func (d Dep) Init(env Environment) error {
 	_, _ = env.Component(string(d))
 	return nil
 }

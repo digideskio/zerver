@@ -100,7 +100,7 @@ func (*router) reportExistError(typ, pattern string) error {
 }
 
 // Init init all handlers, filters, websocket handlers in route tree
-func (rt *router) Init(env Enviroment) (err error) {
+func (rt *router) Init(env Environment) (err error) {
 	if rt.handler != nil {
 		err = rt.handler.Init(env)
 	}

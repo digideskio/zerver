@@ -23,7 +23,7 @@ func convertTaskHandler(i interface{}) TaskHandler {
 	return nil
 }
 
-func (TaskHandlerFunc) Init(Enviroment) error      { return nil }
+func (TaskHandlerFunc) Init(Environment) error      { return nil }
 func (fn TaskHandlerFunc) Handle(task interface{}) { fn(task) }
 func (TaskHandlerFunc) Destroy()                   {}
 
@@ -38,7 +38,7 @@ type MessageQueue struct {
 	MessageProcessor
 }
 
-func (m *MessageQueue) Init(Enviroment) error {
+func (m *MessageQueue) Init(Environment) error {
 	if m.MessageProcessor == nil {
 		return errors.Err("message processor shouldn't be nil")
 	}
