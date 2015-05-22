@@ -3,16 +3,20 @@ package filter
 import (
 	"time"
 
+	"github.com/cosiner/gohper/defval"
+	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
 )
 
 type Log struct {
-	logger    zerver.Logger
+	logger    log.Logger
+	Prefix    string
 	CountTime bool
 }
 
 func (l *Log) Init(env zerver.Enviroment) error {
-	l.logger = env.Logger()
+	defval.String(&l.Prefix, "[Access]")
+	l.logger = env.Logger().Prefix(l.Prefix)
 	return nil
 }
 
@@ -21,7 +25,7 @@ func (l *Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.Filt
 		nano := time.Now().UnixNano()
 		chain(req, resp)
 		nano = time.Now().UnixNano() - nano
-		l.logger.Infoln("[AccessLog]",
+		l.logger.Infoln(
 			nano, "ns ",
 			resp.Status(),
 			req.URL().Path,
@@ -29,7 +33,7 @@ func (l *Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.Filt
 			req.UserAgent())
 	} else {
 		chain(req, resp)
-		l.logger.Infoln("[AccessLog]",
+		l.logger.Infoln(
 			resp.Status(),
 			req.URL().Path,
 			req.RemoteIP(),

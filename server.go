@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	log2 "github.com/cosiner/ygo/log"
+
 	"github.com/cosiner/gohper/attrs"
 	"github.com/cosiner/gohper/crypto/tls2"
 	"github.com/cosiner/gohper/defval"
@@ -33,7 +35,7 @@ type (
 		// check websocket header, default nil
 		WebSocketChecker HeaderChecker
 		// logger, default use cosiner/gohper/log.Logger with ConsoleWriter
-		Logger
+		log2.Logger
 
 		// path variables count, suggest set as max or average, default 3
 		PathVarCount int
@@ -69,7 +71,7 @@ type (
 		attrs.Attrs
 		RootFilters RootFilters // Match Every Routes
 		ResMaster   resource.Master
-		Log         Logger
+		Log         log2.Logger
 		componentManager
 
 		checker              websocket.HandshakeChecker
@@ -90,7 +92,7 @@ type (
 	Enviroment interface {
 		Server() *Server
 		ResourceMaster() *resource.Master
-		Logger() Logger
+		Logger() log2.Logger
 		StartTask(path string, value interface{})
 		Component(name string) (interface{}, error)
 	}
@@ -133,7 +135,7 @@ func (s *Server) Server() *Server {
 	return s
 }
 
-func (s *Server) Logger() Logger {
+func (s *Server) Logger() log2.Logger {
 	return s.Log
 }
 
@@ -236,7 +238,7 @@ func (o *ServerOption) init() {
 		o.KeepAlivePeriod = 3 * time.Minute // same as net/http/server.go:tcpKeepAliveListener
 	}
 	if o.Logger == nil {
-		o.Logger = DefaultLogger()
+		o.Logger = log2.Default()
 	}
 }
 

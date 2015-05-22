@@ -3,6 +3,7 @@ package component
 import (
 	"time"
 
+	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
 	"github.com/garyburd/redigo/redis"
 )
@@ -31,7 +32,7 @@ type (
 	}
 
 	Redis struct {
-		logger zerver.Logger
+		logger log.Logger
 		redis.Pool
 	}
 )

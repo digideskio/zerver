@@ -5,6 +5,7 @@ import (
 
 	"github.com/cosiner/gohper/defval"
 	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/component"
 	"github.com/garyburd/redigo/redis"
@@ -23,7 +24,7 @@ type (
 		PassingOnNoId bool
 		Error         string
 		ErrorOverlap  string
-		logger        zerver.Logger
+		logger        log.Logger
 	}
 
 	IDStore interface {
