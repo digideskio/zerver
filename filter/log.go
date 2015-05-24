@@ -23,11 +23,14 @@ func (l *Log) Init(env zerver.Environment) error {
 func (l *Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	if l.CountTime {
 		nano := time.Now().UnixNano()
+
 		chain(req, resp)
 		nano = time.Now().UnixNano() - nano
 		l.logger.Infoln(
-			nano, "ns ",
+			nano,
+			"ns ",
 			resp.Status(),
+			req.Method(),
 			req.URL().Path,
 			req.RemoteIP(),
 			req.UserAgent())
@@ -35,6 +38,7 @@ func (l *Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.Filt
 		chain(req, resp)
 		l.logger.Infoln(
 			resp.Status(),
+			req.Method(),
 			req.URL().Path,
 			req.RemoteIP(),
 			req.UserAgent())

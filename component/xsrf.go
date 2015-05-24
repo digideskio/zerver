@@ -9,6 +9,8 @@ import (
 	"hash"
 	"time"
 
+	"github.com/cosiner/ygo/log"
+
 	"github.com/cosiner/gohper/bytes2"
 	"github.com/cosiner/gohper/defval"
 	"github.com/cosiner/gohper/errors"
@@ -42,6 +44,8 @@ type (
 		Pool    bytes2.Pool
 
 		TokenInfo TokenInfo // marshal/unmarshal token info, default use jsonToken
+
+		logger log.Logger
 	}
 
 	TokenInfo interface {
@@ -72,7 +76,7 @@ func (j jsonToken) Unmarshal(bs []byte) (int64, string, string) {
 	return j.Time, j.IP, j.Agent
 }
 
-func (x *Xsrf) Init(zerver.Environment) error {
+func (x *Xsrf) Init(env zerver.Environment) error {
 	if x.Secret == "" {
 		return errors.Err("xsrf secret can't be empty")
 	}
@@ -90,6 +94,7 @@ func (x *Xsrf) Init(zerver.Environment) error {
 	}
 	defval.Nil(&x.TokenInfo, jsonToken{})
 
+	x.logger = env.Logger().Prefix("[XSRF]")
 	return nil
 }
 
@@ -108,7 +113,7 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 	}
 
 	defer x.Pool.Put(tokBytes)
-	req.Server().PanicLog(resp.Send("tokBytes", tokBytes))
+	x.logger.Warnln(resp.Send("tokBytes", tokBytes))
 }
 
 func (x *Xsrf) CreateFor(req zerver.Request) ([]byte, error) {

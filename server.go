@@ -71,8 +71,12 @@ type (
 		attrs.Attrs
 		RootFilters RootFilters // Match Every Routes
 		ResMaster   resource.Master
-		Log         log2.Logger
+		// public logger
+		Log log2.Logger
 		componentManager
+
+		// server logger
+		log log2.Logger
 
 		checker              websocket.HandshakeChecker
 		processNotAcceptable bool
@@ -161,7 +165,8 @@ func (s *Server) RegisterComponent(name string, component interface{}) Component
 func (s *Server) StartTask(path string, value interface{}) {
 	handler := s.MatchTaskHandler(&url.URL{Path: path})
 	if handler == nil {
-		s.Log.Panicln("No task handler found for:", path)
+		s.Log.Errorln("No task handler found for:", path)
+		return
 	}
 
 	handler.Handle(value)
@@ -258,6 +263,7 @@ func (s *Server) config(o *ServerOption) {
 
 	o.init()
 	s.Log = o.Logger
+	s.log = o.Logger.Prefix("[Server]")
 
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 
@@ -441,17 +447,9 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 	return !isTimeout
 }
 
-// PanicLog will panic goroutine, be care to call this and note to relase resource
-// with 'defer'
-func (s *Server) PanicLog(err error) {
-	if err != nil {
-		s.Log.Panicln(err)
-	}
-}
-
 func (s *Server) warnLog(err error) {
 	if err != nil {
-		s.Log.Warnln(err)
+		s.log.Warnln(err)
 	}
 }
 

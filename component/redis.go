@@ -69,7 +69,7 @@ func (r *Redis) Init(env zerver.Environment) error {
 	r.MaxActive = o.MaxActive
 	r.IdleTimeout = time.Duration(o.IdleTimeout) * time.Second
 	r.Dial = o.Dial
-	r.logger = env.Logger()
+	r.logger = env.Logger().Prefix("[Redis]")
 
 	_, err := r.Get().Do("PING")
 	return err
@@ -82,7 +82,7 @@ func (r *Redis) Conn() redis.Conn {
 func (r *Redis) Exec(cmd string, args ...interface{}) (interface{}, error) {
 	c := r.Get()
 	reply, err := c.Do(cmd, args...)
-	r.PanicLog(c.Close())
+	r.WarnLog(c.Close())
 
 	return reply, err
 }
@@ -90,7 +90,7 @@ func (r *Redis) Exec(cmd string, args ...interface{}) (interface{}, error) {
 func (r *Redis) Query(cmd string, args ...interface{}) (interface{}, error) {
 	c := r.Get()
 	reply, err := c.Do(cmd, args...)
-	r.PanicLog(c.Close())
+	r.WarnLog(c.Close())
 
 	return reply, err
 }
@@ -98,17 +98,17 @@ func (r *Redis) Query(cmd string, args ...interface{}) (interface{}, error) {
 func (r *Redis) Update(cmd string, args ...interface{}) error {
 	c := r.Get()
 	_, err := c.Do(cmd, args...)
-	r.PanicLog(c.Close())
+	r.WarnLog(c.Close())
 
 	return err
 }
 
 func (r *Redis) Destroy() {
-	r.PanicLog(r.Close())
+	r.WarnLog(r.Close())
 }
 
-func (r *Redis) PanicLog(err error) {
+func (r *Redis) WarnLog(err error) {
 	if err != nil {
-		r.logger.Panicln(err)
+		r.logger.Warnln(err)
 	}
 }
