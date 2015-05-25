@@ -29,11 +29,9 @@ type serverPool struct {
 	otherPools     map[int]*sync.Pool
 }
 
-var _defaultPool *serverPool
+var _defaultPool = serverPool{otherPools: make(map[int]*sync.Pool)}
 
 func init() {
-	_defaultPool = &serverPool{otherPools: make(map[int]*sync.Pool)}
-
 	_defaultPool.requestEnvPool.New = func() interface{} {
 		env := &requestEnv{}
 		env.req.Attrs = attrs.New()

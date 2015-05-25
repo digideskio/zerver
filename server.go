@@ -320,19 +320,17 @@ func (s *Server) Start(opt *ServerOption) error {
 	}
 	s.config(opt)
 
-	l, err := s.listen(opt)
-	if err == nil {
-		s.listener = l
-		srv := &http.Server{
-			ReadTimeout:  opt.ReadTimeout,
-			WriteTimeout: opt.WriteTimeout,
-			Handler:      s,
-			ConnState:    s.connStateHook,
-		}
-		err = srv.Serve(l)
+	l := s.listen(opt)
+
+	s.listener = l
+	srv := &http.Server{
+		ReadTimeout:  opt.ReadTimeout,
+		WriteTimeout: opt.WriteTimeout,
+		Handler:      s,
+		ConnState:    s.connStateHook,
 	}
 
-	return err
+	return srv.Serve(l)
 }
 
 // from net/http/server/go
@@ -354,44 +352,54 @@ func (ln *tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	return tc, nil
 }
 
-func (s *Server) listen(opt *ServerOption) (net.Listener, error) {
+func (s *Server) listen(opt *ServerOption) net.Listener {
 	ln, err := net.Listen("tcp", opt.ListenAddr)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	ln = &tcpKeepAliveListener{
+		TCPListener: ln.(*net.TCPListener),
+		AlivePeriod: opt.KeepAlivePeriod,
+	}
+
+	if opt.TLSConfig != nil {
+		return tls.NewListener(ln, opt.TLSConfig)
+	}
+
+	if opt.CertFile == "" {
+		return ln
+	}
+
+	// from net/http/server.go.ListenAndServeTLS
+	tc := &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: make([]tls.Certificate, 1),
+	}
+
+	tc.Certificates[0], err = tls.LoadX509KeyPair(opt.CertFile, opt.KeyFile)
 	if err == nil {
-		ln = &tcpKeepAliveListener{
-			TCPListener: ln.(*net.TCPListener),
-			AlivePeriod: opt.KeepAlivePeriod,
-		}
-
-		if opt.TLSConfig != nil {
-			ln = tls.NewListener(ln, opt.TLSConfig)
-		} else if opt.CertFile != "" {
-			// from net/http/server.go.ListenAndServeTLS
-			tc := &tls.Config{
-				NextProtos:   []string{"http/1.1"},
-				Certificates: make([]tls.Certificate, 1),
-			}
-
-			tc.Certificates[0], err = tls.LoadX509KeyPair(opt.CertFile, opt.KeyFile)
+		if opt.CAs != nil {
+			tc.ClientCAs, err = tls2.CAPool(opt.CAs...)
 			if err == nil {
-				if opt.CAs != nil {
-					tc.ClientCAs, err = tls2.CAPool(opt.CAs...)
-					if err == nil {
-						tc.ClientAuth = tls.RequireAndVerifyClientCert
-					}
-				}
-				if err == nil {
-					ln = tls.NewListener(ln, tc)
-				}
+				tc.ClientAuth = tls.RequireAndVerifyClientCert
 			}
+		}
+		if err == nil {
+			ln = tls.NewListener(ln, tc)
 		}
 	}
 
-	if err != nil && ln != nil {
-		s.warnLog(ln.Close())
-		ln = nil
+	if err != nil {
+		if ln != nil {
+			if e := ln.Close(); e != nil {
+				log.Panicln(e)
+			}
+		}
+		log.Panicln(err)
 	}
 
-	return ln, err
+	return ln
 }
 
 func (s *Server) connStateHook(conn net.Conn, state http.ConnState) {

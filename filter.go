@@ -26,6 +26,8 @@ type (
 	filterChain struct {
 		filters []Filter
 		handler HandleFunc
+
+		chain FilterChain
 	}
 
 	interceptor struct {
@@ -73,7 +75,7 @@ func panicConvertFilter(i interface{}) Filter {
 
 // FilterFunc is a function Filter
 func (FilterFunc) Init(Environment) error { return nil }
-func (FilterFunc) Destroy()              {}
+func (FilterFunc) Destroy()               {}
 func (fn FilterFunc) Filter(req Request, resp Response, chain FilterChain) {
 	fn(req, resp, chain)
 }
@@ -128,10 +130,13 @@ func newFilterChain(filters []Filter, handler func(Request, Response)) FilterCha
 		return FilterChain(newInterceptor(handler, filters[0]))
 	}
 
-	return (&filterChain{
+	chain := (&filterChain{
 		filters: filters,
 		handler: handler,
-	}).handle
+	})
+
+	chain.chain = chain.handle
+	return chain.chain
 }
 
 // handle call next filter, if there is no next filter,then call final handler
@@ -144,7 +149,7 @@ func (chain *filterChain) handle(req Request, resp Response) {
 	} else {
 		filter := filters[0]
 		chain.filters = filters[1:]
-		filter.Filter(req, resp, chain.handle)
+		filter.Filter(req, resp, chain.chain)
 	}
 }
 

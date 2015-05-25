@@ -18,11 +18,11 @@ type gzipWriter struct {
 	needClose bool
 }
 
-func (w *gzipWriter) Write(data []byte) (int, error) {
+func (w gzipWriter) Write(data []byte) (int, error) {
 	return w.gw.Write(data)
 }
 
-func (w *gzipWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+func (w gzipWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	hijacker, is := w.ResponseWriter.(http.Hijacker)
 	if !is {
 		return nil, nil, zerver.ErrHijack
@@ -33,7 +33,7 @@ func (w *gzipWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return hijacker.Hijack()
 }
 
-func (w *gzipWriter) Close() error {
+func (w gzipWriter) Close() error {
 	err := w.gw.Close()
 	if w.needClose {
 		_ = w.ResponseWriter.(io.Closer).Close()
@@ -48,11 +48,11 @@ type flateWriter struct {
 	needClose bool
 }
 
-func (w *flateWriter) Write(data []byte) (int, error) {
+func (w flateWriter) Write(data []byte) (int, error) {
 	return w.fw.Write(data)
 }
 
-func (w *flateWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+func (w flateWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	hijacker, is := w.ResponseWriter.(http.Hijacker)
 	if !is {
 		return nil, nil, zerver.ErrHijack
@@ -63,7 +63,7 @@ func (w *flateWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return hijacker.Hijack()
 }
 
-func (w *flateWriter) Close() error {
+func (w flateWriter) Close() error {
 	err := w.fw.Close()
 	if w.needClose {
 		_ = w.ResponseWriter.(io.Closer).Close()
@@ -73,7 +73,7 @@ func (w *flateWriter) Close() error {
 }
 
 func gzipWrapper(w http.ResponseWriter, needClose bool) (http.ResponseWriter, bool) {
-	return &gzipWriter{
+	return gzipWriter{
 		gw:             gzip.NewWriter(w),
 		ResponseWriter: w,
 		needClose:      needClose,
@@ -83,7 +83,7 @@ func gzipWrapper(w http.ResponseWriter, needClose bool) (http.ResponseWriter, bo
 func flateWrapper(w http.ResponseWriter, needClose bool) (http.ResponseWriter, bool) {
 	fw, _ := flate.NewWriter(w, flate.DefaultCompression)
 
-	return &flateWriter{
+	return flateWriter{
 		fw:             fw,
 		ResponseWriter: w,
 		needClose:      needClose,

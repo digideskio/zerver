@@ -3,6 +3,8 @@ package component
 import (
 	"time"
 
+	"github.com/cosiner/gohper/defval"
+
 	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
 	"github.com/garyburd/redigo/redis"
@@ -43,11 +45,11 @@ func (o *RedisOption) init() {
 	}
 
 	if o.Dial == nil {
-		var addr string
-		if addr = o.Addr; addr == "" {
-			addr = ":6379"
+		defval.String(&o.Addr, ":6379")
+
+		o.Dial = func() (redis.Conn, error) {
+			return redis.Dial("tcp", o.Addr)
 		}
-		o.Dial = func() (redis.Conn, error) { return redis.Dial("tcp", addr) }
 	}
 }
 
