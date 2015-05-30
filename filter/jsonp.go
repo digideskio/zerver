@@ -2,6 +2,7 @@ package filter
 
 import (
 	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/ygo/resource"
 	"github.com/cosiner/zerver"
 )
 
@@ -18,29 +19,38 @@ func (j JSONP) Init(zerver.Environment) error {
 func (j JSONP) Destroy() {}
 
 func (j JSONP) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-	var (
-		end string
-		err error
-	)
-
-	if req.Method() == "GET" {
-		callback := req.Param(string(j))
-		if callback != "" {
-			_, err = resp.WriteString(callback)
-			if err == nil {
-				_, err = resp.WriteString("(")
-
-			}
-			end = ")"
-		}
+	if req.Method() != "GET" {
+		chain(req, resp)
+		return
 	}
 
-	chain(req, resp)
-
-	if end != "" {
-		_, err = resp.WriteString(end)
+	res, _ := req.ResourceMaster().Resource(resource.RES_JSON)
+	if res == nil {
+		resp.ReportNotAcceptable()
+		return
 	}
+
+	callback := req.Param(string(j))
+	if callback == "" {
+		resp.ReportBadRequest()
+		resp.Send("error", "no callback function")
+		return
+	}
+
+	resp.SetContentType(resource.RES_JSON, res)
+	_, err := resp.WriteString(callback)
 	if err != nil {
-		req.Logger().Warnln(err)
+		goto ERROR
 	}
+	_, err = resp.WriteString("(")
+	if err != nil {
+		goto ERROR
+	}
+	chain(req, resp)
+	_, err = resp.WriteString(")")
+	if err == nil {
+		return
+	}
+ERROR:
+	req.Logger().Warnln(err)
 }

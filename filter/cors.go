@@ -28,8 +28,8 @@ type CORS struct {
 	Origins          []string
 	Methods          []string
 	Headers          []string
-	ExposeHeaders    []string `json:"expose"` // these headers can be accessed by javascript
-	PreflightMaxage  int      `json:"maxage"` // max efficient seconds of browser preflight
+	ExposeHeaders    []string `json:"expose_headers"`   // these headers can be accessed by javascript
+	PreflightMaxage  int      `json:"preflight_maxage"` // max efficient seconds of browser preflight
 	AllowCredentials bool     `json:"allow_cred"`
 
 	allowAll         bool
