@@ -3,6 +3,8 @@ package filter
 import (
 	"time"
 
+	"github.com/cosiner/gohper/time2"
+
 	"github.com/cosiner/gohper/defval"
 	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
@@ -27,8 +29,7 @@ func (l *Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.Filt
 		chain(req, resp)
 		nano = time.Now().UnixNano() - nano
 		l.logger.Infoln(
-			nano,
-			"ns ",
+			time2.ToHuman(nano),
 			resp.Status(),
 			req.Method(),
 			req.URL().Path,
