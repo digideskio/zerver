@@ -269,7 +269,7 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 		return nil
 	}
 
-	log.Panicln("Not a Router/Handler/Filter/WebSocketHandler/TaskHandler")
+	log.Panicln(pattern + ": not a Router/Handler/Filter/WebSocketHandler/TaskHandler")
 	return nil
 }
 

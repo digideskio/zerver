@@ -301,8 +301,7 @@ func (s *Server) config(o *ServerOption) {
 	panicOnError(s.Router.Init(s))
 
 	log("Execute registered init funcs:")
-	funcs := s.initFuncs()
-	for _, f := range funcs {
+	for _, f := range s.finalInits(nil) {
 		panicOnError(f())
 	}
 
@@ -461,18 +460,22 @@ func (s *Server) warnLog(err error) {
 	}
 }
 
-func (s *Server) initFuncs() []func() error {
-	funcs := TmpHGet(s, "initfuncs")
-	if funcs == nil {
-		return nil
+func (s *Server) finalInits(fn []func() error) (funcs []func() error) {
+	if val := TmpHGet(s, "finalInits"); val != nil {
+		funcs = val.([]func() error)
 	}
 
-	return funcs.([]func() error)
+	if fn != nil {
+		funcs = append(funcs, fn...)
+		TmpHSet(s, "finalInits", funcs)
+	}
+
+	return funcs
 }
 
-// AddInitFuncs add functions to execute after all others done and before server start
+// FinalInit add functions to execute after all others done and before server start
 // don't register component or add handler, filter in these functions unless you know
 // what are you doing
-func (s *Server) AddInitFuncs(fn ...func() error) {
-	TmpHSet(s, "initfuncs", append(s.initFuncs(), fn...))
+func (s *Server) FinalInit(fn ...func() error) {
+	s.finalInits(fn)
 }
