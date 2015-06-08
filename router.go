@@ -9,6 +9,7 @@ import (
 
 	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/runtime2"
+	"github.com/cosiner/gohper/strings2"
 	"github.com/cosiner/gohper/unsafe2"
 )
 
@@ -649,8 +650,10 @@ var (
 // for ':', it will catch the single section of url path seperated by '/'
 // for '*', it will catch all remains url path, it should appear in the last
 // of pattern for variables behind it will all be ignored
+//
+// the query portion will be trimmed
 func compile(path string) (newPath string, vars map[string]int) {
-	path = strings.TrimSpace(path)
+	path = strings2.TrimAfter(path, "?")
 	l := len(path)
 
 	if path[0] != '/' {

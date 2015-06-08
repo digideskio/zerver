@@ -1,9 +1,5 @@
 package zerver
 
-import (
-	"strings"
-)
-
 type (
 	// HandleFunc is the common request handler function type
 	HandleFunc func(Request, Response)
@@ -56,12 +52,13 @@ func EmptyHandlerFunc(Request, Response) {}
 // only support Handler,MapHandler,MethodHandler, otherwise return nil
 func convertHandler(i interface{}) Handler {
 	switch h := i.(type) {
-	case Handler:
-		return h
+	case Handler, MapHandler:
+		return h.(Handler)
 	case func(string) HandleFunc:
 		return HandlerFunc(h)
 	case map[string]HandleFunc:
 		return MapHandler(h)
+
 	case MethodHandler:
 		var comp Component
 		if c, is := h.(Component); is {
@@ -105,7 +102,7 @@ func (s standardHandler) Handler(method string) HandleFunc {
 func (mh MapHandler) Init(Environment) error {
 	for m, h := range mh {
 		delete(mh, m)
-		mh[strings.ToUpper(m)] = h
+		mh[parseRequestMethod(m)] = h
 	}
 
 	return nil

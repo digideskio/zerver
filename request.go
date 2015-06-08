@@ -7,9 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cosiner/gohper/errors"
-
 	"github.com/cosiner/gohper/attrs"
+	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/strings2"
 	"github.com/cosiner/ygo/resource"
 )
@@ -52,7 +51,7 @@ type (
 		URLVarIndexer
 
 		Receive(interface{}) error
-		destroy() error
+		destroy()
 	}
 
 	// request represent an income request
@@ -87,13 +86,13 @@ func (req *request) init(e Environment, r resource.Resource, requ *http.Request,
 			method = m
 		}
 	}
-	req.method = strings.ToUpper(method)
+	req.method = parseRequestMethod(method)
 	req.res = r
 
 	return req
 }
 
-func (req *request) destroy() error {
+func (req *request) destroy() {
 	req.Attrs.Clear()
 	req.Environment = nil
 	req.header = nil
@@ -101,15 +100,12 @@ func (req *request) destroy() error {
 	req.URLVarIndexer = nil
 	req.params = nil
 
-	var err error
 	if req.needClose {
 		req.needClose = false
-		err = req.request.Body.Close()
+		req.request.Body.Close()
 	}
 	req.request = nil
 	req.res = nil
-
-	return err
 }
 
 func (req *request) Wrap(fn RequestWrapper) {

@@ -114,6 +114,7 @@ func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, heade
 	if c.exposeHeaders != "" {
 		resp.SetHeader(_CORS_EXPOSEHEADERS, c.exposeHeaders)
 	}
+
 	if c.preflightMaxage != "" {
 		resp.SetHeader(_CORS_MAXAGE, c.preflightMaxage)
 	}

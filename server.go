@@ -11,12 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	log2 "github.com/cosiner/ygo/log"
-
 	"github.com/cosiner/gohper/attrs"
 	"github.com/cosiner/gohper/crypto/tls2"
 	"github.com/cosiner/gohper/defval"
 	"github.com/cosiner/gohper/termcolor"
+	log2 "github.com/cosiner/ygo/log"
 	"github.com/cosiner/ygo/resource"
 	websocket "github.com/cosiner/zerver_websocket"
 )
@@ -228,8 +227,8 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 		newFilterChain(filters, chain),
 	)(req, resp)
 
-	s.warnLog(req.destroy())
-	s.warnLog(resp.destroy())
+	req.destroy()
+	resp.destroy()
 
 	recycleRequestEnv(reqEnv)
 	recycleFilters(filters)
@@ -245,6 +244,10 @@ func (o *ServerOption) init() {
 	if o.Logger == nil {
 		o.Logger = log2.Default()
 	}
+}
+
+func (o *ServerOption) TLSEnabled() bool {
+	return o.CertFile != "" || o.TLSConfig != nil
 }
 
 // all log message before server start will use standard log package
@@ -271,7 +274,7 @@ func (s *Server) config(o *ServerOption) {
 		log("Use default resource:", resource.RES_JSON)
 		s.ResMaster.DefUse(resource.RES_JSON, resource.JSON{})
 	} else {
-		log("Resource types:", s.ResMaster.Types, "Default:", s.ResMaster.Default)
+		log("Resource types:", s.ResMaster.Types, " Default:", s.ResMaster.Default)
 	}
 
 	s.processNotAcceptable = o.ProcessNotAcceptable
@@ -408,11 +411,11 @@ func (s *Server) connStateHook(conn net.Conn, state http.ConnState) {
 			s.activeConns.Add(1)
 		} else {
 			// previous idle connections before call server.Destroy() becomes active, directly close it
-			s.warnLog(conn.Close())
+			conn.Close()
 		}
 	case http.StateIdle:
 		if atomic.LoadInt32(&s.state) == _DESTROYED {
-			s.warnLog(conn.Close())
+			conn.Close()
 		}
 		s.activeConns.Done()
 	case http.StateHijacked:
