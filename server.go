@@ -14,7 +14,7 @@ import (
 	"github.com/cosiner/gohper/attrs"
 	"github.com/cosiner/gohper/crypto/tls2"
 	"github.com/cosiner/gohper/defval"
-	"github.com/cosiner/gohper/termcolor"
+	"github.com/cosiner/gohper/terminal/color"
 	log2 "github.com/cosiner/ygo/log"
 	"github.com/cosiner/ygo/resource"
 	websocket "github.com/cosiner/zerver_websocket"
@@ -260,7 +260,7 @@ func (s *Server) config(o *ServerOption) {
 		}
 
 		log = func(args ...interface{}) {
-			log.Print(termcolor.Green.Sprint(args...))
+			log.Print(color.Green.Sprint(args...))
 		}
 	)
 
