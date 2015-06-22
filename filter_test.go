@@ -7,9 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cosiner/ygo/resource"
-
 	"github.com/cosiner/gohper/testing2"
+	"github.com/cosiner/ygo/resource"
 )
 
 type MockWriter struct {

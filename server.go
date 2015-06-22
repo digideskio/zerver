@@ -260,7 +260,7 @@ func (s *Server) config(o *ServerOption) {
 		}
 
 		log = func(args ...interface{}) {
-			log.Print(color.Green.Sprint(args...))
+			log.Print(color.LightGreen.Sprint(args...))
 		}
 	)
 
