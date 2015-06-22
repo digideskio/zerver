@@ -2,6 +2,7 @@ package route
 
 import (
 	"github.com/cosiner/zerver"
+	"github.com/cosiner/zerver/util/handle"
 )
 
 type Route struct {
@@ -16,11 +17,24 @@ type Route struct {
 
 type Routes []Route
 
-func (r Routes) New(method, pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func convertHandleFunc(h interface{}) zerver.HandleFunc {
+	switch h := h.(type) {
+	case zerver.HandleFunc:
+		return h
+	case func(zerver.Request, zerver.Response):
+		return h
+	case func(zerver.Request, zerver.Response) error:
+		return handle.Wrap(h)
+	}
+
+	panic("not a handle function")
+}
+
+func (r Routes) New(method, pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return append(r, Route{
 		Method:       method,
 		Pattern:      pattern,
-		HandleFunc:   handler,
+		HandleFunc:   convertHandleFunc(handler),
 		Interceptors: interceptors,
 	})
 }
@@ -49,27 +63,27 @@ func (r Routes) Handle(pattern string, handler interface{}) Routes {
 	})
 }
 
-func (r Routes) Get(pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func (r Routes) Get(pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return r.New("GET", pattern, handler, interceptors...)
 }
 
-func (r Routes) Post(pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func (r Routes) Post(pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return r.New("POST", pattern, handler, interceptors...)
 }
 
-func (r Routes) Delete(pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func (r Routes) Delete(pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return r.New("DELETE", pattern, handler, interceptors...)
 }
 
-func (r Routes) Put(pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func (r Routes) Put(pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return r.New("PUT", pattern, handler, interceptors...)
 }
 
-func (r Routes) Patch(pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func (r Routes) Patch(pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return r.New("PATCH", pattern, handler, interceptors...)
 }
 
-func New(method, pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func New(method, pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return Routes(nil).New(method, pattern, handler, interceptors...)
 }
 
@@ -77,23 +91,23 @@ func Handle(pattern string, handler interface{}) Routes {
 	return Routes(nil).Handle(pattern, handler)
 }
 
-func Get(pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func Get(pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return New("GET", pattern, handler, interceptors...)
 }
 
-func Post(pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func Post(pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return New("POST", pattern, handler, interceptors...)
 }
 
-func Delete(pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func Delete(pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return New("DELETE", pattern, handler, interceptors...)
 }
 
-func Put(pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func Put(pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return New("PUT", pattern, handler, interceptors...)
 }
 
-func Patch(pattern string, handler zerver.HandleFunc, interceptors ...interface{}) Routes {
+func Patch(pattern string, handler interface{}, interceptors ...interface{}) Routes {
 	return New("PATCH", pattern, handler, interceptors...)
 }
 
