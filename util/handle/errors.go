@@ -7,8 +7,9 @@ import (
 )
 
 var (
-	Logger   log.Logger
-	KeyError = "error"
+	Logger          log.Logger
+	KeyError        = "error"
+	BadRequestError httperrs.Error
 )
 
 func Wrap(handle func(zerver.Request, zerver.Response) error) zerver.HandleFunc {
@@ -35,7 +36,12 @@ func SendErr(resp zerver.Response, err error) {
 }
 
 func SendBadRequest(resp zerver.Response, err error) {
-	SendErr(resp, httperrs.BadRequest.New(err))
+	if BadRequestError == nil {
+		SendErr(resp, httperrs.BadRequest.New(err))
+	} else {
+		Logger.Debugln(err.Error())
+		SendErr(resp, BadRequestError)
+	}
 }
 
 func OnErrLog(err error) {
