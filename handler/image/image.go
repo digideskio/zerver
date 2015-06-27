@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/cosiner/gohper/defval"
-
 	"github.com/cosiner/gohper/errors/httperrs"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/util/handle"
@@ -31,7 +30,7 @@ type Handler struct {
 }
 
 // Init should be called anyway
-func (h *Handler) Init() {
+func (h *Handler) Init() *Handler {
 	if h.SaveImage == nil {
 		panic("the function to save image should not be nil")
 	}
@@ -57,6 +56,8 @@ func (h *Handler) Init() {
 	}
 
 	defval.String(&h.PathKey, "path")
+
+	return h
 }
 
 func (h *Handler) AddSuffixes(suffixes ...string) {

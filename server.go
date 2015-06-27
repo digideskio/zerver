@@ -297,13 +297,18 @@ func (s *Server) config(o *ServerOption) {
 	}
 	panicOnError(s.componentManager.Init(s))
 
-	log("Init root filters:")
+	log("Execute registered init before routes funcs ")
+	for _, f := range s.befireRoutes(nil) {
+		panicOnError(f())
+	}
+
+	log("Init root filters")
 	panicOnError(s.RootFilters.Init(s))
 
-	log("Init Handlers and Filters:")
+	log("Init Handlers and Filters")
 	panicOnError(s.Router.Init(s))
 
-	log("Execute registered init funcs:")
+	log("Execute registered finial init funcs")
 	for _, f := range s.finalInits(nil) {
 		panicOnError(f())
 	}
@@ -464,13 +469,17 @@ func (s *Server) warnLog(err error) {
 }
 
 func (s *Server) finalInits(fn []func() error) (funcs []func() error) {
-	if val := TmpHGet(s, "finalInits"); val != nil {
+	return s.inits("finalInits", fn)
+}
+
+func (s *Server) inits(typ string, fn []func() error) (funcs []func() error) {
+	if val := TmpHGet(s, typ); val != nil {
 		funcs = val.([]func() error)
 	}
 
 	if fn != nil {
 		funcs = append(funcs, fn...)
-		TmpHSet(s, "finalInits", funcs)
+		TmpHSet(s, typ, funcs)
 	}
 
 	return funcs
@@ -481,4 +490,13 @@ func (s *Server) finalInits(fn []func() error) (funcs []func() error) {
 // what are you doing
 func (s *Server) FinalInit(fn ...func() error) {
 	s.finalInits(fn)
+}
+
+func (s *Server) befireRoutes(fn []func() error) (funcs []func() error) {
+	return s.inits("beforeRoutes", fn)
+}
+
+// BeforeRoutes add functions to execute before routes init
+func (s *Server) BeforeRoutes(fn ...func() error) {
+	s.befireRoutes(fn)
 }
