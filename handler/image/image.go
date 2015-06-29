@@ -87,7 +87,7 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 
 		err := req.ParseMultipartForm(h.MaxMemory)
 		if err != nil {
-			handle.SendBadRequest(resp, err)
+			handle.SendErr(resp, handle.BadRequest(err))
 			return
 		}
 
@@ -115,7 +115,7 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 
 		fd, err := file.Open()
 		if err != nil {
-			handle.SendBadRequest(resp, err)
+			handle.SendErr(resp, handle.BadRequest(err))
 			return
 		}
 

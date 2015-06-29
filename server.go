@@ -298,7 +298,7 @@ func (s *Server) config(o *ServerOption) {
 	panicOnError(s.componentManager.Init(s))
 
 	log("Execute registered init before routes funcs ")
-	for _, f := range s.befireRoutes(nil) {
+	for _, f := range s.beforeRoutes(nil) {
 		panicOnError(f())
 	}
 
@@ -492,11 +492,11 @@ func (s *Server) FinalInit(fn ...func() error) {
 	s.finalInits(fn)
 }
 
-func (s *Server) befireRoutes(fn []func() error) (funcs []func() error) {
+func (s *Server) beforeRoutes(fn []func() error) (funcs []func() error) {
 	return s.inits("beforeRoutes", fn)
 }
 
 // BeforeRoutes add functions to execute before routes init
 func (s *Server) BeforeRoutes(fn ...func() error) {
-	s.befireRoutes(fn)
+	s.beforeRoutes(fn)
 }

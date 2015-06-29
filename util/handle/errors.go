@@ -35,13 +35,14 @@ func SendErr(resp zerver.Response, err error) {
 	Logger.Errorln(err.Error())
 }
 
-func SendBadRequest(resp zerver.Response, err error) {
+func BadRequest(err error) error {
 	if BadRequestError == nil {
-		SendErr(resp, httperrs.BadRequest.New(err))
-	} else {
-		Logger.Debugln(err.Error())
-		SendErr(resp, BadRequestError)
+		return err
 	}
+
+	Logger.Debugln(err.Error())
+	return BadRequestError
+
 }
 
 func OnErrLog(err error) {

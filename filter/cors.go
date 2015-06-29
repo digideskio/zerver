@@ -101,7 +101,7 @@ func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, heade
 		}
 	}
 
-	for _, h := range strings2.TrimSplit(headers, ",") {
+	for _, h := range strings2.SplitAndTrim(headers, ",") {
 		for _, ch := range c.Headers {
 			if strings.ToLower(h) == ch { // c.Headers already ToLowered when Init
 				resp.AddHeader(_CORS_ALLOWHEADERS, ch)
