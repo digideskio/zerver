@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cosiner/gohper/attrs"
+	"github.com/cosiner/gohper/errors"
 
-	. "github.com/cosiner/gohper/errors"
+	"github.com/cosiner/gohper/utils/attrs"
 )
 
 const (
@@ -127,10 +127,10 @@ func NewSessionManager() SessionManager {
 // Init set up store and lifetime for session manager
 func (sm *sessionManager) Init(store SessionStore, lifetime int64) error {
 	if store == nil {
-		return Err("Empty session store")
+		return errors.Err("Empty session store")
 	}
 	if lifetime == 0 {
-		return Err("Session lifetime is zero 0 no session will be stored")
+		return errors.Err("Session lifetime is zero 0 no session will be stored")
 	}
 	sm.store = store
 	sm.lifetime = lifetime

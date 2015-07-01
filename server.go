@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cosiner/gohper/attrs"
 	"github.com/cosiner/gohper/crypto/tls2"
-	"github.com/cosiner/gohper/defval"
 	"github.com/cosiner/gohper/terminal/color"
+	"github.com/cosiner/gohper/utils/attrs"
+	"github.com/cosiner/gohper/utils/defval"
 	log2 "github.com/cosiner/ygo/log"
 	"github.com/cosiner/ygo/resource"
 	websocket "github.com/cosiner/zerver_websocket"

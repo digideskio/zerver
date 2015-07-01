@@ -3,8 +3,8 @@ package filter
 import (
 	"sync"
 
-	"github.com/cosiner/gohper/defval"
 	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/component"

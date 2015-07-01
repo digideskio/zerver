@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cosiner/gohper/attrs"
+	"github.com/cosiner/gohper/utils/attrs"
 	"github.com/cosiner/ygo/config"
 )
 

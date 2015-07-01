@@ -3,8 +3,8 @@ package zerver
 import (
 	"sync"
 
-	"github.com/cosiner/gohper/attrs"
 	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/gohper/utils/attrs"
 )
 
 // global variables need to be initialed by ServerOption

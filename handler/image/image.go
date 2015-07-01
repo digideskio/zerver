@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/cosiner/gohper/defval"
-	"github.com/cosiner/gohper/errors/httperrs"
+	"github.com/cosiner/gohper/utils/defval"
+	"github.com/cosiner/gohper/utils/httperrs"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/util/handle"
 )

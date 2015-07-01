@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/cosiner/gohper/bytes2"
-	"github.com/cosiner/gohper/defval"
 	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/unsafe2"
+	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
 )

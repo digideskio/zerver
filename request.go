@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cosiner/gohper/attrs"
 	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/strings2"
+	"github.com/cosiner/gohper/utils/attrs"
 	"github.com/cosiner/ygo/resource"
 )
 

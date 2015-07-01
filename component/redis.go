@@ -3,8 +3,7 @@ package component
 import (
 	"time"
 
-	"github.com/cosiner/gohper/defval"
-
+	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
 	"github.com/garyburd/redigo/redis"

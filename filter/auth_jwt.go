@@ -1,8 +1,8 @@
 package filter
 
 import (
-	"github.com/cosiner/gohper/defval"
 	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/zerver"
 	jwt "github.com/cosiner/zerver_jwt"
 )
