@@ -8,7 +8,7 @@ import (
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/gohper/utils/httperrs"
 	"github.com/cosiner/zerver"
-	"github.com/cosiner/zerver/util/handle"
+	"github.com/cosiner/zerver/utils/handle"
 )
 
 type Handler struct {

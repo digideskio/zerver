@@ -2,7 +2,7 @@ package route
 
 import (
 	"github.com/cosiner/zerver"
-	"github.com/cosiner/zerver/util/handle"
+	"github.com/cosiner/zerver/utils/handle"
 )
 
 type Route struct {
