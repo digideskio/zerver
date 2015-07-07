@@ -50,3 +50,19 @@ func OnErrLog(err error) {
 		Logger.Errorln(err)
 	}
 }
+
+func Send(resp zerver.Response, key string, value interface{}, err error) {
+	if err != nil {
+		SendErr(resp, err)
+	} else {
+		resp.Send(key, value)
+	}
+}
+
+func ReportStatus(resp zerver.Response, status int, err error) {
+	if err != nil {
+		SendErr(resp, err)
+	} else {
+		resp.ReportStatus(status)
+	}
+}
