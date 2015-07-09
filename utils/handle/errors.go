@@ -45,6 +45,10 @@ func BadRequest(err error) error {
 
 }
 
+func SendBadRequest(resp zerver.Response, err error) {
+	SendErr(resp, BadRequest(err))
+}
+
 func OnErrLog(err error) {
 	if err != nil {
 		Logger.Errorln(err)
