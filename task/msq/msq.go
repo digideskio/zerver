@@ -17,6 +17,7 @@ type Queue struct {
 	signal  chan struct{}
 	Bufsize uint
 	Processor
+	EnableTypeChecking bool
 }
 
 func (m *Queue) Init(zerver.Environment) error {
@@ -46,7 +47,9 @@ func (m *Queue) Init(zerver.Environment) error {
 
 func (m *Queue) Handle(msg interface{}) {
 	if msg != nil {
-		m.TypeChecking(msg)
+		if m.EnableTypeChecking {
+			m.TypeChecking(msg)
+		}
 		m.queue <- msg
 	}
 }
