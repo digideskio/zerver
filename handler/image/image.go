@@ -1,12 +1,12 @@
 package image
 
 import (
-	"mime/multipart"
 	"net/http"
 	"path/filepath"
 
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/gohper/utils/httperrs"
+	"github.com/cosiner/ygo/resource"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/utils/handle"
 )
@@ -16,6 +16,7 @@ type Handler struct {
 	// handle.BadRequestError
 
 	FileKey   string // Search file
+	Params    []string
 	ErrNoFile httperrs.Error
 
 	Suffixes    map[string]struct{} // Check file suffix
@@ -24,12 +25,12 @@ type Handler struct {
 	MaxSize     int64 // Check file size
 	ErrTooLarge httperrs.Error
 
-	SaveImage func(multipart.File) (path string, err error) // Save image file
+	SaveImage func(File, map[string]string) (path string, err error) // Save image file
 
 	PathKey string // Response.Send(PathKey, path)
 }
 
-// Init should be called anyway
+// Init must be called
 func (h *Handler) Init() *Handler {
 	if h.SaveImage == nil {
 		panic("the function to save image should not be nil")
@@ -77,6 +78,10 @@ func (h *Handler) AddSuffixes(suffixes ...string) {
 }
 
 func (h *Handler) isSuffixSupported(suffix string) bool {
+	if len(h.Suffixes) == 0 {
+		return true
+	}
+
 	_, has := h.Suffixes[suffix]
 	return has
 }
@@ -101,6 +106,16 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 			handle.SendErr(resp, h.ErrNoFile)
 			return
 		}
+		var paramValues map[string]string
+		if len(h.Params) > 0 {
+			paramValues = make(map[string]string)
+			for _, param := range h.Params {
+				vals := req.MultipartForm.Value[param]
+				if len(vals) > 0 {
+					paramValues[param] = vals[0]
+				}
+			}
+		}
 
 		file := convertFileHandler(files[0])
 		if !h.isSuffixSupported(filepath.Ext(file.Filename)) {
@@ -120,12 +135,13 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 		}
 
 		defer fd.Close()
-		path, err := h.SaveImage(fd)
+		path, err := h.SaveImage(fd, paramValues)
 		if err != nil {
 			handle.SendErr(resp, err)
 			return
 		}
 
+		resp.SetContentType(resource.RES_JSON, nil)
 		resp.Send(h.PathKey, path)
 		return
 	})

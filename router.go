@@ -50,8 +50,9 @@ type (
 		wsHandlerVars    map[string]int
 		wsHandler        WebSocketHandler
 
-		taskHandlerVars map[string]int
-		taskHandler     TaskHandler
+		taskHandlerPattern string
+		taskHandlerVars    map[string]int
+		taskHandler        TaskHandler
 
 		filters []Filter
 	}

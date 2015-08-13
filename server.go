@@ -83,6 +83,8 @@ type (
 		listener    net.Listener
 		state       int32          // destroy or normal running
 		activeConns sync.WaitGroup // connections in service, don't include hijacked and websocket connections
+
+		destroyHooks []func() error
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -168,7 +170,7 @@ func (s *Server) StartTask(path string, value interface{}) {
 		return
 	}
 
-	handler.Handle(value)
+	handler.Handle(newTask(path, value))
 }
 
 // ServHttp serve for http reuest
@@ -458,6 +460,12 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 	s.RootFilters.Destroy()
 	s.Router.Destroy()
 	s.componentManager.Destroy()
+	for _, fn := range s.destroyHooks {
+		err := fn()
+		if err != nil {
+			s.log.Errorln("Destroy:", err)
+		}
+	}
 
 	return !isTimeout
 }
@@ -499,4 +507,8 @@ func (s *Server) beforeRoutes(fn []func() error) (funcs []func() error) {
 // BeforeRoutes add functions to execute before routes init
 func (s *Server) BeforeRoutes(fn ...func() error) {
 	s.beforeRoutes(fn)
+}
+
+func (s *Server) BeforeDestroy(fn ...func() error) {
+	s.destroyHooks = append(s.destroyHooks, fn...)
 }

@@ -18,6 +18,30 @@ type FileHeader struct {
 	tmpfile string
 }
 
+type File interface {
+	multipart.File
+	Filename() string
+	Size() int64
+}
+
+type file struct {
+	header *FileHeader
+	multipart.File
+
+	size int64
+}
+
+func (f *file) Filename() string {
+	return f.header.Filename
+}
+
+func (f *file) Size() int64 {
+	if f.size == 0 {
+		f.size = f.header.Size()
+	}
+	return f.size
+}
+
 func convertFileHandler(fh *multipart.FileHeader) *FileHeader {
 	return (*FileHeader)(unsafe.Pointer(fh))
 }
@@ -36,12 +60,23 @@ func (fh *FileHeader) Size() int64 {
 }
 
 // Open opens and returns the FileHeader's associated File.
-func (fh *FileHeader) Open() (multipart.File, error) {
+func (fh *FileHeader) Open() (File, error) {
+	var (
+		fd  multipart.File
+		err error
+	)
+
 	if b := fh.content; b != nil {
 		r := io.NewSectionReader(bytes.NewReader(b), 0, int64(len(b)))
-		return sectionReadCloser{r}, nil
+		fd = sectionReadCloser{r}
+	} else {
+		fd, err = os.Open(fh.tmpfile)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return os.Open(fh.tmpfile)
+
+	return &file{header: fh, File: fd}, nil
 }
 
 type sectionReadCloser struct {
