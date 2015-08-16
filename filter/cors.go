@@ -87,16 +87,17 @@ func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, heade
 	if !c.allowAll {
 		origin = req.Header(_CORS_ORIGIN)
 		if !c.allow(origin) {
-			goto END
+			resp.ReportOK()
+			return
 		}
 	}
 
 	resp.SetHeader(_CORS_ALLOWORIGIN, origin)
-	method = strings.ToUpper(method)
+	upperMethod := strings.ToUpper(method)
 
 	for _, m := range c.Methods {
-		if m == method {
-			resp.AddHeader(_CORS_ALLOWMETHODS, m)
+		if m == upperMethod {
+			resp.AddHeader(_CORS_ALLOWMETHODS, method)
 			break
 		}
 	}
@@ -119,7 +120,6 @@ func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, heade
 		resp.SetHeader(_CORS_MAXAGE, c.preflightMaxage)
 	}
 
-END:
 	resp.ReportOK()
 }
 
