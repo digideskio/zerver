@@ -32,7 +32,6 @@ func sendErrDepth(depth int, resp zerver.Response, err error) {
 			if err := resp.Send(KeyError, err.Error()); err != nil {
 				Logger.ErrorDepth(depth+1, err)
 			}
-			OnErrLog(resp.Send(KeyError, err.Error()))
 			return
 		}
 	default:
