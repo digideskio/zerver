@@ -19,7 +19,7 @@ type Processor interface {
 
 // Queue is a simple case of TaskHandler
 type Queue struct {
-	Bufsize uint
+	TaskBufsize uint
 	Processor
 	EnableTypeChecking bool
 	ErrorLogger        log.Logger
@@ -30,21 +30,22 @@ type Queue struct {
 	closeCond *sync2.LockCond
 }
 
-func (m *Queue) Init(zerver.Environment) error {
+func (m *Queue) Init(env zerver.Environment) error {
 	if m.Processor == nil {
 		return errors.Err("message processor shouldn't be nil")
 	}
-	if m.Bufsize == 0 {
-		m.Bufsize = 1024
+	if m.TaskBufsize == 0 {
+		m.TaskBufsize = 256
 	}
-	if m.ErrorLogger != nil {
-		m.ErrorLogger = m.ErrorLogger.Prefix("zerver/msq")
+	if m.ErrorLogger == nil {
+		m.ErrorLogger = env.Logger()
 	}
+	m.ErrorLogger = m.ErrorLogger.Prefix("zerver/msq")
 	if m.BytesPool == nil {
 		m.BytesPool = bytes2.NewFakePool()
 	}
 
-	m.queue = make(chan zerver.Task, m.Bufsize)
+	m.queue = make(chan zerver.Task, m.TaskBufsize)
 
 	go m.start()
 	return nil

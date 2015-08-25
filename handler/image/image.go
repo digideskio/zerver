@@ -4,8 +4,11 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"github.com/cosiner/gohper/utils/attrs"
+	"github.com/cosiner/gohper/utils/bytesize"
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/gohper/utils/httperrs"
+	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/ygo/resource"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/utils/handle"
@@ -25,13 +28,17 @@ type Handler struct {
 	MaxSize     int64 // Check file size
 	ErrTooLarge httperrs.Error
 
-	SaveImage func(File, map[string]string) (path string, err error) // Save image file
+	PreChecker func(zerver.Request) error
+	SaveImage  func(File, attrs.Attrs) (path string, err error) // Save image file
+	PostDo     func(zerver.Request) error
 
 	PathKey string // Response.Send(PathKey, path)
+
+	logger log.Logger
 }
 
 // Init must be called
-func (h *Handler) Init() *Handler {
+func (h *Handler) Init(env zerver.Environment) error {
 	if h.SaveImage == nil {
 		panic("the function to save image should not be nil")
 	}
@@ -57,8 +64,9 @@ func (h *Handler) Init() *Handler {
 	}
 
 	defval.String(&h.PathKey, "path")
+	h.logger = env.Logger().Prefix("[zerver/image]")
 
-	return h
+	return nil
 }
 
 func (h *Handler) AddSuffixes(suffixes ...string) {
@@ -87,33 +95,37 @@ func (h *Handler) isSuffixSupported(suffix string) bool {
 }
 
 func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
-	req.Wrap(func(req *http.Request, shouldClose bool) (r *http.Request, c bool) {
-		r, c = req, shouldClose
+	req.Wrap(func(requ *http.Request, shouldClose bool) (r *http.Request, c bool) {
+		r, c = requ, shouldClose
 
-		err := req.ParseMultipartForm(h.MaxMemory)
+		err := requ.ParseMultipartForm(h.MaxMemory)
 		if err != nil {
 			handle.SendBadRequest(resp, err)
 			return
 		}
 
-		if req.MultipartForm == nil || req.MultipartForm.File == nil {
+		if requ.MultipartForm == nil || requ.MultipartForm.File == nil {
 			handle.SendErr(resp, h.ErrNoFile)
 			return
 		}
 
-		files, has := req.MultipartForm.File[h.FileKey]
+		files, has := requ.MultipartForm.File[h.FileKey]
 		if !has || len(files) == 0 {
 			handle.SendErr(resp, h.ErrNoFile)
 			return
 		}
-		var paramValues map[string]string
+
 		if len(h.Params) > 0 {
-			paramValues = make(map[string]string)
 			for _, param := range h.Params {
-				vals := req.MultipartForm.Value[param]
-				if len(vals) > 0 {
-					paramValues[param] = vals[0]
+				if vals := requ.MultipartForm.Value[param]; len(vals) != 0 {
+					req.SetAttr(param, vals[0])
 				}
+			}
+		}
+		if h.PreChecker != nil {
+			if err = h.PreChecker(req); err != nil {
+				handle.SendErr(resp, err)
+				return
 			}
 		}
 
@@ -135,10 +147,19 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 		}
 
 		defer fd.Close()
-		path, err := h.SaveImage(fd, paramValues)
+
+		h.logger.Debugf("upload file: %s, size: %s\n", fd.Filename(), bytesize.ToHuman(uint64(fd.Size())))
+		path, err := h.SaveImage(fd, req)
 		if err != nil {
 			handle.SendErr(resp, err)
 			return
+		}
+
+		if h.PostDo != nil {
+			err := h.PostDo(req)
+			if err != nil {
+				h.logger.Warnln("PostDo", err)
+			}
 		}
 
 		resp.SetContentType(resource.RES_JSON, nil)
