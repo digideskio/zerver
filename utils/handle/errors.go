@@ -1,6 +1,7 @@
 package handle
 
 import (
+	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/utils/httperrs"
 	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
@@ -21,16 +22,12 @@ func Wrap(handle func(zerver.Request, zerver.Response) error) zerver.HandleFunc 
 }
 
 func SendErr(resp zerver.Response, err error) {
-	sendErrDepth(1, resp, err)
-}
-
-func sendErrDepth(depth int, resp zerver.Response, err error) {
-	switch err := err.(type) {
+	switch err := errors.Unwrap(err).(type) {
 	case httperrs.Error:
 		resp.ReportStatus(err.Code())
 		if err.Code() < int(httperrs.Server) {
 			if err := resp.Send(KeyError, err.Error()); err != nil {
-				Logger.ErrorDepth(depth+1, err)
+				Logger.Errorln(err.Error())
 			}
 			return
 		}
@@ -38,35 +35,31 @@ func sendErrDepth(depth int, resp zerver.Response, err error) {
 		resp.ReportInternalServerError()
 	}
 
-	Logger.ErrorDepth(depth+1, err.Error())
+	Logger.Errorln(err.Error())
 }
 
 func BadRequest(err error) error {
-	return badRequestDepth(1, err)
-}
-
-func badRequestDepth(depth int, err error) error {
 	if BadRequestError == nil {
 		return err
 	}
 
-	Logger.DebugDepth(depth+1, err.Error())
+	Logger.Debugln(err.Error())
 	return BadRequestError
 }
 
 func SendBadRequest(resp zerver.Response, err error) {
-	sendErrDepth(1, resp, badRequestDepth(1, err))
+	SendErr(resp, BadRequest(err))
 }
 
 func OnErrLog(err error) {
 	if err != nil {
-		Logger.ErrorDepth(1, err)
+		Logger.Errorln(err)
 	}
 }
 
 func Send(resp zerver.Response, key string, value interface{}, err error) {
 	if err != nil {
-		sendErrDepth(1, resp, err)
+		SendErr(resp, err)
 	} else {
 		resp.Send(key, value)
 	}
@@ -74,7 +67,7 @@ func Send(resp zerver.Response, key string, value interface{}, err error) {
 
 func ReportStatus(resp zerver.Response, status int, err error) {
 	if err != nil {
-		sendErrDepth(1, resp, err)
+		SendErr(resp, err)
 	} else {
 		resp.ReportStatus(status)
 	}
