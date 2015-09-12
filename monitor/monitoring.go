@@ -18,9 +18,9 @@ import (
 
 var path = "/status"
 
-func Enable(p string, rt zerver.Router, rootFilters zerver.RootFilters) (err error) {
-	if p != "" {
-		path = p
+func Enable(monitorPath string, rt zerver.Router, rootFilters zerver.RootFilters) (err error) {
+	if monitorPath != "" {
+		path = monitorPath
 	}
 	if !initRoutes() {
 		return
@@ -40,19 +40,6 @@ func Enable(p string, rt zerver.Router, rootFilters zerver.RootFilters) (err err
 	}
 
 	return
-}
-
-func NewServer(p string) (*zerver.Server, error) {
-	if p == "" {
-		p = "/"
-	}
-
-	s := zerver.NewServer()
-	// s.AddHandleFunc("/stop", "GET", func(req zerver.Request, resp zerver.Response) {
-	// 	req.Server().Destroy()
-	// })
-	// infos["/stop"] = "stop pprof server"
-	return s, Enable("/", s.Router, s.RootFilters)
 }
 
 func globalFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {

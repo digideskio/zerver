@@ -6,13 +6,14 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/cosiner/gohper/crypto/tls2"
-	"github.com/cosiner/gohper/terminal/color"
 	"github.com/cosiner/gohper/utils/attrs"
 	"github.com/cosiner/gohper/utils/defval"
 	log2 "github.com/cosiner/ygo/log"
@@ -28,13 +29,13 @@ const (
 
 type (
 	ServerOption struct {
+		Logger log2.Logger
+
 		// server listening address, default :4000
 		ListenAddr string
 
 		// check websocket header, default nil
 		WebSocketChecker HeaderChecker
-		// logger, default use cosiner/gohper/log.Logger with ConsoleWriter
-		log2.Logger
 
 		// path variables count, suggest set as max or average, default 3
 		PathVarCount int
@@ -66,15 +67,16 @@ type (
 
 	// Server represent a web server
 	Server struct {
+		RootPath string
+		// public logger
+		Log log2.Logger
+
 		Router
 		attrs.Attrs
 		RootFilters RootFilters // Match Every Routes
 		ResMaster   resource.Master
-		// public logger
-		Log log2.Logger
 		componentManager
-
-		// server logger
+		// private logger
 		log log2.Logger
 
 		checker              websocket.HandshakeChecker
@@ -114,12 +116,12 @@ func (err ComponentNotFoundError) Error() string {
 }
 
 // NewServer create a new server with default router
-func NewServer() *Server {
-	return NewServerWith(nil, nil)
+func NewServer(rootPath string) *Server {
+	return NewServerWith(rootPath, nil, nil)
 }
 
 // NewServerWith create a new server with given router and root filters
-func NewServerWith(rt Router, filters RootFilters) *Server {
+func NewServerWith(rootPath string, rt Router, filters RootFilters) *Server {
 	if filters == nil {
 		filters = NewRootFilters(nil)
 	}
@@ -128,6 +130,8 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 	}
 
 	return &Server{
+		RootPath: rootPath,
+
 		Router:           rt,
 		Attrs:            attrs.NewLocked(),
 		RootFilters:      filters,
@@ -138,6 +142,10 @@ func NewServerWith(rt Router, filters RootFilters) *Server {
 
 func (s *Server) Server() *Server {
 	return s
+}
+
+func (s *Server) Filepath(path string) string {
+	return filepath.Join(s.RootPath, path)
 }
 
 func (s *Server) Logger() log2.Logger {
@@ -254,21 +262,20 @@ func (o *ServerOption) TLSEnabled() bool {
 
 // all log message before server start will use standard log package
 func (s *Server) config(o *ServerOption) {
+	o.init()
+
+	s.Log = o.Logger
+	s.log = s.Log.Prefix("[Server]")
 	var (
-		panicOnError = func(err error) {
+		log    = s.log.Infoln
+		hasErr = false
+		logErr = func(err error) {
 			if err != nil {
-				log.Panicln(err)
+				hasErr = true
+				s.log.Errorln(err)
 			}
 		}
-
-		log = func(args ...interface{}) {
-			log.Print(color.LightGreen.Sprint(args...))
-		}
 	)
-
-	o.init()
-	s.Log = o.Logger
-	s.log = o.Logger.Prefix("[Server]")
 
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 
@@ -297,22 +304,26 @@ func (s *Server) config(o *ServerOption) {
 			log("  " + name)
 		}
 	}
-	panicOnError(s.componentManager.Init(s))
+	logErr(s.componentManager.Init(s))
 
 	log("Execute registered init before routes funcs ")
 	for _, f := range s.beforeRoutes(nil) {
-		panicOnError(f())
+		logErr(f())
 	}
 
 	log("Init root filters")
-	panicOnError(s.RootFilters.Init(s))
+	logErr(s.RootFilters.Init(s))
 
 	log("Init Handlers and Filters")
-	panicOnError(s.Router.Init(s))
+	logErr(s.Router.Init(s))
 
 	log("Execute registered finial init funcs")
 	for _, f := range s.finalInits(nil) {
-		panicOnError(f())
+		logErr(f())
+	}
+
+	if hasErr {
+		os.Exit(-1)
 	}
 
 	// destroy temporary data store

@@ -16,7 +16,7 @@ func TestXsrf(t *testing.T) {
 	xsrf := &Xsrf{
 		Secret: key,
 	}
-	s := zerver.NewServer()
+	s := zerver.NewServer("")
 	go s.Start(nil)
 	time.Sleep(1 * time.Millisecond)
 

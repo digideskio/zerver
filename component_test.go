@@ -18,7 +18,7 @@ func (d Dep) Destroy() {}
 func TestCycleDependenced(t *testing.T) {
 	defer testing2.Recover(t)
 
-	s := NewServer()
+	s := NewServer("")
 
 	s.RegisterComponent("Comp1", Dep("Comp2"))
 	s.RegisterComponent("Comp2", Dep("Comp1"))

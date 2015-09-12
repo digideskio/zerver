@@ -34,7 +34,7 @@ func (m *MockWriter) Header() http.Header {
 
 func TestFilter(t *testing.T) {
 	tt := testing2.Wrap(t)
-	s := NewServer()
+	s := NewServer("")
 
 	var n int
 	ft := func(req Request, resp Response, chain FilterChain) {
