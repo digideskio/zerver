@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cosiner/gohper/time2"
 	"github.com/cosiner/gohper/utils/attrs"
 	"github.com/cosiner/ygo/config"
 )
@@ -28,7 +29,7 @@ type (
 
 // unixNow return now time as unix time seconds
 func unixNow() uint64 {
-	return uint64(time.Now().Unix())
+	return uint64(time2.Now().Unix())
 }
 
 // newMemStoreNode create a new store node for memStore

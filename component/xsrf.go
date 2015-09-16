@@ -7,10 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"hash"
-	"time"
 
 	"github.com/cosiner/gohper/bytes2"
 	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/gohper/time2"
 	"github.com/cosiner/gohper/unsafe2"
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/ygo/log"
@@ -116,7 +116,7 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 }
 
 func (x *Xsrf) CreateFor(req zerver.Request) ([]byte, error) {
-	bs, err := x.TokenInfo.Marshal(time.Now().Unix(), req.RemoteIP(), req.UserAgent())
+	bs, err := x.TokenInfo.Marshal(time2.Now().Unix(), req.RemoteIP(), req.UserAgent())
 	if err == nil {
 		return x.sign(bs), nil
 	}
@@ -158,7 +158,7 @@ func (x *Xsrf) VerifyFor(req zerver.Request) bool {
 		x.Pool.Put(data)
 		t, ip, agent := x.TokenInfo.Unmarshal(data)
 		return t != -1 &&
-			t+x.Timeout >= time.Now().Unix() &&
+			t+x.Timeout >= time2.Now().Unix() &&
 			ip == req.RemoteIP() &&
 			agent == req.UserAgent()
 	}

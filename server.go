@@ -28,6 +28,8 @@ const (
 )
 
 type (
+	LifetimeHook func(*Server) error
+
 	ServerOption struct {
 		Logger log2.Logger
 
@@ -86,7 +88,7 @@ type (
 		state       int32          // destroy or normal running
 		activeConns sync.WaitGroup // connections in service, don't include hijacked and websocket connections
 
-		destroyHooks []func() error
+		destroyHooks []LifetimeHook
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -308,7 +310,7 @@ func (s *Server) config(o *ServerOption) {
 
 	log("Execute registered init before routes funcs ")
 	for _, f := range s.beforeRoutes(nil) {
-		logErr(f())
+		logErr(f(s))
 	}
 
 	log("Init root filters")
@@ -319,7 +321,7 @@ func (s *Server) config(o *ServerOption) {
 
 	log("Execute registered finial init funcs")
 	for _, f := range s.finalInits(nil) {
-		logErr(f())
+		logErr(f(s))
 	}
 
 	if hasErr {
@@ -472,7 +474,7 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 	s.Router.Destroy()
 	s.componentManager.Destroy()
 	for _, fn := range s.destroyHooks {
-		err := fn()
+		err := fn(s)
 		if err != nil {
 			s.log.Errorln("Destroy:", err)
 		}
@@ -487,16 +489,16 @@ func (s *Server) warnLog(err error) {
 	}
 }
 
-func (s *Server) finalInits(fn []func() error) (funcs []func() error) {
+func (s *Server) finalInits(fn []LifetimeHook) (funcs []LifetimeHook) {
 	return s.inits("finalInits", fn)
 }
 
-func (s *Server) inits(typ string, fn []func() error) (funcs []func() error) {
+func (s *Server) inits(typ string, fn []LifetimeHook) (funcs []LifetimeHook) {
 	if val := TmpHGet(s, typ); val != nil {
-		funcs = val.([]func() error)
+		funcs = val.([]LifetimeHook)
 	}
 
-	if fn != nil {
+	if len(fn) > 0 {
 		funcs = append(funcs, fn...)
 		TmpHSet(s, typ, funcs)
 	}
@@ -507,19 +509,19 @@ func (s *Server) inits(typ string, fn []func() error) (funcs []func() error) {
 // FinalInit add functions to execute after all others done and before server start
 // don't register component or add handler, filter in these functions unless you know
 // what are you doing
-func (s *Server) FinalInit(fn ...func() error) {
+func (s *Server) FinalInit(fn ...LifetimeHook) {
 	s.finalInits(fn)
 }
 
-func (s *Server) beforeRoutes(fn []func() error) (funcs []func() error) {
+func (s *Server) beforeRoutes(fn []LifetimeHook) (funcs []LifetimeHook) {
 	return s.inits("beforeRoutes", fn)
 }
 
 // BeforeRoutes add functions to execute before routes init
-func (s *Server) BeforeRoutes(fn ...func() error) {
+func (s *Server) BeforeRoutes(fn ...LifetimeHook) {
 	s.beforeRoutes(fn)
 }
 
-func (s *Server) BeforeDestroy(fn ...func() error) {
+func (s *Server) BeforeDestroy(fn ...LifetimeHook) {
 	s.destroyHooks = append(s.destroyHooks, fn...)
 }

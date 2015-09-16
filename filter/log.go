@@ -1,8 +1,6 @@
 package filter
 
 import (
-	"time"
-
 	"github.com/cosiner/gohper/time2"
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/ygo/log"
@@ -23,10 +21,10 @@ func (l *Log) Init(env zerver.Environment) error {
 
 func (l *Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	if l.CountTime {
-		nano := time.Now().UnixNano()
+		nano := time2.Now().UnixNano()
 
 		chain(req, resp)
-		nano = time.Now().UnixNano() - nano
+		nano = time2.Now().UnixNano() - nano
 		l.logger.Infoln(
 			time2.ToHuman(nano),
 			resp.Status(),

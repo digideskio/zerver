@@ -3,10 +3,9 @@ package session
 import (
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/cosiner/gohper/errors"
-
+	"github.com/cosiner/gohper/time2"
 	"github.com/cosiner/gohper/utils/attrs"
 )
 
@@ -141,7 +140,7 @@ func (sm *sessionManager) Init(store SessionStore, lifetime int64) error {
 func (sm *sessionManager) newSessionId() string {
 	sm.lock.Lock()
 	for {
-		id := strconv.Itoa(int(time.Now().UnixNano() / 10))
+		id := strconv.Itoa(int(time2.Now().UnixNano() / 10))
 		if _, has := sm.sessions[id]; !has && !sm.store.IsExist(id) {
 			sm.lock.Unlock()
 			return id

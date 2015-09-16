@@ -8,7 +8,6 @@ import (
 	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/component"
-	"github.com/garyburd/redigo/redis"
 )
 
 const (
@@ -95,8 +94,8 @@ func (r *RedisIDStore) Destroy() {
 }
 
 func (r *RedisIDStore) Save(id string) error {
-	success, err := redis.Bool(r.redis.Exec("SADD", r.Key, id))
-	if err == nil && !success {
+	cnt, err := r.redis.SAdd(r.Key, id)
+	if err == nil && cnt == 0 {
 		err = ErrRequestIDExist
 	}
 
@@ -104,7 +103,7 @@ func (r *RedisIDStore) Save(id string) error {
 }
 
 func (r *RedisIDStore) Remove(ip, id string) error {
-	_, err := r.redis.Exec("SREM", r.Key, id)
+	_, err := r.redis.SRem(r.Key, id)
 
 	return err
 }
