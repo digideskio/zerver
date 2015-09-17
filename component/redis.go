@@ -1,13 +1,8 @@
 package component
 
 import (
-	"time"
-
-	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/kv"
-	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
-	"github.com/garyburd/redigo/redis"
 )
 
 const (
@@ -16,48 +11,14 @@ const (
 
 type (
 	RedisOption struct {
-		// Maximum number of idle connections in the pool.
-		MaxIdle int
-
-		// Maximum number of connections allocated by the pool at a given time.
-		// When zero, there is no limit on the number of connections in the pool.
-		MaxActive int
-
-		// Close connections after remaining idle for this seconds. If the value
-		// is zero, then idle connections are not closed. Applications should set
-		// the timeout to a value less than the server's timeout.
-		IdleTimeout int
-
-		Addr string
-
-		Dial func() (redis.Conn, error)
-
-		Codec kv.Codec
+		Option kv.RedisOption
+		Codec  kv.Codec
 	}
 
 	Redis struct {
-		logger log.Logger
 		kv.Store
 	}
 )
-
-func (o *RedisOption) init() {
-	if o.MaxIdle == 0 {
-		o.MaxIdle = 8
-	}
-
-	if o.Dial == nil {
-		defval.String(&o.Addr, ":6379")
-
-		o.Dial = func() (redis.Conn, error) {
-			return redis.Dial("tcp", o.Addr)
-		}
-	}
-
-	if o.Codec == nil {
-		o.Codec = kv.JSON{}
-	}
-}
 
 func NewRedis() *Redis {
 	return &Redis{}
@@ -71,16 +32,8 @@ func (r *Redis) Init(env zerver.Environment) error {
 	} else {
 		o = op.(*RedisOption)
 	}
-	o.init()
 
-	pool := redis.Pool{
-		MaxIdle:     o.MaxIdle,
-		MaxActive:   o.MaxActive,
-		IdleTimeout: time.Duration(o.IdleTimeout) * time.Second,
-		Dial:        o.Dial,
-	}
-	r.Store = kv.NewRedis(pool, o.Codec)
-	r.logger = env.Logger().Prefix("[Redis]")
+	r.Store = kv.NewRedis(o.Option, o.Codec)
 
 	return nil
 }

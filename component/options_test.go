@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/cosiner/kv"
+
 	"github.com/cosiner/gohper/testing2"
 	"github.com/cosiner/zerver"
 )
@@ -35,7 +37,7 @@ func TestOptions(t *testing.T) {
     `
 	type options struct {
 		Server   zerver.ServerOption
-		Redis    RedisOption
+		Redis    kv.RedisOption
 		Template TemplateOption
 		Xsrf     Xsrf
 	}

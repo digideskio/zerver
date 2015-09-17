@@ -5,6 +5,7 @@ import (
 
 	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/utils/defval"
+	"github.com/cosiner/kv"
 	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/component"
@@ -38,10 +39,10 @@ type (
 		lock     sync.RWMutex
 	}
 
-	// RedisIDStore depends on component.Redis
+	// RedisIDStore depends on component.store
 	RedisIDStore struct {
 		Key   string // key for redis set to store ip-id pair, default use "RequestID"
-		redis *component.Redis
+		store kv.Store
 	}
 )
 
@@ -78,23 +79,23 @@ func (m *MemIDStore) Remove(id string) error {
 }
 
 func (r *RedisIDStore) Init(env zerver.Environment) error {
-	redis, err := env.Component(component.REDIS)
+	rd, err := env.Component(component.REDIS)
 	if err != nil {
 		return err
 	}
 
-	r.redis = redis.(*component.Redis)
+	r.store = rd.(kv.Store)
 	defval.String(&r.Key, "RequestID")
 
 	return nil
 }
 
 func (r *RedisIDStore) Destroy() {
-	r.redis = nil
+	r.store = nil
 }
 
 func (r *RedisIDStore) Save(id string) error {
-	cnt, err := r.redis.SAdd(r.Key, id)
+	cnt, err := r.store.SAdd(r.Key, id)
 	if err == nil && cnt == 0 {
 		err = ErrRequestIDExist
 	}
@@ -103,7 +104,7 @@ func (r *RedisIDStore) Save(id string) error {
 }
 
 func (r *RedisIDStore) Remove(ip, id string) error {
-	_, err := r.redis.SRem(r.Key, id)
+	_, err := r.store.SRem(r.Key, id)
 
 	return err
 }
