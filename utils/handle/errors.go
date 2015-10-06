@@ -22,11 +22,12 @@ func Wrap(handle func(zerver.Request, zerver.Response) error) zerver.HandleFunc 
 }
 
 func SendErr(resp zerver.Response, err error) {
-	switch err := errors.Unwrap(err).(type) {
+	switch e := errors.Unwrap(err).(type) {
 	case httperrs.Error:
-		resp.ReportStatus(err.Code())
-		if err.Code() < int(httperrs.Server) {
-			if err := resp.Send(KeyError, err.Error()); err != nil {
+		resp.ReportStatus(e.Code())
+		if e.Code() < int(httperrs.Server) {
+			Logger.Debugln(err)
+			if err := resp.Send(KeyError, e.Error()); err != nil {
 				Logger.Errorln(err.Error())
 			}
 			return

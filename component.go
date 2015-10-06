@@ -71,7 +71,7 @@ func NewComponentEnv(env Environment, name string) ComponentEnvironment {
 
 func newComponentEnv(e Environment, name string, c interface{}) *componentEnv {
 	env := &componentEnv{
-		name:       name,
+		name:        name,
 		Environment: e,
 	}
 

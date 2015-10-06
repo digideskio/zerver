@@ -21,12 +21,12 @@ func (l *Log) Init(env zerver.Environment) error {
 
 func (l *Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	if l.CountTime {
-		nano := time2.Now().UnixNano()
+		now := time2.Now()
 
 		chain(req, resp)
-		nano = time2.Now().UnixNano() - nano
+		cost := time2.Now().Sub(now)
 		l.logger.Infoln(
-			time2.ToHuman(nano),
+			cost.String(),
 			resp.Status(),
 			req.Method(),
 			req.URL().Path,

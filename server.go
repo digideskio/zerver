@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -270,11 +269,10 @@ func (s *Server) config(o *ServerOption) {
 	s.log = s.Log.Prefix("[Server]")
 	var (
 		log    = s.log.Infoln
-		hasErr = false
+		errors []error
 		logErr = func(err error) {
 			if err != nil {
-				hasErr = true
-				s.log.Errorln(err)
+				errors = append(errors, err)
 			}
 		}
 	)
@@ -324,8 +322,8 @@ func (s *Server) config(o *ServerOption) {
 		logErr(f(s))
 	}
 
-	if hasErr {
-		os.Exit(-1)
+	if len(errors) != 0 {
+		s.Log.Fatalln(errors)
 	}
 
 	// destroy temporary data store
