@@ -140,7 +140,7 @@ func (ri *RequestId) Filter(req zerver.Request, resp zerver.Response, chain zerv
 			resp.ReportForbidden()
 			resp.Send("error", ri.ErrorOverlap)
 		} else if err != nil {
-			ri.logger.Warnln(err)
+			ri.logger.Warn(err)
 		} else {
 			chain(req, resp)
 			ri.Store.Remove(id)

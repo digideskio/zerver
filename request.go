@@ -173,7 +173,7 @@ func (req *request) Params(name string) []string {
 				params = request.PostForm
 			} else {
 				params = emptyParams
-				req.Logger().Warnln(err)
+				req.Logger().Warn(err)
 			}
 		}
 		req.params = params

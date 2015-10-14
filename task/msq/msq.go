@@ -69,13 +69,13 @@ func (m *Queue) start() {
 			return
 		}
 		if m.ErrorLogger != nil {
-			m.ErrorLogger.Errorln(e)
+			m.ErrorLogger.Error(e)
 
 			buf := m.BytesPool.Get(4096, true)
 
 			index := runtime.Stack(buf, false)
 			buf = buf[:index]
-			m.ErrorLogger.Errorln(unsafe2.String(buf))
+			m.ErrorLogger.Error(unsafe2.String(buf))
 
 			m.BytesPool.Put(buf)
 		}
@@ -91,7 +91,7 @@ func (m *Queue) start() {
 			}
 			err := m.Process(msg.Value())
 			if err != nil {
-				m.ErrorLogger.Errorln(msg.Pattern(), ":", err)
+				m.ErrorLogger.Error(msg.Pattern(), ":", err)
 			}
 
 			if len(m.queue) == 0 && m.closeCond != nil {

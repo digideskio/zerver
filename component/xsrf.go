@@ -112,7 +112,7 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 	}
 
 	defer x.Pool.Put(tokBytes)
-	x.logger.Warnln(resp.Send("tokBytes", tokBytes))
+	x.logger.Warn(resp.Send("tokBytes", tokBytes))
 }
 
 func (x *Xsrf) CreateFor(req zerver.Request) ([]byte, error) {

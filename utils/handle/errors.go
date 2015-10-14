@@ -26,9 +26,9 @@ func SendErr(resp zerver.Response, err error) {
 	case httperrs.Error:
 		resp.ReportStatus(e.Code())
 		if e.Code() < int(httperrs.Server) {
-			Logger.Debugln(err)
+			Logger.Debug(err)
 			if err := resp.Send(KeyError, e.Error()); err != nil {
-				Logger.Errorln(err.Error())
+				Logger.Error(err.Error())
 			}
 			return
 		}
@@ -36,7 +36,7 @@ func SendErr(resp zerver.Response, err error) {
 		resp.ReportInternalServerError()
 	}
 
-	Logger.Errorln(err.Error())
+	Logger.Error(err.Error())
 }
 
 func BadRequest(err error) error {
@@ -44,7 +44,7 @@ func BadRequest(err error) error {
 		return err
 	}
 
-	Logger.Debugln(err.Error())
+	Logger.Debug(err.Error())
 	return BadRequestError
 }
 
@@ -54,7 +54,7 @@ func SendBadRequest(resp zerver.Response, err error) {
 
 func OnErrLog(err error) {
 	if err != nil {
-		Logger.Errorln(err)
+		Logger.Error(err)
 	}
 }
 

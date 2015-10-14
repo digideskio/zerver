@@ -40,7 +40,7 @@ func (r *Recovery) Filter(req zerver.Request, resp zerver.Response, chain zerver
 
 		runtime.Stack(buf[len(buf):cap(buf)], false)
 
-		req.Logger().Errorln(unsafe2.String(buf[:cap(buf)]))
+		req.Logger().Error(unsafe2.String(buf[:cap(buf)]))
 	}()
 
 	chain(req, resp)

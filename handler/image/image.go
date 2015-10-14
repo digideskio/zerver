@@ -158,7 +158,7 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 		if h.PostDo != nil {
 			err := h.PostDo(req)
 			if err != nil {
-				h.logger.Warnln("PostDo", err)
+				h.logger.Warn("PostDo", err)
 			}
 		}
 

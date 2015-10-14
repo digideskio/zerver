@@ -52,5 +52,5 @@ func (j JSONP) Filter(req zerver.Request, resp zerver.Response, chain zerver.Fil
 		return
 	}
 ERROR:
-	req.Logger().Warnln(err)
+	req.Logger().Warn(err)
 }

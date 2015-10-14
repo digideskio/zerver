@@ -25,7 +25,7 @@ func (l *Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.Filt
 
 		chain(req, resp)
 		cost := time2.Now().Sub(now)
-		l.logger.Infoln(
+		l.logger.Info(
 			cost.String(),
 			resp.Status(),
 			req.Method(),
@@ -34,7 +34,7 @@ func (l *Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.Filt
 			req.UserAgent())
 	} else {
 		chain(req, resp)
-		l.logger.Infoln(
+		l.logger.Info(
 			resp.Status(),
 			req.Method(),
 			req.URL().Path,

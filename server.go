@@ -175,7 +175,7 @@ func (s *Server) RegisterComponent(name string, component interface{}) Component
 func (s *Server) StartTask(path string, value interface{}) {
 	handler := s.MatchTaskHandler(&url.URL{Path: path})
 	if handler == nil {
-		s.Log.Errorln("No task handler found for:", path)
+		s.Log.Error("No task handler found for:", path)
 		return
 	}
 
@@ -253,7 +253,7 @@ func (o *ServerOption) init() {
 		o.KeepAlivePeriod = 3 * time.Minute // same as net/http/server.go:tcpKeepAliveListener
 	}
 	if o.Logger == nil {
-		o.Logger = log2.Default()
+		o.Logger = log2.New(nil).AddWriter(log2.NewConsoleWriter(nil))
 	}
 }
 
@@ -268,7 +268,7 @@ func (s *Server) config(o *ServerOption) {
 	s.Log = o.Logger
 	s.log = s.Log.Prefix("[Server]")
 	var (
-		log    = s.log.Infoln
+		log    = s.log.Info
 		errors []error
 		logErr = func(err error) {
 			if err != nil {
@@ -323,7 +323,7 @@ func (s *Server) config(o *ServerOption) {
 	}
 
 	if len(errors) != 0 {
-		s.Log.Fatalln(errors)
+		s.Log.Fatal(errors)
 	}
 
 	// destroy temporary data store
@@ -474,7 +474,7 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 	for _, fn := range s.destroyHooks {
 		err := fn(s)
 		if err != nil {
-			s.log.Errorln("Destroy:", err)
+			s.log.Error("Destroy:", err)
 		}
 	}
 
@@ -483,7 +483,7 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 
 func (s *Server) warnLog(err error) {
 	if err != nil {
-		s.log.Warnln(err)
+		s.log.Warn(err)
 	}
 }
 
