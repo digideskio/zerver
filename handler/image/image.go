@@ -33,8 +33,6 @@ type Handler struct {
 	PostDo     func(zerver.Request) error
 
 	PathKey string // Response.Send(PathKey, path)
-
-	logger log.Logger
 }
 
 // Init must be called
@@ -64,7 +62,6 @@ func (h *Handler) Init(env zerver.Environment) error {
 	}
 
 	defval.String(&h.PathKey, "path")
-	h.logger = env.Logger().Prefix("[zerver/image]")
 
 	return nil
 }
@@ -148,7 +145,7 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 
 		defer fd.Close()
 
-		h.logger.Debugf("upload file: %s, size: %s\n", fd.Filename(), bytesize.ToHuman(uint64(fd.Size())))
+		log.Debugf("upload file: %s, size: %s\n", fd.Filename(), bytesize.ToHuman(uint64(fd.Size())))
 		path, err := h.SaveImage(fd, req)
 		if err != nil {
 			handle.SendErr(resp, err)
@@ -158,7 +155,7 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 		if h.PostDo != nil {
 			err := h.PostDo(req)
 			if err != nil {
-				h.logger.Warn("PostDo", err)
+				log.Warn("PostDo", err)
 			}
 		}
 

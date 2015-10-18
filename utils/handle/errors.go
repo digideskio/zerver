@@ -3,12 +3,10 @@ package handle
 import (
 	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/utils/httperrs"
-	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
 )
 
 var (
-	Logger          log.Logger
 	KeyError        = "error"
 	BadRequestError httperrs.Error
 )
@@ -26,17 +24,12 @@ func SendErr(resp zerver.Response, err error) {
 	case httperrs.Error:
 		resp.ReportStatus(e.Code())
 		if e.Code() < int(httperrs.Server) {
-			Logger.Debug(err)
-			if err := resp.Send(KeyError, e.Error()); err != nil {
-				Logger.Error(err.Error())
-			}
+			resp.Send(KeyError, e.Error())
 			return
 		}
 	default:
 		resp.ReportInternalServerError()
 	}
-
-	Logger.Error(err.Error())
 }
 
 func BadRequest(err error) error {
@@ -44,18 +37,11 @@ func BadRequest(err error) error {
 		return err
 	}
 
-	Logger.Debug(err.Error())
 	return BadRequestError
 }
 
 func SendBadRequest(resp zerver.Response, err error) {
 	SendErr(resp, BadRequest(err))
-}
-
-func OnErrLog(err error) {
-	if err != nil {
-		Logger.Error(err)
-	}
 }
 
 func Send(resp zerver.Response, key string, value interface{}, err error) {

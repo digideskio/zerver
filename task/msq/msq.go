@@ -22,7 +22,6 @@ type Queue struct {
 	TaskBufsize uint
 	Processor
 	EnableTypeChecking bool
-	ErrorLogger        log.Logger
 	NoRecover          bool
 	BytesPool          bytes2.Pool
 
@@ -37,10 +36,6 @@ func (m *Queue) Init(env zerver.Environment) error {
 	if m.TaskBufsize == 0 {
 		m.TaskBufsize = 256
 	}
-	if m.ErrorLogger == nil {
-		m.ErrorLogger = env.Logger()
-	}
-	m.ErrorLogger = m.ErrorLogger.Prefix("zerver/msq")
 	if m.BytesPool == nil {
 		m.BytesPool = bytes2.NewFakePool()
 	}
@@ -68,17 +63,16 @@ func (m *Queue) start() {
 		if e == nil {
 			return
 		}
-		if m.ErrorLogger != nil {
-			m.ErrorLogger.Error(e)
+		log.Error(e)
 
-			buf := m.BytesPool.Get(4096, true)
+		buf := m.BytesPool.Get(4096, true)
 
-			index := runtime.Stack(buf, false)
-			buf = buf[:index]
-			m.ErrorLogger.Error(unsafe2.String(buf))
+		index := runtime.Stack(buf, false)
+		buf = buf[:index]
+		log.Error(unsafe2.String(buf))
 
-			m.BytesPool.Put(buf)
-		}
+		m.BytesPool.Put(buf)
+
 		if !m.NoRecover {
 			go m.start()
 		}
@@ -91,7 +85,7 @@ func (m *Queue) start() {
 			}
 			err := m.Process(msg.Value())
 			if err != nil {
-				m.ErrorLogger.Error(msg.Pattern(), ":", err)
+				log.Error("msq "+msg.Pattern(), err)
 			}
 
 			if len(m.queue) == 0 && m.closeCond != nil {

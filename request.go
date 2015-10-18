@@ -10,8 +10,8 @@ import (
 	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/strings2"
 	"github.com/cosiner/gohper/utils/attrs"
-	"github.com/cosiner/ygo/resource"
 	"github.com/cosiner/ygo/log"
+	"github.com/cosiner/ygo/resource"
 )
 
 const (
@@ -67,7 +67,6 @@ type (
 		params    url.Values
 		needClose bool
 		res       resource.Resource
-		logger log.Logger
 	}
 )
 
@@ -173,7 +172,7 @@ func (req *request) Params(name string) []string {
 				params = request.PostForm
 			} else {
 				params = emptyParams
-				req.Logger().Warn(err)
+				log.Warn("parse form", err)
 			}
 		}
 		req.params = params
@@ -242,12 +241,4 @@ func (req *request) Receive(v interface{}) error {
 	}
 
 	return req.res.Receive(req, v)
-}
-
-func (req *request) Logger() log.Logger {
-	if req.logger != nil {
-		return req.logger
-	}
-
-	return req.Environment.Logger().Prefix("[Handle]")
 }

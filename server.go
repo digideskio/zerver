@@ -2,7 +2,6 @@ package zerver
 
 import (
 	"crypto/tls"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -15,7 +14,7 @@ import (
 	"github.com/cosiner/gohper/crypto/tls2"
 	"github.com/cosiner/gohper/utils/attrs"
 	"github.com/cosiner/gohper/utils/defval"
-	log2 "github.com/cosiner/ygo/log"
+	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/ygo/resource"
 	websocket "github.com/cosiner/zerver_websocket"
 )
@@ -30,8 +29,6 @@ type (
 	LifetimeHook func(*Server) error
 
 	ServerOption struct {
-		Logger log2.Logger
-
 		// server listening address, default :4000
 		ListenAddr string
 
@@ -69,16 +66,11 @@ type (
 	// Server represent a web server
 	Server struct {
 		RootPath string
-		// public logger
-		Log log2.Logger
-
 		Router
 		attrs.Attrs
 		RootFilters RootFilters // Match Every Routes
 		ResMaster   resource.Master
 		componentManager
-		// private logger
-		log log2.Logger
 
 		checker              websocket.HandshakeChecker
 		processNotAcceptable bool
@@ -100,7 +92,6 @@ type (
 	Environment interface {
 		Server() *Server
 		ResourceMaster() *resource.Master
-		Logger() log2.Logger
 		StartTask(path string, value interface{})
 		Component(name string) (interface{}, error)
 	}
@@ -149,10 +140,6 @@ func (s *Server) Filepath(path string) string {
 	return filepath.Join(s.RootPath, path)
 }
 
-func (s *Server) Logger() log2.Logger {
-	return s.Log
-}
-
 func (s *Server) ResourceMaster() *resource.Master {
 	return &s.ResMaster
 }
@@ -175,7 +162,7 @@ func (s *Server) RegisterComponent(name string, component interface{}) Component
 func (s *Server) StartTask(path string, value interface{}) {
 	handler := s.MatchTaskHandler(&url.URL{Path: path})
 	if handler == nil {
-		s.Log.Error("No task handler found for:", path)
+		log.Error("No task handler found for:", path)
 		return
 	}
 
@@ -252,9 +239,6 @@ func (o *ServerOption) init() {
 	if o.KeepAlivePeriod == 0 {
 		o.KeepAlivePeriod = 3 * time.Minute // same as net/http/server.go:tcpKeepAliveListener
 	}
-	if o.Logger == nil {
-		o.Logger = log2.New(nil).AddWriter(log2.NewConsoleWriter(nil))
-	}
 }
 
 func (o *ServerOption) TLSEnabled() bool {
@@ -265,10 +249,7 @@ func (o *ServerOption) TLSEnabled() bool {
 func (s *Server) config(o *ServerOption) {
 	o.init()
 
-	s.Log = o.Logger
-	s.log = s.Log.Prefix("[Server]")
 	var (
-		log    = s.log.Info
 		errors []error
 		logErr = func(err error) {
 			if err != nil {
@@ -280,55 +261,55 @@ func (s *Server) config(o *ServerOption) {
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 
 	if len(s.ResMaster.Resources) == 0 {
-		log("Use default resource:", resource.RES_JSON)
+		log.Info("Use default resource:", resource.RES_JSON)
 		s.ResMaster.DefUse(resource.RES_JSON, resource.JSON{})
 	} else {
-		log("Resource types:", s.ResMaster.Types, " Default:", s.ResMaster.Default)
+		log.Info("Resource types:", s.ResMaster.Types, " Default:", s.ResMaster.Default)
 	}
 
 	s.processNotAcceptable = o.ProcessNotAcceptable
-	log("Process non-acceptable request:", s.processNotAcceptable)
+	log.Info("Process non-acceptable request:", s.processNotAcceptable)
 
-	log("VarCountPerRoute:", o.PathVarCount)
+	log.Info("VarCountPerRoute:", o.PathVarCount)
 	pathVarCount = o.PathVarCount
-	log("FilterCountPerRoute:", o.FilterCount)
+	log.Info("FilterCountPerRoute:", o.FilterCount)
 	filterCount = o.FilterCount
 
 	s.componentManager.initHook = func(name string) {
 		switch name {
 		case _GLOBAL_COMPONENT:
-			log("Init global components")
+			log.Info("Init global components")
 		case _ANONYMOUS_COMPONENT:
-			log("Init anonymous components")
+			log.Info("Init anonymous components")
 		default:
-			log("  " + name)
+			log.Info("  " + name)
 		}
 	}
 	logErr(s.componentManager.Init(s))
 
-	log("Execute registered init before routes funcs ")
-	for _, f := range s.beforeRoutes(nil) {
+	log.Info("Execute registered init before routes funcs ")
+	for _, f := range s.beforeLoadRoutes(nil) {
 		logErr(f(s))
 	}
 
-	log("Init root filters")
+	log.Info("Init root filters")
 	logErr(s.RootFilters.Init(s))
 
-	log("Init Handlers and Filters")
+	log.Info("Init Handlers and Filters")
 	logErr(s.Router.Init(s))
 
-	log("Execute registered finial init funcs")
-	for _, f := range s.finalInits(nil) {
+	log.Info("Execute registered finial init funcs")
+	for _, f := range s.beforeStart(nil) {
 		logErr(f(s))
 	}
 
 	if len(errors) != 0 {
-		s.Log.Fatal(errors)
+		log.Fatal(errors)
 	}
 
 	// destroy temporary data store
 	tmpDestroy()
-	log("Server Start: ", o.ListenAddr)
+	log.Info("Server Start: ", o.ListenAddr)
 
 	runtime.GC()
 }
@@ -375,7 +356,7 @@ func (ln *tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 func (s *Server) listen(opt *ServerOption) net.Listener {
 	ln, err := net.Listen("tcp", opt.ListenAddr)
 	if err != nil {
-		log.Panicln(err)
+		log.Panic(err)
 	}
 
 	ln = &tcpKeepAliveListener{
@@ -413,10 +394,10 @@ func (s *Server) listen(opt *ServerOption) net.Listener {
 	if err != nil {
 		if ln != nil {
 			if e := ln.Close(); e != nil {
-				log.Panicln(e)
+				log.Panic(e)
 			}
 		}
-		log.Panicln(err)
+		log.Panic(err)
 	}
 
 	return ln
@@ -450,7 +431,11 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 	}
 
 	var isTimeout = true
-	s.warnLog(s.listener.Close()) // don't accept connections
+	err := s.listener.Close() // don't accept connections
+	if err != nil {
+		log.Warn("listener close", err)
+	}
+
 	if timeout > 0 {
 		c := make(chan struct{})
 		go func(s *Server, c chan struct{}) {
@@ -474,7 +459,7 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 	for _, fn := range s.destroyHooks {
 		err := fn(s)
 		if err != nil {
-			s.log.Error("Destroy:", err)
+			log.Error("destroy hook:", err)
 		}
 	}
 
@@ -483,12 +468,8 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 
 func (s *Server) warnLog(err error) {
 	if err != nil {
-		s.log.Warn(err)
+		log.Warn(err)
 	}
-}
-
-func (s *Server) finalInits(fn []LifetimeHook) (funcs []LifetimeHook) {
-	return s.inits("finalInits", fn)
 }
 
 func (s *Server) inits(typ string, fn []LifetimeHook) (funcs []LifetimeHook) {
@@ -504,20 +485,20 @@ func (s *Server) inits(typ string, fn []LifetimeHook) (funcs []LifetimeHook) {
 	return funcs
 }
 
-// FinalInit add functions to execute after all others done and before server start
-// don't register component or add handler, filter in these functions unless you know
-// what are you doing
-func (s *Server) FinalInit(fn ...LifetimeHook) {
-	s.finalInits(fn)
+func (s *Server) beforeStart(fn []LifetimeHook) (funcs []LifetimeHook) {
+	return s.inits("beforeStart", fn)
 }
 
-func (s *Server) beforeRoutes(fn []LifetimeHook) (funcs []LifetimeHook) {
-	return s.inits("beforeRoutes", fn)
+func (s *Server) BeforeStart(fn ...LifetimeHook) {
+	s.beforeStart(fn)
 }
 
-// BeforeRoutes add functions to execute before routes init
-func (s *Server) BeforeRoutes(fn ...LifetimeHook) {
-	s.beforeRoutes(fn)
+func (s *Server) beforeLoadRoutes(fn []LifetimeHook) (funcs []LifetimeHook) {
+	return s.inits("beforeLoadRoutes", fn)
+}
+
+func (s *Server) BeforeLoadRoutes(fn ...LifetimeHook) {
+	s.beforeLoadRoutes(fn)
 }
 
 func (s *Server) BeforeDestroy(fn ...LifetimeHook) {

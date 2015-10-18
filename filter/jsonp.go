@@ -4,6 +4,7 @@ import (
 	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/ygo/resource"
 	"github.com/cosiner/zerver"
+	"github.com/ngaut/log"
 )
 
 // use as callback parameter name such as ?callback=xxx
@@ -52,5 +53,5 @@ func (j JSONP) Filter(req zerver.Request, resp zerver.Response, chain zerver.Fil
 		return
 	}
 ERROR:
-	req.Logger().Warn(err)
+	log.Warn("write string", err)
 }

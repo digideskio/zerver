@@ -115,7 +115,6 @@ func (ri *RequestId) Init(env zerver.Environment) error {
 	defval.String(&ri.HeaderName, "X-Request-Id")
 	defval.String(&ri.Error, "header value X-Request-Id can't be empty")
 	defval.String(&ri.ErrorOverlap, "request already accepted before, please wait")
-	ri.logger = env.Logger().Prefix("[RequestID]")
 
 	return nil
 }

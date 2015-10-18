@@ -43,8 +43,6 @@ type (
 		Pool    bytes2.Pool
 
 		TokenInfo TokenInfo // marshal/unmarshal token info, default use jsonToken
-
-		logger log.Logger
 	}
 
 	TokenInfo interface {
@@ -92,8 +90,6 @@ func (x *Xsrf) Init(env zerver.Environment) error {
 		x.Pool = bytes2.FakePool{}
 	}
 	defval.Nil(&x.TokenInfo, jsonToken{})
-
-	x.logger = env.Logger().Prefix("[XSRF]")
 	return nil
 }
 
@@ -112,7 +108,10 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 	}
 
 	defer x.Pool.Put(tokBytes)
-	x.logger.Warn(resp.Send("tokBytes", tokBytes))
+	err = resp.Send("tokBytes", tokBytes)
+	if err != nil {
+		log.Error("send xsrf token", err)
+	}
 }
 
 func (x *Xsrf) CreateFor(req zerver.Request) ([]byte, error) {

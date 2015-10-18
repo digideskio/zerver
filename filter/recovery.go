@@ -14,11 +14,9 @@ import (
 type Recovery struct {
 	Bufsize int
 	NoStack bool
-	logger  log.Logger
 }
 
 func (r *Recovery) Init(env zerver.Environment) error {
-	r.logger = env.Logger().Prefix("[Recovery]")
 	defval.Int(&r.Bufsize, 1024*4)
 	return nil
 }
@@ -40,7 +38,7 @@ func (r *Recovery) Filter(req zerver.Request, resp zerver.Response, chain zerver
 
 		runtime.Stack(buf[len(buf):cap(buf)], false)
 
-		req.Logger().Error(unsafe2.String(buf[:cap(buf)]))
+		log.Error("Recover", unsafe2.String(buf[:cap(buf)]))
 	}()
 
 	chain(req, resp)

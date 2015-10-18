@@ -39,14 +39,14 @@ func (r Routes) New(method, pattern string, handler interface{}, interceptors ..
 	})
 }
 
-func (r Routes) Apply(rt zerver.Router) error {
+func (r Routes) Apply(router zerver.Router) error {
 	var err error
 	for i := 0; err == nil && i < len(r); i++ {
 		var route = r[i]
 		if route.Handler != nil {
-			err = rt.Handle(route.Pattern, route.Handler)
+			err = router.Handle(route.Pattern, route.Handler)
 		} else {
-			err = rt.HandleFunc(route.Pattern,
+			err = router.HandleFunc(route.Pattern,
 				route.Method,
 				zerver.Intercept(route.HandleFunc,
 					route.Interceptors...))
