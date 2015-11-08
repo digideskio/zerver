@@ -15,8 +15,9 @@ import (
 	"github.com/cosiner/gohper/utils/attrs"
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/ygo/log"
-	"github.com/cosiner/ygo/resource"
 	websocket "github.com/cosiner/zerver_websocket"
+	"github.com/cosiner/gohper/encoding"
+	"strings"
 )
 
 const (
@@ -40,11 +41,6 @@ type (
 		// filters count for each route, RootFilters is not include, default 5
 		FilterCount int
 
-		// whether process user request or not when
-		// header value of "Accept" is not acceptable and there is no default
-		// resource type
-		ProcessNotAcceptable bool
-
 		// read timeout
 		ReadTimeout time.Duration
 		// write timeout
@@ -61,6 +57,9 @@ type (
 		CertFile, KeyFile string
 		// if not nil, cert and key will be ignored
 		TLSConfig *tls.Config
+
+		Headers map[string]string
+		Codec encoding.Codec
 	}
 
 	// Server represent a web server
@@ -69,17 +68,18 @@ type (
 		Router
 		attrs.Attrs
 		RootFilters RootFilters // Match Every Routes
-		ResMaster   resource.Master
 		componentManager
 
 		checker              websocket.HandshakeChecker
-		processNotAcceptable bool
 
 		listener    net.Listener
 		state       int32          // destroy or normal running
 		activeConns sync.WaitGroup // connections in service, don't include hijacked and websocket connections
 
 		destroyHooks []LifetimeHook
+
+		headers map[string]string
+		codec encoding.Codec
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -91,7 +91,8 @@ type (
 	// it can be accessed from Request/WebsocketConn
 	Environment interface {
 		Server() *Server
-		ResourceMaster() *resource.Master
+		Filepath(path string) string
+		Codec() encoding.Codec
 		StartTask(path string, value interface{})
 		Component(name string) (interface{}, error)
 	}
@@ -127,7 +128,6 @@ func NewServerWith(rootPath string, rt Router, filters RootFilters) *Server {
 		Router:           rt,
 		Attrs:            attrs.NewLocked(),
 		RootFilters:      filters,
-		ResMaster:        resource.NewMaster(),
 		componentManager: newComponentManager(),
 	}
 }
@@ -137,11 +137,15 @@ func (s *Server) Server() *Server {
 }
 
 func (s *Server) Filepath(path string) string {
+	sep := string(filepath.Separator)
+	if path != "" && !strings.HasPrefix(path, sep) {
+		path = strings.Replace(path, "/", sep, -1)
+	}
 	return filepath.Join(s.RootPath, path)
 }
 
-func (s *Server) ResourceMaster() *resource.Master {
-	return &s.ResMaster
+func (s *Server) Codec() encoding.Codec {
+	return s.codec
 }
 
 // RegisterComponent let server manage this component and it's lifetime.
@@ -204,21 +208,18 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	url.Host = request.Host
 	handler, indexer, filters := s.MatchHandlerFilters(url)
 
-	res, resType := s.ResMaster.Resource(request.Header.Get(HEADER_ACCEPT))
-
 	reqEnv := newRequestEnvFromPool()
-	req := reqEnv.req.init(s, res, request, indexer)
-	resp := reqEnv.resp.init(s, res, w)
+	req := reqEnv.req.init(s, request, indexer)
+	resp := reqEnv.resp.init(s, w)
+	for k, v := range s.headers {
+		resp.SetHeader(k, v)
+	}
 
 	var chain FilterChain
 	if handler == nil {
 		resp.ReportNotFound()
-	} else if res == nil && !s.processNotAcceptable {
-		resp.ReportNotAcceptable()
 	} else if chain = FilterChain(handler.Handler(req.Method())); chain == nil {
 		resp.ReportMethodNotAllowed()
-	} else {
-		resp.SetContentType(resType, res)
 	}
 
 	newFilterChain(s.RootFilters.Filters(url),
@@ -239,6 +240,9 @@ func (o *ServerOption) init() {
 	if o.KeepAlivePeriod == 0 {
 		o.KeepAlivePeriod = 3 * time.Minute // same as net/http/server.go:tcpKeepAliveListener
 	}
+	if o.Codec == nil {
+		o.Codec = encoding.DefaultCodec
+	}
 }
 
 func (o *ServerOption) TLSEnabled() bool {
@@ -257,18 +261,9 @@ func (s *Server) config(o *ServerOption) {
 			}
 		}
 	)
-
+	s.codec = o.Codec
+	s.headers = o.Headers
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
-
-	if len(s.ResMaster.Resources) == 0 {
-		log.Info("Use default resource:", resource.RES_JSON)
-		s.ResMaster.DefUse(resource.RES_JSON, resource.JSON{})
-	} else {
-		log.Info("Resource types:", s.ResMaster.Types, " Default:", s.ResMaster.Default)
-	}
-
-	s.processNotAcceptable = o.ProcessNotAcceptable
-	log.Info("Process non-acceptable request:", s.processNotAcceptable)
 
 	log.Info("VarCountPerRoute:", o.PathVarCount)
 	pathVarCount = o.PathVarCount

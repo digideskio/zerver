@@ -2,7 +2,6 @@ package filter
 
 import (
 	"github.com/cosiner/gohper/errors"
-	"github.com/cosiner/ygo/resource"
 	"github.com/cosiner/zerver"
 	"github.com/ngaut/log"
 )
@@ -25,20 +24,12 @@ func (j JSONP) Filter(req zerver.Request, resp zerver.Response, chain zerver.Fil
 		return
 	}
 
-	res, _ := req.ResourceMaster().Resource(resource.RES_JSON)
-	if res == nil {
-		resp.ReportNotAcceptable()
-		return
-	}
-
 	callback := req.Param(string(j))
 	if callback == "" {
 		resp.ReportBadRequest()
-		resp.Send("error", "no callback function")
 		return
 	}
 
-	resp.SetContentType(resource.RES_JSON, res)
 	_, err := resp.WriteString(callback)
 	if err != nil {
 		goto ERROR

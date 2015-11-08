@@ -131,13 +131,11 @@ func (ri *RequestId) Filter(req zerver.Request, resp zerver.Response, chain zerv
 			chain(req, resp)
 		} else {
 			resp.ReportBadRequest()
-			resp.Send("error", ri.Error)
 		}
 	} else {
 		id := req.RemoteIP() + ":" + reqId
 		if err := ri.Store.Save(id); err == ErrRequestIDExist {
 			resp.ReportForbidden()
-			resp.Send("error", ri.ErrorOverlap)
 		} else if err != nil {
 			ri.logger.Warn(err)
 		} else {

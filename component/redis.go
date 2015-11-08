@@ -3,6 +3,7 @@ package component
 import (
 	"github.com/cosiner/kv"
 	"github.com/cosiner/zerver"
+	"github.com/cosiner/gohper/encoding"
 )
 
 const (
@@ -12,7 +13,7 @@ const (
 type (
 	RedisOption struct {
 		Option kv.RedisOption
-		Codec  kv.Codec
+		Codec  encoding.Codec
 	}
 
 	Redis struct {
@@ -27,7 +28,7 @@ func NewRedis() *Redis {
 func (r *Redis) Init(env zerver.Environment) error {
 	compEnv := env.(zerver.ComponentEnvironment)
 	var opt interface{}
-	var codec kv.Codec
+	var codec encoding.Codec
 	switch t := compEnv.GetSetAttr(REDIS, nil).(type) {
 	case nil:
 	case *RedisOption:

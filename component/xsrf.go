@@ -32,6 +32,10 @@ const (
 var _ENCODING = base64.URLEncoding
 
 type (
+	Token struct {
+		Token string `json:"token"`
+	}
+
 	Xsrf struct {
 		Timeout    int64            // seconds
 		Secret     string           // secret key
@@ -108,7 +112,7 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 	}
 
 	defer x.Pool.Put(tokBytes)
-	err = resp.Send("tokBytes", tokBytes)
+	err = resp.Send(Token{string(tokBytes)})
 	if err != nil {
 		log.Error("send xsrf token", err)
 	}
@@ -131,7 +135,6 @@ func (x *Xsrf) Verify(req zerver.Request, resp zerver.Response, chain zerver.Fil
 		chain(req, resp)
 	} else {
 		resp.ReportBadRequest()
-		resp.Send("error", x.Error)
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/cosiner/gohper/testing2"
-	"github.com/cosiner/ygo/resource"
 )
 
 type MockWriter struct {
@@ -49,8 +48,6 @@ func TestFilter(t *testing.T) {
 	s.Get("/user/info/aaa", Intercept(func(Request, Response) {
 		n++
 	}, ft, ft, ft))
-
-	s.ResMaster.DefUse(resource.RES_JSON, resource.JSON{})
 
 	s.ServeHTTP(NewMockWriter(os.Stdout), &http.Request{
 		Method: "Get",

@@ -6,8 +6,11 @@ import (
 	"github.com/cosiner/zerver"
 )
 
+type Error struct {
+	Error string `json:"error"`
+}
+
 var (
-	KeyError        = "error"
 	BadRequestError httperrs.Error
 )
 
@@ -24,7 +27,7 @@ func SendErr(resp zerver.Response, err error) {
 	case httperrs.Error:
 		resp.ReportStatus(e.Code())
 		if e.Code() < int(httperrs.Server) {
-			resp.Send(KeyError, e.Error())
+			resp.Send(Error{e.Error()})
 			return
 		}
 	default:
@@ -44,11 +47,11 @@ func SendBadRequest(resp zerver.Response, err error) {
 	SendErr(resp, BadRequest(err))
 }
 
-func Send(resp zerver.Response, key string, value interface{}, err error) {
+func Send(resp zerver.Response, value interface{}, err error) {
 	if err != nil {
 		SendErr(resp, err)
 	} else {
-		resp.Send(key, value)
+		resp.Send(value)
 	}
 }
 

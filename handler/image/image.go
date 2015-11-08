@@ -9,10 +9,13 @@ import (
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/gohper/utils/httperrs"
 	"github.com/cosiner/ygo/log"
-	"github.com/cosiner/ygo/resource"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/utils/handle"
 )
+
+type Path struct {
+	Path string `json:"path"`
+}
 
 type Handler struct {
 	MaxMemory int64 // Parse Form
@@ -31,8 +34,6 @@ type Handler struct {
 	PreChecker func(zerver.Request) error
 	SaveImage  func(File, attrs.Attrs) (path string, err error) // Save image file
 	PostDo     func(zerver.Request) error
-
-	PathKey string // Response.Send(PathKey, path)
 }
 
 // Init must be called
@@ -60,8 +61,6 @@ func (h *Handler) Init(env zerver.Environment) error {
 	if h.ErrTooLarge == nil {
 		h.ErrTooLarge = httperrs.BadRequest.NewS("the upload file size is too large")
 	}
-
-	defval.String(&h.PathKey, "path")
 
 	return nil
 }
@@ -142,7 +141,6 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 			handle.SendBadRequest(resp, err)
 			return
 		}
-
 		defer fd.Close()
 
 		log.Debugf("upload file: %s, size: %s\n", fd.Filename(), bytesize.ToHuman(uint64(fd.Size())))
@@ -159,8 +157,7 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 			}
 		}
 
-		resp.SetContentType(resource.RES_JSON, nil)
-		resp.Send(h.PathKey, path)
+		resp.Send(Path{path})
 		return
 	})
 }

@@ -9,9 +9,7 @@ import (
 	"time"
 
 	"github.com/cosiner/gohper/unsafe2"
-
 	"github.com/cosiner/gohper/errors"
-	"github.com/cosiner/ygo/resource"
 )
 
 const (
@@ -25,6 +23,8 @@ type (
 	ResponseWrapper func(http.ResponseWriter, bool) (http.ResponseWriter, bool)
 
 	Response interface {
+		Environment
+
 		Wrap(ResponseWrapper)
 
 		// These methods should be called before Write
@@ -33,9 +33,6 @@ type (
 		RemoveHeader(name string)
 
 		SetContentEncoding(enc string)
-
-		// SetContentType will cause Resource change if it's not nil
-		SetContentType(typ string, res resource.Resource)
 
 		SetAdvancedCookie(c *http.Cookie)
 		SetCookie(name, value string, lifetime int)
@@ -67,9 +64,9 @@ type (
 		Value() interface{}
 		SetValue(interface{})
 
-		Resource() resource.Resource
 		// Send send marshaled value to client
-		Send(string, interface{}) error
+		Send(interface{}) error
+		SendError(interface{}) error
 
 		destroy()
 	}
@@ -81,8 +78,7 @@ type (
 
 	// response represent a response of request to user
 	response struct {
-		env Environment
-		res resource.Resource
+		Environment
 		http.ResponseWriter
 		header       http.Header
 		status       int
@@ -96,9 +92,8 @@ type (
 )
 
 // newResponse create a new response, and set default content type to HTML
-func (resp *response) init(env Environment, r resource.Resource, w http.ResponseWriter) Response {
-	resp.env = env
-	resp.res = r
+func (resp *response) init(env Environment,  w http.ResponseWriter) Response {
+	resp.Environment = env
 	resp.ResponseWriter = w
 	resp.header = w.Header()
 	resp.status = http.StatusOK
@@ -197,12 +192,8 @@ func (resp *response) RemoveHeader(name string) {
 	resp.header.Del(name)
 }
 
-func (resp *response) SetContentType(typ string, res resource.Resource) {
+func (resp *response) SetContentType(typ string) {
 	resp.SetHeader(HEADER_CONTENTTYPE, typ)
-
-	if res != nil {
-		resp.res = res
-	}
 }
 
 // SetContentEncoding set content encoding of response
@@ -248,14 +239,10 @@ func (resp *response) SetValue(v interface{}) {
 	resp.value = v
 }
 
-func (resp *response) Resource() resource.Resource {
-	return resp.res
+func (resp *response) Send(v interface{}) error {
+	return resp.Codec().Encode(resp, v)
 }
 
-func (resp *response) Send(key string, value interface{}) error {
-	if resp.res == nil {
-		return ErrNoResourceType
-	}
-
-	return resp.res.Send(resp, key, value)
+func (resp *response) SendError(s interface{}) error {
+	return resp.Send(NewError(s))
 }

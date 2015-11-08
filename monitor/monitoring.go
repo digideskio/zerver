@@ -43,8 +43,6 @@ func Enable(monitorPath string, rt zerver.Router, rootFilters zerver.RootFilters
 }
 
 func globalFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-	resp.SetContentType("text/plain", nil)
-
 	if resp.Status() == http.StatusNotFound {
 		resp.SetHeader("Location", path+"/options?from="+url.QueryEscape(req.URL().Path))
 		resp.ReportMovedPermanently()

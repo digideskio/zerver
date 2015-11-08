@@ -11,7 +11,6 @@ import (
 	"github.com/cosiner/gohper/strings2"
 	"github.com/cosiner/gohper/utils/attrs"
 	"github.com/cosiner/ygo/log"
-	"github.com/cosiner/ygo/resource"
 )
 
 const (
@@ -66,7 +65,6 @@ type (
 		header    http.Header
 		params    url.Values
 		needClose bool
-		res       resource.Resource
 	}
 )
 
@@ -75,7 +73,7 @@ var (
 )
 
 // newRequest create a new request
-func (req *request) init(e Environment, r resource.Resource, requ *http.Request, varIndexer URLVarIndexer) Request {
+func (req *request) init(e Environment,  requ *http.Request, varIndexer URLVarIndexer) Request {
 	req.Environment = e
 	req.request = requ
 	req.header = requ.Header
@@ -88,7 +86,6 @@ func (req *request) init(e Environment, r resource.Resource, requ *http.Request,
 		}
 	}
 	req.method = parseRequestMethod(method)
-	req.res = r
 
 	return req
 }
@@ -106,7 +103,6 @@ func (req *request) destroy() {
 		req.request.Body.Close()
 	}
 	req.request = nil
-	req.res = nil
 }
 
 func (req *request) Wrap(fn RequestWrapper) {
@@ -219,7 +215,7 @@ func (req *request) Authorization() (string, bool) {
 // user,password, if any wrong, "", "" was returned
 func (req *request) BasicAuth() (string, string) {
 	if auth, basic := req.Authorization(); basic {
-		return strings2.Seperate(auth, ':')
+		return strings2.Separate(auth, ':')
 	}
 
 	return "", ""
@@ -236,9 +232,5 @@ func (req *request) Header(name string) string {
 }
 
 func (req *request) Receive(v interface{}) error {
-	if req.res == nil {
-		return ErrNoResourceType
-	}
-
-	return req.res.Receive(req, v)
+	return req.Codec().Decode(req, v)
 }
