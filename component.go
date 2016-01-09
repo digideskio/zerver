@@ -1,53 +1,24 @@
 package zerver
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/cosiner/gohper/encoding"
+	"github.com/syndtr/goleveldb/leveldb/errors"
+)
+
+// =============================================================================
+//                                  Component State
+// =============================================================================
+type compState uint8
 
 const (
-	_UNINITIALIZE initialState = iota
+	_UNINITIALIZE compState = iota
 	_WAITING
 	_INITIALIZED
 )
 
-type (
-	initialState int
-
-	// Component is a Object which will automaticlly initial/destroyed by server
-	// if it's added to server, else it should initial manually
-	Component interface {
-		Init(Environment) error
-		Destroy()
-	}
-
-	FakeComponent struct{}
-
-	ComponentEnvironment interface {
-		Name() string
-		Attr(name string) interface{}
-		SetAttr(name string, value interface{})
-		GetSetAttr(name string, value interface{}) interface{}
-		Environment
-	}
-
-	componentEnv struct {
-		comp  Component
-		value interface{}
-
-		name string
-		Environment
-
-		initialState
-	}
-
-	componentManager struct {
-		components  map[string]*componentEnv
-		anonymouses []Component
-		lock        sync.RWMutex
-
-		initHook func(name string)
-	}
-)
-
-func (s initialState) String() string {
+func (s compState) String() string {
 	switch s {
 	case _UNINITIALIZE:
 		return "Uninitialize"
@@ -60,122 +31,190 @@ func (s initialState) String() string {
 	panic("unexpected initial state")
 }
 
-func (FakeComponent) Init(Environment) error { return nil }
-
-func (FakeComponent) Destroy() {}
-
-// NewComponentEnv is only a quick way get/set component attributes
-func NewComponentEnv(env Environment, name string) ComponentEnvironment {
-	return newComponentEnv(env, name, nil)
-}
-
-func newComponentEnv(e Environment, name string, c interface{}) *componentEnv {
-	env := &componentEnv{
-		name:        name,
-		Environment: e,
+// =============================================================================
+//                                  Component
+// =============================================================================
+type (
+	// Env is a server environment, real implementation is the Server itself.
+	Env interface {
+		Server() *Server
+		Filepath(path string) string
+		Codec() encoding.Codec
+		StartTask(path string, value interface{})
+		Component(name string) (interface{}, error)
 	}
 
-	if c != nil {
-		switch c := c.(type) {
-		case Component:
-			env.comp = c
-			env.initialState = _UNINITIALIZE
-		default:
-			env.value = c
-			env.initialState = _INITIALIZED
-		}
+	// Component is a Object which will automaticlly initial/destroyed by server
+	// if it's added to server, else it should init manually
+	Component interface {
+		Init(Env) error
+		Destroy()
 	}
 
-	return env
+	NopComponent struct{}
+)
+
+func (NopComponent) Init(Env) error { return nil }
+
+func (NopComponent) Destroy() {}
+
+// =============================================================================
+//                                  Component Environment
+// =============================================================================
+type CompEnv struct {
+	comp  Component
+	value interface{}
+
+	name string
+	Env
+
+	state compState
 }
 
-func (env *componentEnv) componentValue() interface{} {
-	if env.value != nil {
-		return env.value
+func newCompEnv(env Env, name string, c interface{}) *CompEnv {
+	e := &CompEnv{
+		name: name,
+		Env:  env,
 	}
 
-	return env.comp
+	switch c := c.(type) {
+	case Component:
+		e.comp = c
+		e.state = _UNINITIALIZE
+	default:
+		e.value = c
+		e.state = _INITIALIZED
+	}
+
+	return e
 }
 
-func (env *componentEnv) Init(e Environment) error {
-	if env.initialState == _INITIALIZED {
+func (e *CompEnv) Name() string {
+	return e.name
+}
+
+func (e *CompEnv) String() string {
+	return e.name + ":" + e.state.String()
+}
+
+func (e *CompEnv) attrName(compName, attr string) string {
+	return compName + ":" + attr
+}
+
+func (e *CompEnv) Attr(name string) interface{} {
+	return e.Server().Attr(e.attrName(e.name, name))
+}
+
+func (e *CompEnv) SetAttr(name string, value interface{}) {
+	e.Server().SetAttr(e.attrName(e.name, name), value)
+}
+
+func (e *CompEnv) GetSetAttr(name string, val interface{}) interface{} {
+	return e.Server().GetSetAttr(e.attrName(e.name, name), val)
+}
+
+func (e *CompEnv) Init(Env) error {
+	if e.state == _INITIALIZED {
 		return nil
 	}
 
-	if env.initialState == _WAITING {
-		panic("Cycle dependence on " + env.name)
+	if e.state == _WAITING {
+		panic("Cycle dependence on " + e.name)
 	}
 
-	env.initialState = _WAITING
-	err := env.comp.Init(env)
-	env.initialState = _INITIALIZED
+	e.state = _WAITING
+	err := e.comp.Init(e)
+	e.state = _INITIALIZED
 
 	return err
 }
 
-func (env *componentEnv) Destroy() {
-	if env.value == nil && env.initialState == _INITIALIZED {
-		env.comp.Destroy()
+func (e *CompEnv) Destroy() {
+	if e.value == nil && e.state == _INITIALIZED {
+		e.comp.Destroy()
 	}
 }
 
-func ComponentAttr(comp, attr string) string {
-	return comp + ":" + attr
+func (e *CompEnv) underlay() interface{} {
+	if e.value != nil {
+		return e.value
+	}
+
+	return e.comp
 }
 
-func (env *componentEnv) Name() string {
-	return env.name
+// =============================================================================
+//                                  Component Manager
+// =============================================================================
+var ErrCompNotFound = errors.New("component not found")
+
+type CompManager struct {
+	components map[string]*CompEnv
+	anonymous  []Component
+	mu         sync.RWMutex
 }
 
-func (env *componentEnv) Attr(name string) interface{} {
-	return env.Server().Attr(ComponentAttr(env.name, name))
-}
-
-func (env *componentEnv) SetAttr(name string, value interface{}) {
-	env.Server().SetAttr(ComponentAttr(env.name, name), value)
-}
-
-func (env *componentEnv) GetSetAttr(name string, val interface{}) interface{} {
-	return env.Server().GetSetAttr(ComponentAttr(env.name, name), val)
-}
-
-func (env *componentEnv) String() string {
-	return env.name + ":" + env.initialState.String()
-}
-
-func newComponentManager() componentManager {
-	return componentManager{
-		components: make(map[string]*componentEnv),
+func NewCompManager() CompManager {
+	return CompManager{
+		components: make(map[string]*CompEnv),
 	}
 }
 
-const (
-	_GLOBAL_COMPONENT    = "_Global_"
-	_ANONYMOUS_COMPONENT = ""
-)
+func (m *CompManager) Get(name string) (interface{}, error) {
+	m.mu.RLock()
+	e, has := m.components[name]
+	m.mu.RUnlock()
 
-func (cm *componentManager) Init(env Environment) error {
-	// initial named component first for anonymouses may depend on them
-	hook := cm.initHook
-	if hook == nil {
-		hook = func(string) {}
-	} else {
-		defer func(cm *componentManager) {
-			cm.initHook = nil
-		}(cm)
+	if !has {
+		return nil, ErrCompNotFound
 	}
 
-	hook(_GLOBAL_COMPONENT)
-	for name, comp := range cm.components {
-		hook(name)
-		if err := comp.Init(env); err != nil {
+	if err := e.Init(e); err != nil { // only first time will execute
+		return nil, err
+	}
+
+	return e.underlay(), nil
+}
+
+// Register make a component managed
+func (m *CompManager) Register(env Env, name string, comp interface{}) *CompEnv {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if name == "" {
+		if c, is := comp.(Component); is {
+			m.anonymous = append(m.anonymous, c)
+		}
+		return nil
+	}
+
+	cs := newCompEnv(env, name, comp)
+	m.components[name] = cs
+	return cs
+}
+
+// Remove will an component and Destroy it
+func (m *CompManager) Remove(name string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cs, has := m.components[name]
+	if has {
+		cs.Destroy()
+		delete(m.components, name)
+	}
+}
+
+func (m *CompManager) Init(e Env) error {
+	// initial named component first for anonymous may depend on them
+	for _, comp := range m.components {
+		if err := comp.Init(e); err != nil {
 			return err
 		}
 	}
 
-	hook(_ANONYMOUS_COMPONENT)
-	for _, c := range cm.anonymouses {
-		if err := c.Init(env); err != nil {
+	for _, c := range m.anonymous {
+		if err := c.Init(e); err != nil {
 			return err
 		}
 	}
@@ -183,64 +222,14 @@ func (cm *componentManager) Init(env Environment) error {
 	return nil
 }
 
-func (cm *componentManager) Destroy() {
-	cm.lock.Lock()
-	for _, cs := range cm.components {
+func (m *CompManager) Destroy() {
+	m.mu.Lock()
+	for _, cs := range m.components {
 		cs.Destroy()
 	}
 
-	for _, c := range cm.anonymouses {
+	for _, c := range m.anonymous {
 		c.Destroy()
 	}
-	cm.lock.Unlock()
-}
-
-func (cm *componentManager) Component(name string) (interface{}, error) {
-	cm.lock.RLock()
-	env, has := cm.components[name]
-	cm.lock.RUnlock()
-
-	if !has {
-		return nil, ComponentNotFoundError(name)
-	}
-
-	if err := env.Init(env); err != nil { // only first time will execute
-		return nil, err
-	}
-
-	return env.componentValue(), nil
-}
-
-func (cm *componentManager) RegisterComponent(
-	env Environment,
-	name string,
-	component interface{},
-) ComponentEnvironment {
-
-	if name == "" {
-		if c, is := component.(Component); is {
-			cm.anonymouses = append(cm.anonymouses, c)
-		}
-		return nil
-	}
-
-	cs := newComponentEnv(env, name, component)
-	cm.lock.Lock()
-	cm.components[name] = cs
-	cm.lock.Unlock()
-
-	return cs
-}
-
-func (cm *componentManager) RemoveComponent(name string) {
-	cm.lock.Lock()
-	cs, has := cm.components[name]
-	if !has {
-		cm.lock.Unlock()
-		return
-	}
-
-	defer cm.lock.Unlock()
-	cs.Destroy()
-	delete(cm.components, name)
+	m.mu.Unlock()
 }

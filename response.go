@@ -5,10 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strconv"
-	"time"
 
-	"github.com/cosiner/gohper/unsafe2"
 	"github.com/cosiner/gohper/errors"
 )
 
@@ -23,68 +20,28 @@ type (
 	ResponseWrapper func(http.ResponseWriter, bool) (http.ResponseWriter, bool)
 
 	Response interface {
-		Environment
-
-		Wrap(ResponseWrapper)
-
-		// These methods should be called before Write
-		SetHeader(name, value string)
-		AddHeader(name, value string)
-		RemoveHeader(name string)
-
-		SetContentEncoding(enc string)
-
-		SetAdvancedCookie(c *http.Cookie)
-		SetCookie(name, value string, lifetime int)
-		DeleteClientCookie(name string)
-
-		CacheSeconds(secs int)
-		CacheUntil(*time.Time)
-		NoCache()
-
-		Status() int
-		// ReportStatus report status code, it will not immediately write the status
-		// to response, unless response is destroyed or Write was called
-		ReportStatus(statusCode int)
-		StatusResponse
-
+		Env
 		http.Hijacker
 		http.Flusher
+		io.Writer
 
-		// Write will automicly write http status and header, any operations about
-		// status and header should be performed before Write
-		// if there is a previous error, operation will not be performed, just
-		// return this error, and any error will be stored
-		ErrorWriter
-		WriteString(s string) (int, error)
-
-		// Value/SetValue provide a approach to transmit value between filter/handler
-		// there is only one instance, if necessary, save origin value first,
-		// restore it when operation is done
+		Wrap(ResponseWrapper)
+		Headers() http.Header
+		StatusCode(statusCode int) int
 		Value() interface{}
 		SetValue(interface{})
-
-		// Send send marshaled value to client
 		Send(interface{}) error
-		SendError(interface{}) error
 
 		destroy()
 	}
 
-	ErrorWriter interface {
-		io.Writer
-		ClearError()
-	}
-
 	// response represent a response of request to user
 	response struct {
-		Environment
+		Env
 		http.ResponseWriter
-		header       http.Header
 		status       int
 		statusWrited bool
 		value        interface{}
-		err          error
 		needClose    bool
 
 		hijacked bool
@@ -92,10 +49,9 @@ type (
 )
 
 // newResponse create a new response, and set default content type to HTML
-func (resp *response) init(env Environment,  w http.ResponseWriter) Response {
-	resp.Environment = env
+func (resp *response) init(env Env, w http.ResponseWriter) Response {
+	resp.Env = env
 	resp.ResponseWriter = w
-	resp.header = w.Header()
 	resp.status = http.StatusOK
 
 	return resp
@@ -104,9 +60,7 @@ func (resp *response) init(env Environment,  w http.ResponseWriter) Response {
 func (resp *response) destroy() {
 	resp.flushHeader()
 	resp.statusWrited = false
-	resp.header = nil
 	resp.value = nil
-	resp.err = nil
 
 	if resp.needClose && !resp.hijacked {
 		resp.needClose = false
@@ -118,7 +72,6 @@ func (resp *response) destroy() {
 
 func (resp *response) Wrap(fn ResponseWrapper) {
 	resp.ResponseWriter, resp.needClose = fn(resp.ResponseWriter, resp.needClose)
-	resp.header = resp.ResponseWriter.Header()
 }
 
 func (resp *response) flushHeader() {
@@ -128,31 +81,11 @@ func (resp *response) flushHeader() {
 	}
 }
 
-func (resp *response) Write(data []byte) (i int, err error) {
-	resp.flushHeader()
-	// inspired by official go blog "Errors are value: http://blog.golang.org/errors-are-values"
-	if resp.err == nil {
-		i, resp.err = resp.ResponseWriter.Write(data)
-	}
-
-	return
-}
-
-func (resp *response) WriteString(s string) (int, error) {
-	return resp.Write(unsafe2.Bytes(s))
-}
-
-func (resp *response) ClearError() {
-	resp.err = nil
-}
-
-// ReportStatus report an http status with given status code
-// only when response is not destroyed and Write was not called the status will
-// be changed
-func (resp *response) ReportStatus(statusCode int) {
-	if !resp.statusWrited {
+func (resp *response) StatusCode(statusCode int) int {
+	if !resp.statusWrited && statusCode > 0 {
 		resp.status = statusCode
 	}
+	return resp.status
 }
 
 func (resp *response) Status() int {
@@ -177,58 +110,8 @@ func (resp *response) Flush() {
 	}
 }
 
-// SetHeader setup response header
-func (resp *response) SetHeader(name, value string) {
-	resp.header.Set(name, value)
-}
-
-// AddHeader add a value to response header
-func (resp *response) AddHeader(name, value string) {
-	resp.header.Add(name, value)
-}
-
-// RemoveHeader remove response header by name
-func (resp *response) RemoveHeader(name string) {
-	resp.header.Del(name)
-}
-
-func (resp *response) SetContentType(typ string) {
-	resp.SetHeader(HEADER_CONTENTTYPE, typ)
-}
-
-// SetContentEncoding set content encoding of response
-func (resp *response) SetContentEncoding(enc string) {
-	resp.SetHeader(HEADER_CONTENTENCODING, enc)
-}
-
-func (resp *response) CacheSeconds(secs int) {
-	resp.SetHeader(HEADER_CACHECONTROL, "max-age:"+strconv.Itoa(secs))
-}
-
-func (resp *response) CacheUntil(t *time.Time) {
-	resp.SetHeader(HEADER_EXPIRES, t.Format(http.TimeFormat))
-}
-
-func (resp *response) NoCache() {
-	resp.SetHeader(HEADER_CACHECONTROL, "no-cache")
-}
-
-func (resp *response) SetAdvancedCookie(c *http.Cookie) {
-	resp.AddHeader(HEADER_SETCOOKIE, c.String())
-}
-
-// SetCookie setup response cookie
-func (resp *response) SetCookie(name, value string, lifetime int) {
-	resp.SetAdvancedCookie(&http.Cookie{
-		Name:   name,
-		Value:  value,
-		MaxAge: lifetime,
-	})
-}
-
-// DeleteClientCookie delete user browser's cookie by name
-func (resp *response) DeleteClientCookie(name string) {
-	resp.SetCookie(name, "", -1)
+func (resp *response) Headers() http.Header {
+	return resp.ResponseWriter.Header()
 }
 
 func (resp *response) Value() interface{} {
@@ -239,10 +122,11 @@ func (resp *response) SetValue(v interface{}) {
 	resp.value = v
 }
 
-func (resp *response) Send(v interface{}) error {
-	return resp.Codec().Encode(resp, v)
+func (resp *response) Write(data []byte) (i int, err error) {
+	resp.flushHeader()
+	return resp.ResponseWriter.Write(data)
 }
 
-func (resp *response) SendError(s interface{}) error {
-	return resp.Send(NewError(s))
+func (resp *response) Send(v interface{}) error {
+	return resp.Codec().Encode(resp, v)
 }

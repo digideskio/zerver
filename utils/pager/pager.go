@@ -17,5 +17,5 @@ func Add(beginPage, beginIndex, pageSize int) *pager.Pager {
 }
 
 func Range(req zerver.Request, pager *pager.Pager) (start, count int) {
-	return pager.BeginByString(req.Param(PageParam)), pager.PageSize
+	return pager.BeginByString(req.Vars().QueryVar(PageParam)), pager.PageSize
 }

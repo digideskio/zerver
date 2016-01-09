@@ -7,9 +7,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"hash"
+	"net/http"
 
 	"github.com/cosiner/gohper/bytes2"
 	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/gohper/net2/http2"
 	"github.com/cosiner/gohper/time2"
 	"github.com/cosiner/gohper/unsafe2"
 	"github.com/cosiner/gohper/utils/defval"
@@ -50,34 +52,32 @@ type (
 	}
 
 	TokenInfo interface {
-		Marshal(time int64, ip, agent string) ([]byte, error)
-		Unmarshal([]byte) (time int64, ip, agent string)
+		Marshal(time int64, ip string) ([]byte, error)
+		Unmarshal([]byte) (time int64, ip string)
 	}
 
 	jsonToken struct {
-		Time  int64  `json:"a"`
-		IP    string `json:"b"`
-		Agent string `json:"c"`
+		Time int64  `json:"a"`
+		IP   string `json:"b"`
 	}
 )
 
 func (j jsonToken) Marshal(time int64, ip, agent string) ([]byte, error) {
 	j.Time = time
 	j.IP = ip
-	j.Agent = agent
 
 	return json.Marshal(&j)
 }
 
-func (j jsonToken) Unmarshal(bs []byte) (int64, string, string) {
+func (j jsonToken) Unmarshal(bs []byte) (int64, string) {
 	if err := json.Unmarshal(bs, &j); err != nil {
-		return -1, "", ""
+		return -1, ""
 	}
 
-	return j.Time, j.IP, j.Agent
+	return j.Time, j.IP
 }
 
-func (x *Xsrf) Init(env zerver.Environment) error {
+func (x *Xsrf) Init(env zerver.Env) error {
 	if x.Secret == "" {
 		return errors.Err("xsrf secret can't be empty")
 	}
@@ -103,12 +103,12 @@ func (x *Xsrf) Destroy() {}
 func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 	tokBytes, err := x.CreateFor(req)
 	if err == nil {
-		resp.ReportServiceUnavailable()
+		resp.StatusCode(http.StatusServiceUnavailable)
 		return
 	}
 
-	if req.Method() == "POST" {
-		resp.ReportCreated()
+	if req.ReqMethod() == "POST" {
+		resp.StatusCode(http.StatusCreated)
 	}
 
 	defer x.Pool.Put(tokBytes)
@@ -119,7 +119,7 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 }
 
 func (x *Xsrf) CreateFor(req zerver.Request) ([]byte, error) {
-	bs, err := x.TokenInfo.Marshal(time2.Now().Unix(), req.RemoteIP(), req.UserAgent())
+	bs, err := x.TokenInfo.Marshal(time2.Now().Unix(), http2.IpOfAddr(req.RemoteAddr()))
 	if err == nil {
 		return x.sign(bs), nil
 	}
@@ -134,21 +134,21 @@ func (x *Xsrf) Verify(req zerver.Request, resp zerver.Response, chain zerver.Fil
 	if x.VerifyFor(req) {
 		chain(req, resp)
 	} else {
-		resp.ReportBadRequest()
+		resp.StatusCode(http.StatusBadRequest)
 	}
 }
 
 func (x *Xsrf) VerifyFor(req zerver.Request) bool {
-	m := req.Method()
-	if !x.FilterGet && (m == "GET" || m == "HEAD" || m == "OPTIONS") {
+	m := req.ReqMethod()
+	if !x.FilterGet && (m == zerver.METHOD_GET || m == zerver.METHOD_HEAD || m == zerver.METHOD_OPTIONS) {
 		return true
 	}
 
-	token := req.Header(_HEADER_XSRFTOKEN)
+	token := req.GetHeader(_HEADER_XSRFTOKEN)
 	if token == "" {
-		token = req.Header(_HEADER_CSRFTOKEN)
+		token = req.GetHeader(_HEADER_CSRFTOKEN)
 		if token == "" {
-			token = req.Param(_XSRF_PARAM_NAME)
+			token = req.Vars().QueryVar(_XSRF_PARAM_NAME)
 			if token == "" {
 				return false
 			}
@@ -158,11 +158,10 @@ func (x *Xsrf) VerifyFor(req zerver.Request) bool {
 	data := x.verify(unsafe2.Bytes(token))
 	if data != nil {
 		x.Pool.Put(data)
-		t, ip, agent := x.TokenInfo.Unmarshal(data)
+		t, ip := x.TokenInfo.Unmarshal(data)
 		return t != -1 &&
 			t+x.Timeout >= time2.Now().Unix() &&
-			ip == req.RemoteIP() &&
-			agent == req.UserAgent()
+			ip == http2.IpOfAddr(req.RemoteAddr())
 	}
 
 	return false

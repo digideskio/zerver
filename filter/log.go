@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"github.com/cosiner/gohper/net2/http2"
 	"github.com/cosiner/gohper/time2"
 	"github.com/cosiner/ygo/log"
 	"github.com/cosiner/zerver"
@@ -10,7 +11,7 @@ type Log struct {
 	CountTime bool
 }
 
-func (l *Log) Init(env zerver.Environment) error {
+func (l *Log) Init(env zerver.Env) error {
 	return nil
 }
 
@@ -22,19 +23,21 @@ func (l *Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.Filt
 		cost := time2.Now().Sub(now)
 		log.Info(
 			cost.String(),
-			resp.Status(),
-			req.Method(),
+			resp.StatusCode(0),
+			req.ReqMethod(),
 			req.URL().Path,
-			req.RemoteIP(),
-			req.UserAgent())
+			http2.IpOfAddr(req.RemoteAddr()),
+			req.GetHeader(zerver.HEADER_USERAGENT),
+		)
 	} else {
 		chain(req, resp)
 		log.Info(
-			resp.Status(),
-			req.Method(),
+			resp.StatusCode(0),
+			req.ReqMethod(),
 			req.URL().Path,
-			req.RemoteIP(),
-			req.UserAgent())
+			http2.IpOfAddr(req.RemoteAddr()),
+			req.GetHeader(zerver.HEADER_USERAGENT),
+		)
 	}
 }
 

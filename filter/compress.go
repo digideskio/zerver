@@ -91,13 +91,14 @@ func flateWrapper(w http.ResponseWriter, needClose bool) (http.ResponseWriter, b
 }
 
 func Compress(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-	encoding := req.AcceptEncodings()
+	encoding := req.GetHeader(zerver.HEADER_ACCEPTENCODING)
 
+	respHeaders := resp.Headers()
 	if strings.Contains(encoding, zerver.ENCODING_GZIP) {
-		resp.SetContentEncoding(zerver.ENCODING_GZIP)
+		respHeaders.Set(zerver.HEADER_CONTENTENCODING, zerver.ENCODING_GZIP)
 		resp.Wrap(gzipWrapper)
 	} else if strings.Contains(encoding, zerver.ENCODING_DEFLATE) {
-		resp.SetContentEncoding(zerver.ENCODING_DEFLATE)
+		respHeaders.Set(zerver.HEADER_CONTENTENCODING, zerver.ENCODING_DEFLATE)
 		resp.Wrap(flateWrapper)
 	} else {
 		chain(req, resp)
@@ -105,5 +106,5 @@ func Compress(req zerver.Request, resp zerver.Response, chain zerver.FilterChain
 	}
 
 	chain(req, resp)
-	resp.RemoveHeader("Content-Length")
+	respHeaders.Del(zerver.HEADER_CONTENTLENGTH)
 }

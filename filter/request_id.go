@@ -1,9 +1,11 @@
 package filter
 
 import (
+	"net/http"
 	"sync"
 
 	"github.com/cosiner/gohper/errors"
+	"github.com/cosiner/gohper/net2/http2"
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/kv"
 	"github.com/cosiner/ygo/log"
@@ -46,7 +48,7 @@ type (
 	}
 )
 
-func (m *MemIDStore) Init(zerver.Environment) error {
+func (m *MemIDStore) Init(zerver.Env) error {
 	m.requests = make(map[string]struct{})
 	m.lock = sync.RWMutex{}
 
@@ -78,7 +80,7 @@ func (m *MemIDStore) Remove(id string) error {
 	return nil
 }
 
-func (r *RedisIDStore) Init(env zerver.Environment) error {
+func (r *RedisIDStore) Init(env zerver.Env) error {
 	rd, err := env.Component(component.REDIS)
 	if err != nil {
 		return err
@@ -109,7 +111,7 @@ func (r *RedisIDStore) Remove(ip, id string) error {
 	return err
 }
 
-func (ri *RequestId) Init(env zerver.Environment) error {
+func (ri *RequestId) Init(env zerver.Env) error {
 	defval.Nil(&ri.Store, new(MemIDStore))
 	ri.Store.Init(env)
 	defval.String(&ri.HeaderName, "X-Request-Id")
@@ -120,22 +122,23 @@ func (ri *RequestId) Init(env zerver.Environment) error {
 }
 
 func (ri *RequestId) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-	if req.Method() == "GET" {
+	if req.ReqMethod() == zerver.METHOD_GET {
 		chain(req, resp)
 		return
 	}
 
-	reqId := req.Header(ri.HeaderName)
+	reqId := req.GetHeader(ri.HeaderName)
 	if reqId == "" {
 		if ri.PassingOnNoId {
 			chain(req, resp)
 		} else {
-			resp.ReportBadRequest()
+			resp.StatusCode(http.StatusBadRequest)
 		}
 	} else {
-		id := req.RemoteIP() + ":" + reqId
+		ip := http2.IpOfAddr(req.RemoteAddr())
+		id := ip + ":" + reqId
 		if err := ri.Store.Save(id); err == ErrRequestIDExist {
-			resp.ReportForbidden()
+			resp.StatusCode(http.StatusForbidden)
 		} else if err != nil {
 			ri.logger.Warn(err)
 		} else {

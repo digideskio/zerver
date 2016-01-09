@@ -1,6 +1,8 @@
 package filter
 
 import (
+	"net/http"
+
 	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/zerver"
@@ -39,7 +41,7 @@ func (j *JWTAuth) Filter(req zerver.Request, resp zerver.Response, chain zerver.
 		}
 	}
 
-	resp.ReportUnauthorized()
+	resp.StatusCode(http.StatusUnauthorized)
 }
 
 func (j *JWTAuth) Destroy() {}

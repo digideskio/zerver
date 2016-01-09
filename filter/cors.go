@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -45,7 +46,7 @@ var (
 	defAllowMethods = []string{"GET", "POST", "PATCH", "PUT", "DELETE"}
 )
 
-func (c *CORS) Init(zerver.Environment) error {
+func (c *CORS) Init(zerver.Env) error {
 	if l := len(c.Origins); l == 0 || (l == 1 && c.Origins[0] == "*") {
 		c.allowAll = true
 		c.Origins = nil
@@ -85,19 +86,20 @@ func (c *CORS) allow(origin string) bool {
 func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, headers string) {
 	origin := "*"
 	if !c.allowAll {
-		origin = req.Header(_CORS_ORIGIN)
+		origin = req.GetHeader(_CORS_ORIGIN)
 		if !c.allow(origin) {
-			resp.ReportOK()
+			resp.StatusCode(http.StatusOK)
 			return
 		}
 	}
 
-	resp.SetHeader(_CORS_ALLOWORIGIN, origin)
+	respHeaders := resp.Headers()
+	respHeaders.Set(_CORS_ALLOWORIGIN, origin)
 	upperMethod := strings.ToUpper(method)
 
 	for _, m := range c.Methods {
 		if m == upperMethod {
-			resp.AddHeader(_CORS_ALLOWMETHODS, method)
+			respHeaders.Add(_CORS_ALLOWMETHODS, method)
 			break
 		}
 	}
@@ -105,54 +107,55 @@ func (c *CORS) preflight(req zerver.Request, resp zerver.Response, method, heade
 	for _, h := range strings2.SplitAndTrim(headers, ",") {
 		for _, ch := range c.Headers {
 			if strings.ToLower(h) == ch { // c.Headers already ToLowered when Init
-				resp.AddHeader(_CORS_ALLOWHEADERS, ch)
+				respHeaders.Add(_CORS_ALLOWHEADERS, ch)
 				break
 			}
 		}
 	}
 
-	resp.SetHeader(_CORS_ALLOWCREDENTIALS, c.allowCredentials)
+	respHeaders.Set(_CORS_ALLOWCREDENTIALS, c.allowCredentials)
 	if c.exposeHeaders != "" {
-		resp.SetHeader(_CORS_EXPOSEHEADERS, c.exposeHeaders)
+		respHeaders.Set(_CORS_EXPOSEHEADERS, c.exposeHeaders)
 	}
 
 	if c.preflightMaxage != "" {
-		resp.SetHeader(_CORS_MAXAGE, c.preflightMaxage)
+		respHeaders.Set(_CORS_MAXAGE, c.preflightMaxage)
 	}
 
-	resp.ReportOK()
+	resp.StatusCode(http.StatusOK)
 }
 
 func (c *CORS) filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
+	headers := resp.Headers()
 	origin := "*"
 	if !c.allowAll {
-		origin = req.Header(_CORS_ORIGIN)
+		origin = req.GetHeader(_CORS_ORIGIN)
 		if !c.allow(origin) {
-			resp.ReportForbidden()
+			resp.StatusCode(http.StatusForbidden)
 			return
 		}
 	}
-	resp.SetHeader(_CORS_ALLOWORIGIN, origin)
+	headers.Set(_CORS_ALLOWORIGIN, origin)
 
-	resp.SetHeader(_CORS_ALLOWMETHODS, c.methods)
-	resp.SetHeader(_CORS_ALLOWHEADERS, c.headers)
+	headers.Set(_CORS_ALLOWMETHODS, c.methods)
+	headers.Set(_CORS_ALLOWHEADERS, c.headers)
 
-	resp.SetHeader(_CORS_ALLOWCREDENTIALS, c.allowCredentials)
+	headers.Set(_CORS_ALLOWCREDENTIALS, c.allowCredentials)
 	if c.exposeHeaders != "" {
-		resp.SetHeader(_CORS_EXPOSEHEADERS, c.exposeHeaders)
+		headers.Set(_CORS_EXPOSEHEADERS, c.exposeHeaders)
 	}
 	if c.preflightMaxage != "" {
-		resp.SetHeader(_CORS_MAXAGE, c.preflightMaxage)
+		headers.Set(_CORS_MAXAGE, c.preflightMaxage)
 	}
 
 	chain(req, resp)
 }
 
 func (c *CORS) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-	reqMethod := req.Header(_CORS_REQUESTMETHOD)
-	reqHeaders := req.Header(_CORS_REQUESTHEADERS)
+	reqMethod := req.GetHeader(_CORS_REQUESTMETHOD)
+	reqHeaders := req.GetHeader(_CORS_REQUESTHEADERS)
 
-	if req.Method() == "OPTIONS" && (reqMethod != "" || reqHeaders != "") {
+	if req.ReqMethod() == zerver.METHOD_OPTIONS && (reqMethod != "" || reqHeaders != "") {
 		c.preflight(req, resp, reqMethod, reqHeaders)
 	} else {
 		c.filter(req, resp, chain)

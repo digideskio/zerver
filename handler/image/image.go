@@ -37,7 +37,7 @@ type Handler struct {
 }
 
 // Init must be called
-func (h *Handler) Init(env zerver.Environment) error {
+func (h *Handler) Init(env zerver.Env) error {
 	if h.SaveImage == nil {
 		panic("the function to save image should not be nil")
 	}

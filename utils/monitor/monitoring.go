@@ -1,7 +1,3 @@
-// Package monitor provide a simple monitoring interface for zerver, all monitor is
-// handled GET request
-// use Handle to add a custom monitor, it should be called before Enable
-// for there is only one change to init
 package monitor
 
 import (
@@ -12,13 +8,24 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cosiner/gohper/io2"
 	"github.com/cosiner/gohper/unsafe2"
 	"github.com/cosiner/zerver"
+	"github.com/cosiner/zerver/handler"
 )
+
+type getHandler struct {
+	doGet zerver.HandleFunc
+	handler.NopMethodHandler
+}
+
+func (g *getHandler) Get(req zerver.Request, resp zerver.Response) {
+	g.doGet(req, resp)
+}
 
 var path = "/status"
 
-func Enable(monitorPath string, rt zerver.Router, rootFilters zerver.RootFilters) (err error) {
+func Enable(monitorPath string, rt zerver.Router) (err error) {
 	if monitorPath != "" {
 		path = monitorPath
 	}
@@ -27,27 +34,22 @@ func Enable(monitorPath string, rt zerver.Router, rootFilters zerver.RootFilters
 	}
 
 	for subpath, handler := range routes {
-		if err = rt.HandleFunc(path+subpath, "GET", handler); err != nil {
+		if err = rt.Handler(path+subpath, handler); err != nil {
 			return
 		}
 		options = append(options, "GET "+path+subpath+": "+infos[subpath]+"\n")
 	}
-
-	if rootFilters == nil {
-		err = rt.Handle(path, globalFilter)
-	} else {
-		rootFilters.Add(globalFilter)
-	}
-
+	err = rt.Filter(path, zerver.FilterFunc(globalFilter))
 	return
 }
 
 func globalFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
-	if resp.Status() == http.StatusNotFound {
-		resp.SetHeader("Location", path+"/options?from="+url.QueryEscape(req.URL().Path))
-		resp.ReportMovedPermanently()
-	} else if resp.Status() == http.StatusMethodNotAllowed {
-		resp.WriteString("The pprof interface only support GET request\n")
+	status := resp.StatusCode(0)
+	if status == http.StatusNotFound {
+		resp.Headers().Set("Location", path+"/options?from="+url.QueryEscape(req.URL().Path))
+		resp.StatusCode(http.StatusMovedPermanently)
+	} else if status == http.StatusMethodNotAllowed {
+		io2.WriteString(resp, "The pprof interface only support GET request\n")
 	} else {
 		chain(req, resp)
 	}
@@ -55,12 +57,12 @@ func globalFilter(req zerver.Request, resp zerver.Response, chain zerver.FilterC
 
 var inited bool
 
-func Handle(path, info string, handler zerver.HandleFunc) {
-	infos[path], routes[path] = info, handler
+func Handle(path, info string, fn zerver.HandleFunc) {
+	infos[path], routes[path] = info, handler.WrapMethodHandler(&getHandler{doGet: fn})
 }
 
 var options = make([]string, 0, len(infos)+1)
-var routes = make(map[string]zerver.HandleFunc)
+var routes = make(map[string]zerver.Handler)
 var infos = make(map[string]string)
 
 func pprofLookupHandler(name string) zerver.HandleFunc {
@@ -87,11 +89,11 @@ func initRoutes() bool {
 	Handle("/cpu", "Get CPU info, default seconds is 30, use ?seconds= to reset",
 		func(req zerver.Request, resp zerver.Response) {
 			var t int
-			if secs := req.Param("seconds"); secs != "" {
+			if secs := req.Vars().QueryVar("seconds"); secs != "" {
 				var err error
 				if t, err = strconv.Atoi(secs); err != nil {
-					resp.ReportBadRequest()
-					resp.WriteString(secs + " is not a integer number\n")
+					resp.StatusCode(http.StatusBadRequest)
+					io2.WriteString(resp, secs+" is not a integer number\n")
 					return
 				}
 			}
@@ -116,7 +118,7 @@ func initRoutes() bool {
 
 	Handle("/options", "Get all pprof options",
 		func(req zerver.Request, resp zerver.Response) {
-			if from := req.Param("from"); from != "" {
+			if from := req.Vars().QueryVar("from"); from != "" {
 				resp.Write(unsafe2.Bytes("There is no this pprof option: " + from + "\n"))
 			}
 			for i := range options {

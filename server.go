@@ -7,17 +7,17 @@ import (
 	"net/url"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/cosiner/gohper/crypto/tls2"
+	"github.com/cosiner/gohper/encoding"
 	"github.com/cosiner/gohper/utils/attrs"
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/ygo/log"
 	websocket "github.com/cosiner/zerver_websocket"
-	"github.com/cosiner/gohper/encoding"
-	"strings"
 )
 
 const (
@@ -35,11 +35,6 @@ type (
 
 		// check websocket header, default nil
 		WebSocketChecker HeaderChecker
-
-		// path variables count, suggest set as max or average, default 3
-		PathVarCount int
-		// filters count for each route, RootFilters is not include, default 5
-		FilterCount int
 
 		// read timeout
 		ReadTimeout time.Duration
@@ -59,7 +54,7 @@ type (
 		TLSConfig *tls.Config
 
 		Headers map[string]string
-		Codec encoding.Codec
+		Codec   encoding.Codec
 	}
 
 	// Server represent a web server
@@ -67,57 +62,33 @@ type (
 		RootPath string
 		Router
 		attrs.Attrs
-		RootFilters RootFilters // Match Every Routes
-		componentManager
+		components CompManager
 
-		checker              websocket.HandshakeChecker
+		checker websocket.HandshakeChecker
 
 		listener    net.Listener
 		state       int32          // destroy or normal running
 		activeConns sync.WaitGroup // connections in service, don't include hijacked and websocket connections
 
-		destroyHooks []LifetimeHook
+		hooks map[string][]LifetimeHook
 
 		headers map[string]string
-		codec encoding.Codec
+		codec   encoding.Codec
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
 	// http header's value by name , if there is something wrong, throw an error
 	// to terminate this request
 	HeaderChecker func(func(string) string) error
-
-	// Environment is a server enviroment, real implementation is the Server itself.
-	// it can be accessed from Request/WebsocketConn
-	Environment interface {
-		Server() *Server
-		Filepath(path string) string
-		Codec() encoding.Codec
-		StartTask(path string, value interface{})
-		Component(name string) (interface{}, error)
-	}
-
-	ComponentNotFoundError string
 )
-
-func (err ComponentNotFoundError) Name() string {
-	return string(err)
-}
-
-func (err ComponentNotFoundError) Error() string {
-	return "component \"" + string(err) + "\" is not found"
-}
 
 // NewServer create a new server with default router
 func NewServer(rootPath string) *Server {
-	return NewServerWith(rootPath, nil, nil)
+	return NewServerWith(rootPath, nil)
 }
 
 // NewServerWith create a new server with given router and root filters
-func NewServerWith(rootPath string, rt Router, filters RootFilters) *Server {
-	if filters == nil {
-		filters = NewRootFilters(nil)
-	}
+func NewServerWith(rootPath string, rt Router) *Server {
 	if rt == nil {
 		rt = NewRouter()
 	}
@@ -125,10 +96,11 @@ func NewServerWith(rootPath string, rt Router, filters RootFilters) *Server {
 	return &Server{
 		RootPath: rootPath,
 
-		Router:           rt,
-		Attrs:            attrs.NewLocked(),
-		RootFilters:      filters,
-		componentManager: newComponentManager(),
+		Router:     rt,
+		Attrs:      attrs.NewLocked(),
+		components: NewCompManager(),
+
+		hooks: make(map[string][]LifetimeHook),
 	}
 }
 
@@ -149,17 +121,22 @@ func (s *Server) Codec() encoding.Codec {
 }
 
 // RegisterComponent let server manage this component and it's lifetime.
-// If name is "", component must implements Component, and it will initialized at
+// If name is empty, component must implements Component, and it will initialized at
 // server start and can't be accessed by name.
 // Otherwise, it can be a Component, or others.
 //
-// If component is added before server start, it will be initialized when server start,
-// otherwise, initialized when first required by Server.Compoenent
-//
 // When global component is initializing, the Environment passed to Init is exactly a
-// ComponentEnvironment
-func (s *Server) RegisterComponent(name string, component interface{}) ComponentEnvironment {
-	return s.componentManager.RegisterComponent(s, name, component)
+// CompEnv
+func (s *Server) RegisterComponent(name string, component interface{}) *CompEnv {
+	return s.components.Register(s, name, component)
+}
+
+func (s *Server) Component(name string) (interface{}, error) {
+	return s.components.Get(name)
+}
+
+func (s *Server) RemoveComponent(name string) {
+	s.components.Remove(name)
 }
 
 // StartTask start a task synchronously, the value will be passed to task handler
@@ -173,8 +150,6 @@ func (s *Server) StartTask(path string, value interface{}) {
 	handler.Handle(newTask(path, value))
 }
 
-// ServHttp serve for http reuest
-// find handler and resolve path, find filters, process
 func (s *Server) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	path := request.URL.Path
 	if l := len(path); l > 1 && path[l-1] == '/' {
@@ -188,55 +163,48 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	}
 }
 
-// serveWebSocket serve for websocket protocal
 func (s *Server) serveWebSocket(w http.ResponseWriter, request *http.Request) {
-	handler, indexer := s.MatchWebSocketHandler(request.URL)
+	handler, vars := s.MatchWebSocketHandler(request.URL)
 	if handler == nil {
 		w.WriteHeader(http.StatusNotFound)
 	} else {
 		conn, err := websocket.UpgradeWebsocket(w, request, s.checker)
 		if err == nil {
-			handler.Handle(newWebSocketConn(s, conn, indexer))
-			indexer.destroySelf()
+			handler.Handle(newWsConn(s, conn, &vars))
 		} // else connecion will be auto-closed when error occoured,
 	}
 }
 
-// serveHTTP serve for http protocal
 func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	url := request.URL
 	url.Host = request.Host
-	handler, indexer, filters := s.MatchHandlerFilters(url)
+	handler, vars, filters := s.MatchHandlerFilters(url)
 
-	reqEnv := newRequestEnvFromPool()
-	req := reqEnv.req.init(s, request, indexer)
+	reqEnv := newRequestEnv()
+	req := reqEnv.req.init(s, request, &vars)
 	resp := reqEnv.resp.init(s, w)
+
+	headers := resp.Headers()
 	for k, v := range s.headers {
-		resp.SetHeader(k, v)
+		headers.Set(k, v)
 	}
 
 	var chain FilterChain
 	if handler == nil {
-		resp.ReportNotFound()
-	} else if chain = FilterChain(handler.Handler(req.Method())); chain == nil {
-		resp.ReportMethodNotAllowed()
+		resp.StatusCode(http.StatusNotFound)
+	} else if chain = FilterChain(handler.Handler(req.ReqMethod())); chain == nil {
+		resp.StatusCode(http.StatusMethodNotAllowed)
 	}
 
-	newFilterChain(s.RootFilters.Filters(url),
-		newFilterChain(filters, chain),
-	)(req, resp)
+	newFilterChain(chain, filters...)(req, resp)
 
 	req.destroy()
 	resp.destroy()
-
 	recycleRequestEnv(reqEnv)
-	recycleFilters(filters)
 }
 
 func (o *ServerOption) init() {
 	defval.String(&o.ListenAddr, ":4000")
-	defval.Int(&o.PathVarCount, 3)
-	defval.Int(&o.FilterCount, 5)
 	if o.KeepAlivePeriod == 0 {
 		o.KeepAlivePeriod = 3 * time.Minute // same as net/http/server.go:tcpKeepAliveListener
 	}
@@ -249,7 +217,6 @@ func (o *ServerOption) TLSEnabled() bool {
 	return o.CertFile != "" || o.TLSConfig != nil
 }
 
-// all log message before server start will use standard log package
 func (s *Server) config(o *ServerOption) {
 	o.init()
 
@@ -265,36 +232,18 @@ func (s *Server) config(o *ServerOption) {
 	s.headers = o.Headers
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 
-	log.Info("VarCountPerRoute:", o.PathVarCount)
-	pathVarCount = o.PathVarCount
-	log.Info("FilterCountPerRoute:", o.FilterCount)
-	filterCount = o.FilterCount
-
-	s.componentManager.initHook = func(name string) {
-		switch name {
-		case _GLOBAL_COMPONENT:
-			log.Info("Init global components")
-		case _ANONYMOUS_COMPONENT:
-			log.Info("Init anonymous components")
-		default:
-			log.Info("  " + name)
-		}
-	}
-	logErr(s.componentManager.Init(s))
+	logErr(s.components.Init(s))
 
 	log.Info("Execute registered init before routes funcs ")
-	for _, f := range s.beforeLoadRoutes(nil) {
+	for _, f := range s.OnLoadRoutes() {
 		logErr(f(s))
 	}
-
-	log.Info("Init root filters")
-	logErr(s.RootFilters.Init(s))
 
 	log.Info("Init Handlers and Filters")
 	logErr(s.Router.Init(s))
 
 	log.Info("Execute registered finial init funcs")
-	for _, f := range s.beforeStart(nil) {
+	for _, f := range s.OnStart() {
 		logErr(f(s))
 	}
 
@@ -302,15 +251,14 @@ func (s *Server) config(o *ServerOption) {
 		log.Fatal(errors)
 	}
 
-	// destroy temporary data store
-	tmpDestroy()
 	log.Info("Server Start: ", o.ListenAddr)
-
 	runtime.GC()
 }
 
 // Start server as http server, if opt is nil, use default configurations
 func (s *Server) Start(opt *ServerOption) error {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	if opt == nil {
 		opt = &ServerOption{}
 	}
@@ -447,11 +395,10 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 		s.activeConns.Wait() // wait connections in service to be idle
 	}
 
-	// release resources
-	s.RootFilters.Destroy()
 	s.Router.Destroy()
-	s.componentManager.Destroy()
-	for _, fn := range s.destroyHooks {
+	s.components.Destroy()
+
+	for _, fn := range s.OnDestroy() {
 		err := fn(s)
 		if err != nil {
 			log.Error("destroy hook:", err)
@@ -461,41 +408,21 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 	return !isTimeout
 }
 
-func (s *Server) warnLog(err error) {
-	if err != nil {
-		log.Warn(err)
-	}
+func (s *Server) appendHooks(typ string, fn ...LifetimeHook) []LifetimeHook {
+	hooks := s.hooks[typ]
+	hooks = append(hooks, fn...)
+	s.hooks[typ] = hooks
+	return hooks
 }
 
-func (s *Server) inits(typ string, fn []LifetimeHook) (funcs []LifetimeHook) {
-	if val := TmpHGet(s, typ); val != nil {
-		funcs = val.([]LifetimeHook)
-	}
-
-	if len(fn) > 0 {
-		funcs = append(funcs, fn...)
-		TmpHSet(s, typ, funcs)
-	}
-
-	return funcs
+func (s *Server) OnStart(fn ...LifetimeHook) []LifetimeHook {
+	return s.appendHooks("onStart", fn...)
 }
 
-func (s *Server) beforeStart(fn []LifetimeHook) (funcs []LifetimeHook) {
-	return s.inits("beforeStart", fn)
+func (s *Server) OnLoadRoutes(fn ...LifetimeHook) []LifetimeHook {
+	return s.appendHooks("onLoadRoutes", fn...)
 }
 
-func (s *Server) BeforeStart(fn ...LifetimeHook) {
-	s.beforeStart(fn)
-}
-
-func (s *Server) beforeLoadRoutes(fn []LifetimeHook) (funcs []LifetimeHook) {
-	return s.inits("beforeLoadRoutes", fn)
-}
-
-func (s *Server) BeforeLoadRoutes(fn ...LifetimeHook) {
-	s.beforeLoadRoutes(fn)
-}
-
-func (s *Server) BeforeDestroy(fn ...LifetimeHook) {
-	s.destroyHooks = append(s.destroyHooks, fn...)
+func (s *Server) OnDestroy(fn ...LifetimeHook) []LifetimeHook {
+	return s.appendHooks("onDestroy", fn...)
 }

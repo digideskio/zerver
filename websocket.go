@@ -6,94 +6,69 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cosiner/gohper/strings2"
 	"github.com/cosiner/gohper/unsafe2"
 	websocket "github.com/cosiner/zerver_websocket"
 )
 
 type (
-	// WebSocketConn represent an websocket connection
-	// WebSocket connection is not be managed in server,
-	// it's handler's responsibility to close connection
-	WebSocketConn interface {
-		URLVarIndexer
+	WsConn interface {
 		io.ReadWriteCloser
-		Environment
+		Env
 
+		Vars() *ReqVars
 		WriteString(string) (int, error)
 		SetDeadline(t time.Time) error
 		SetReadDeadline(t time.Time) error
 		SetWriteDeadline(t time.Time) error
 		RemoteAddr() string
-		RemoteIP() string
-		UserAgent() string
 		URL() *url.URL
 	}
 
-	// webSocketConn is the actual websocket connection
-	webSocketConn struct {
-		Environment
-		URLVarIndexer
+	wsConn struct {
+		Env
+		vars *ReqVars
 		*websocket.Conn
 		request *http.Request
 	}
 
-	// WebSocketHandlerFunc is the websocket connection handler
-	WebSocketHandlerFunc func(WebSocketConn)
+	WsHandlerFunc func(WsConn)
 
-	// WebSocketHandler is the handler of websocket connection
-	WebSocketHandler interface {
+	WsHandler interface {
 		Component
-		Handle(WebSocketConn)
+		Handle(WsConn)
 	}
 )
 
-// newWebSocketConn wrap a exist websocket connection and url variables to a
-// new webSocketConn
-func newWebSocketConn(e Environment, conn *websocket.Conn, varIndexer URLVarIndexer) *webSocketConn {
-	return &webSocketConn{
-		Environment:    e,
-		Conn:          conn,
-		URLVarIndexer: varIndexer,
-		request:       conn.Request(),
+func newWsConn(e Env, conn *websocket.Conn, vars *ReqVars) *wsConn {
+	return &wsConn{
+		Env:     e,
+		Conn:    conn,
+		vars:    vars,
+		request: conn.Request(),
 	}
 }
 
-func (wsc *webSocketConn) WriteString(s string) (int, error) {
-	return wsc.Write(unsafe2.Bytes(s))
+func (c *wsConn) Vars() *ReqVars {
+	return c.vars
 }
 
-func (wsc *webSocketConn) URL() *url.URL {
-	return wsc.request.URL
+func (c *wsConn) WriteString(s string) (int, error) {
+	return c.Write(unsafe2.Bytes(s))
 }
 
-func (wsc *webSocketConn) RemoteAddr() string {
-	return wsc.request.RemoteAddr
+func (c *wsConn) URL() *url.URL {
+	return c.request.URL
 }
 
-func (wsc *webSocketConn) RemoteIP() string {
-	if ip := wsc.request.Header.Get(HEADER_REALIP); ip != "" {
-		return ip
-	}
-	addr := wsc.RemoteAddr()
-	return addr[:strings2.LastIndexByte(addr, ':')]
+func (c *wsConn) RemoteAddr() string {
+	return c.request.RemoteAddr
 }
 
 // UserAgent return user's agent identify
-func (wsc *webSocketConn) UserAgent() string {
-	return wsc.request.Header.Get(HEADER_USERAGENT)
+func (c *wsConn) UserAgent() string {
+	return c.request.Header.Get(HEADER_USERAGENT)
 }
 
-func convertWebSocketHandler(i interface{}) WebSocketHandler {
-	switch w := i.(type) {
-	case func(WebSocketConn):
-		return WebSocketHandlerFunc(w)
-	case WebSocketHandler:
-		return w
-	}
-	return nil
-}
-
-func (WebSocketHandlerFunc) Init(Environment) error        { return nil }
-func (fn WebSocketHandlerFunc) Handle(conn WebSocketConn) { fn(conn) }
-func (WebSocketHandlerFunc) Destroy()                     {}
+func (WsHandlerFunc) Init(Env) error        { return nil }
+func (fn WsHandlerFunc) Handle(conn WsConn) { fn(conn) }
+func (WsHandlerFunc) Destroy()              {}

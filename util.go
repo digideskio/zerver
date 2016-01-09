@@ -23,21 +23,27 @@ const (
 	ENCODING_DEFLATE = "deflate"
 
 	// Request Method
-	GET     = "GET"
-	POST    = "POST"
-	DELETE  = "DELETE"
-	PUT     = "PUT"
-	PATCH   = "PATCH"
-	HEAD    = "HEAD"
-	OPTIONS = "OPTIONS"
+	METHOD_GET = "GET"
+	METHOD_POST = "POST"
+	METHOD_DELETE = "DELETE"
+	METHOD_PUT = "PUT"
+	METHOD_PATCH = "PATCH"
+	METHOD_HEAD = "HEAD"
+	METHOD_OPTIONS = "OPTIONS"
 )
 
-// parseRequestMethod convert a string to request method, default use GET
-// if string is empty
-func parseRequestMethod(s string) string {
+func MethodName(s string) string {
 	if s == "" {
-		return GET
+		return METHOD_GET
 	}
 
 	return strings.ToUpper(s)
+}
+
+type errResp struct {
+	Error interface{} `json:"error"`
+}
+
+var NewError = func(s interface{}) interface{} {
+	return errResp{s}
 }

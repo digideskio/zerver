@@ -15,29 +15,17 @@ import (
 
 type (
 	Router interface {
-		// Init init handlers and filters, websocket handlers
 		Component
 
 		PrintRouteTree(w io.Writer)
 
-		Group(prefix string, fn func(Router))
-		HandleFunc(pattern string, method string, handler HandleFunc) error
-		Handle(pattern string, handler interface{}) error
+		Filter(pattern string, f Filter) error
+		Handler(pattern string, h Handler) error
+		TaskHandler(pattern string, th TaskHandler) error
+		WsHandler(pattern string, th WsConn) error
 
-		// Notice: once use one of these five method for a route, other method
-		// should also use these for a Handler(MapHandler) has been created for it.
-		// And only one Handler is allowed per route.
-		Get(string, HandleFunc) error
-		Post(string, HandleFunc) error
-		Put(string, HandleFunc) error
-		Delete(string, HandleFunc) error
-		Patch(string, HandleFunc) error
-
-		// MatchHandlerFilters match given url to find all matched filters and final handler
-		MatchHandlerFilters(url *url.URL) (Handler, URLVarIndexer, []Filter)
-		// MatchWebSocketHandler match given url to find a matched websocket handler
-		MatchWebSocketHandler(url *url.URL) (WebSocketHandler, URLVarIndexer)
-		// MatchTaskHandler
+		MatchHandlerFilters(url *url.URL) (Handler, ReqVars, []Filter)
+		MatchWebSocketHandler(url *url.URL) (WsHandler, ReqVars)
 		MatchTaskHandler(url *url.URL) TaskHandler
 	}
 
@@ -48,7 +36,7 @@ type (
 
 		wsHandlerPattern string
 		wsHandlerVars    map[string]int
-		wsHandler        WebSocketHandler
+		wsHandler        WsHandler
 
 		taskHandlerPattern string
 		taskHandlerVars    map[string]int
@@ -62,7 +50,7 @@ type (
 	router struct {
 		str      string    // path section hold by current route node
 		chars    []byte    // all possible first characters of next route node
-		childs   []*router // child routers
+		children []*router // child routers
 		noFilter bool
 		routeProcessor
 	}
@@ -102,7 +90,7 @@ func (*router) reportExistError(typ, pattern string) error {
 }
 
 // Init init all handlers, filters, websocket handlers in route tree
-func (rt *router) Init(env Environment) (err error) {
+func (rt *router) Init(env Env) (err error) {
 	if rt.handler != nil {
 		err = rt.handler.Init(env)
 	}
@@ -110,17 +98,14 @@ func (rt *router) Init(env Environment) (err error) {
 	for i := 0; i < len(rt.filters) && err == nil; i++ {
 		err = rt.filters[i].Init(env)
 	}
-
 	if err == nil && rt.wsHandler != nil {
 		err = rt.wsHandler.Init(env)
 	}
-
 	if err == nil && rt.taskHandler != nil {
 		err = rt.taskHandler.Init(env)
 	}
-
-	for i := 0; i < len(rt.childs) && err == nil; i++ {
-		err = rt.childs[i].Init(env)
+	for i := 0; i < len(rt.children) && err == nil; i++ {
+		err = rt.children[i].Init(env)
 	}
 
 	return
@@ -135,88 +120,40 @@ func (rt *router) Destroy() {
 	for _, f := range rt.filters {
 		f.Destroy()
 	}
-
 	if rt.wsHandler != nil {
 		rt.wsHandler.Destroy()
 	}
-
 	if rt.taskHandler != nil {
 		rt.taskHandler.Destroy()
 	}
-
-	for _, c := range rt.childs {
+	for _, c := range rt.children {
 		c.Destroy()
 	}
 }
 
-// Get register a function handler process GET request for given pattern
-func (rt *router) Get(pattern string, handler HandleFunc) error {
-	return rt.HandleFunc(pattern, GET, handler)
+func (rt *router) Filter(pattern string, f Filter) error {
+	return rt.register(pattern, f)
 }
 
-// Post register a function handler process POST request for given pattern
-func (rt *router) Post(pattern string, handler HandleFunc) error {
-	return rt.HandleFunc(pattern, POST, handler)
+func (rt *router) Handler(pattern string, h Handler) error {
+	return rt.register(pattern, h)
 }
 
-// Put register a function handler process PUT request for given pattern
-func (rt *router) Put(pattern string, handler HandleFunc) error {
-	return rt.HandleFunc(pattern, PUT, handler)
+func (rt *router) TaskHandler(pattern string, th TaskHandler) error {
+	return rt.register(pattern, th)
 }
 
-// Delete register a function handler process DELETE request for given pattern
-func (rt *router) Delete(pattern string, handler HandleFunc) error {
-	return rt.HandleFunc(pattern, DELETE, handler)
+func (rt *router) WsHandler(pattern string, ws WsConn) error {
+	return rt.register(pattern, ws)
 }
 
-// Patch register a function handler process PATCH request for given pattern
-func (rt *router) Patch(pattern string, handler HandleFunc) error {
-	return rt.HandleFunc(pattern, PATCH, handler)
-}
-
-func (rt *router) Group(prefix string, fn func(Router)) {
-	fn(NewGroupRouter(rt, prefix))
-}
-
-// HandleFunc add HandleFunc to router for given pattern and method
-func (rt *router) HandleFunc(pattern, method string, handler HandleFunc) error {
-	method = parseRequestMethod(method)
-
-	fHandler := _tmpGetMapHandler(rt, pattern)
-	if fHandler != nil {
-		fHandler.setMethodHandler(method, handler)
-		return nil
-	}
-
-	fHandler = make(MapHandler)
-	fHandler.setMethodHandler(method, handler)
-	if err := rt.Handle(pattern, fHandler); err != nil {
-		return err
-	}
-
-	_tmpSetMapHandler(rt, pattern, fHandler)
-
-	return nil
-}
-
-// Handle add
-//
-// Router(must use NewRouter to create)
-// Handler/HandlerFunc/MapHandler/MethodHandler/literal HandlerFunc
-// Filter/FilterFunc
-// TaskHandler/TaskHandlerFunc
-// WebSocketHandler/WebSocketHandlerFunc
-//
-// to router for given pattern
-//
-// TaskHandler, Router, Filter will not catch url variable values.
-func (rt *router) Handle(pattern string, handler interface{}) error {
-	if handler == nil || pattern == "" {
-		log.Panicln("Nil handler or empty pattern is not allowed")
+func (rt *router) register(pattern string, processor interface{}) error {
+	if processor == nil || pattern == "" {
+		panic("nil handler or empty pattern is not allowed")
 	}
 
 	routePath, pathVars := compile(pattern)
-	if r, is := handler.(*router); is {
+	if r, is := processor.(*router); is {
 		if !rt.addPathRouter(routePath, r) {
 			return rt.reportExistError("Router", pattern)
 		}
@@ -228,71 +165,51 @@ func (rt *router) Handle(pattern string, handler interface{}) error {
 	if !success {
 		return ErrConflictPathVar
 	}
-
-	if h := convertHandler(handler); h != nil {
+	if h, is := processor.(Handler); is {
 		if nrt.handler != nil {
 			return nrt.reportExistError("Handler", pattern)
 		}
-
 		nrt.handler = h
 		nrt.handlerVars = pathVars
 		nrt.handlerPattern = pattern
-
 		return nil
 	}
-
-	if f := convertFilter(handler); f != nil {
+	if f, is := processor.(Filter); is {
 		rt.noFilter = false
-		nrt.filters = append(nrt.filters, convertFilter(f))
-
+		nrt.filters = append(nrt.filters, f)
 		return nil
 	}
-
-	if h := convertWebSocketHandler(handler); h != nil {
+	if ws, is := processor.(WsHandler); is {
 		if nrt.wsHandler != nil {
 			return nrt.reportExistError("WebSocketHandler", pattern)
 		}
-
-		nrt.wsHandler = h
+		nrt.wsHandler = ws
 		nrt.wsHandlerVars = pathVars
 		nrt.wsHandlerPattern = pattern
-
 		return nil
 	}
-
-	if h := convertTaskHandler(handler); h != nil {
+	if th, is := processor.(TaskHandler); is {
 		if nrt.taskHandler != nil {
 			return nrt.reportExistError("TaskHandler", pattern)
 		}
-
-		nrt.taskHandler = h
+		nrt.taskHandler = th
 		nrt.taskHandlerVars = pathVars
-
 		return nil
 	}
-
-	log.Panicln(pattern + ": not a Router/Handler/Filter/WebSocketHandler/TaskHandler")
-	return nil
+	panic("unreachable")
 }
 
-// MatchWebSockethandler match url to find final websocket handler
-func (rt *router) MatchWebSocketHandler(url *url.URL) (WebSocketHandler, URLVarIndexer) {
+func (rt *router) MatchWebSocketHandler(url *url.URL) (WsHandler, ReqVars) {
 	path := url.Path
-	indexer := newVarIndexerFromPool()
-	rt, values := rt.matchOne(path, indexer.values)
-	indexer.values = values
-
+	vars := ReqVars{}
+	rt, vars.urlVals = rt.matchOne(path, vars.urlVals)
 	if rt == nil || rt.wsHandler == nil {
-		return nil, indexer
+		return nil, vars
 	}
-
-	indexer.vars = rt.wsHandlerVars
-	indexer.pattern = rt.wsHandlerPattern
-
-	return rt.wsHandler, indexer
+	vars.urlVars = rt.wsHandlerVars
+	return rt.wsHandler, vars
 }
 
-// MatchTaskhandler match url to find final task handler
 func (rt *router) MatchTaskHandler(url *url.URL) TaskHandler {
 	if rt = rt.matchOnly(url.Path); rt == nil {
 		return nil
@@ -301,7 +218,6 @@ func (rt *router) MatchTaskHandler(url *url.URL) TaskHandler {
 	return rt.taskHandler
 }
 
-// // MatchHandler match url to find final websocket handler
 // func (rt *router) MatchHandler(url *url.URL) (handler Handler, indexer URLVarIndexer) {
 //  path := url.Path
 //  indexer = newVarIndexerFromPool()
@@ -316,39 +232,32 @@ func (rt *router) MatchTaskHandler(url *url.URL) TaskHandler {
 //  return
 // }
 
-// MatchHandlerFilters match url to fin final handler and each filters
-func (rt *router) MatchHandlerFilters(url *url.URL) (Handler, URLVarIndexer, []Filter) {
+func (rt *router) MatchHandlerFilters(url *url.URL) (Handler, ReqVars, []Filter) {
 	var (
 		path    = url.Path
-		indexer = newVarIndexerFromPool()
-		values  = indexer.values
+		vars    ReqVars
 		filters []Filter
 	)
 
 	if rt.noFilter {
-		rt, values = rt.matchOne(path, indexer.values)
+		rt, vars.urlVals = rt.matchOne(path, vars.urlVals)
 	} else {
 		pathIndex, continu := 0, true
 		for continu {
 			if fs := rt.filters; len(fs) != 0 {
 				if filters == nil {
-					filters = newFiltersFromPool()
+					filters = make([]Filter, 0, 3)
 				}
 				filters = append(filters, fs...)
 			}
-			pathIndex, values, rt, continu = rt.matchMultiple(path, pathIndex, values)
+			pathIndex, vars.urlVals, rt, continu = rt.matchMultiple(path, pathIndex, vars.urlVals)
 		}
 	}
-	indexer.values = values
-
 	if rt == nil || rt.handler == nil {
-		return nil, indexer, filters
+		return nil, vars, filters
 	}
-
-	indexer.vars = rt.handlerVars
-	indexer.pattern = rt.handlerPattern
-
-	return rt.handler, indexer, filters
+	vars.urlVars = rt.handlerVars
+	return rt.handler, vars, filters
 }
 
 // addPath add an new path to route, use given function to operate the final
@@ -370,7 +279,7 @@ func (rt *router) addPath(path string) (*router, bool) {
 		if diff == strLen {
 			for i, c := range rt.chars {
 				if c == first {
-					return rt.childs[i].addPath(path[diff:])
+					return rt.children[i].addPath(path[diff:])
 				}
 			}
 		} else { // diff < strLen
@@ -407,7 +316,7 @@ func (rt *router) addPathRouter(path string, r *router) bool {
 			if diff == strLen {
 				for i, c := range rt.chars {
 					if c == first {
-						return rt.childs[i].addPathRouter(path[diff:], r)
+						return rt.children[i].addPathRouter(path[diff:], r)
 					}
 				}
 			} else { // diff < strLen
@@ -440,18 +349,18 @@ func (rt *router) moveAllToChild(childStr string, newStr string) {
 	rnCopy := &router{
 		str:            childStr,
 		chars:          rt.chars,
-		childs:         rt.childs,
+		children:       rt.children,
 		routeProcessor: rt.routeProcessor,
 	}
 
-	rt.chars, rt.childs, rt.routeProcessor = nil, nil, routeProcessor{}
+	rt.chars, rt.children, rt.routeProcessor = nil, nil, routeProcessor{}
 	rt.addChild(childStr[0], rnCopy)
 	rt.str = newStr
 }
 
 // addChild add an child, all childs is sorted
 func (rt *router) addChild(b byte, n *router) bool {
-	chars, childs := rt.chars, rt.childs
+	chars, childs := rt.chars, rt.children
 	l := len(chars)
 	if l > 0 && chars[l-1] >= _WILDCARD && b >= _WILDCARD {
 		return false
@@ -459,12 +368,12 @@ func (rt *router) addChild(b byte, n *router) bool {
 
 	chars, childs = make([]byte, l+1), make([]*router, l+1)
 	copy(chars, rt.chars)
-	copy(childs, rt.childs)
+	copy(childs, rt.children)
 	for ; l > 0 && chars[l-1] > b; l-- {
 		chars[l], childs[l] = chars[l-1], childs[l-1]
 	}
 	chars[l], childs[l] = b, n
-	rt.chars, rt.childs = chars, childs
+	rt.chars, rt.children = chars, childs
 
 	return true
 }
@@ -520,7 +429,7 @@ func (rt *router) matchMultiple(path string, pathIndex int, values []string) (in
 		p := path[pathIndex]
 		for i, c := range rt.chars {
 			if c == p || c >= _WILDCARD {
-				return pathIndex, values, rt.childs[i], true
+				return pathIndex, values, rt.children[i], true
 			}
 		}
 		rt = nil
@@ -570,7 +479,7 @@ AGAIN:
 		p := path[pathIndex]
 		for i, c := range rt.chars {
 			if c == p || c >= _WILDCARD {
-				rt = rt.childs[i] // child
+				rt = rt.children[i] // child
 				goto AGAIN
 			}
 		}
@@ -618,7 +527,7 @@ AGAIN:
 		p := path[pathIndex]
 		for i, c := range rt.chars {
 			if c == p || c >= _WILDCARD {
-				rt = rt.childs[i] // found child
+				rt = rt.children[i] // found child
 				goto AGAIN
 			}
 		}
@@ -739,31 +648,18 @@ func (rt *router) printRouteTree(w io.Writer, parentPath string) {
 
 	cur := parentPath + string(s)
 	if _, e := w.Write(unsafe2.Bytes(cur + "\n")); e == nil {
-		rt.accessAllChilds(func(n *router) bool {
+		rt.accessAllChildren(func(n *router) bool {
 			n.printRouteTree(w, cur)
 			return true
 		})
 	}
 }
 
-// accessAllChilds access all childs of node
-func (rt *router) accessAllChilds(fn func(*router) bool) {
-	for _, n := range rt.childs {
+// accessAllChildren access all children of node
+func (rt *router) accessAllChildren(fn func(*router) bool) {
+	for _, n := range rt.children {
 		if !fn(n) {
 			break
 		}
 	}
-}
-
-func _tmpGetMapHandler(rt *router, pattern string) MapHandler {
-	h := TmpHGet(rt, pattern)
-	if h == nil {
-		return nil
-	}
-
-	return h.(MapHandler)
-}
-
-func _tmpSetMapHandler(rt *router, pattern string, handler MapHandler) {
-	TmpHSet(rt, pattern, handler)
 }

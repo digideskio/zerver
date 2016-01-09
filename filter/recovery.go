@@ -3,6 +3,7 @@ package filter
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"runtime"
 
 	"github.com/cosiner/gohper/unsafe2"
@@ -16,7 +17,7 @@ type Recovery struct {
 	NoStack bool
 }
 
-func (r *Recovery) Init(env zerver.Environment) error {
+func (r *Recovery) Init(env zerver.Env) error {
 	defval.Int(&r.Bufsize, 1024*4)
 	return nil
 }
@@ -30,7 +31,7 @@ func (r *Recovery) Filter(req zerver.Request, resp zerver.Response, chain zerver
 			return
 		}
 
-		resp.ReportInternalServerError()
+		resp.StatusCode(http.StatusInternalServerError)
 
 		buffer := bytes.NewBuffer(make([]byte, 0, r.Bufsize))
 		fmt.Fprint(buffer, e)

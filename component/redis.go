@@ -25,8 +25,8 @@ func NewRedis() *Redis {
 	return &Redis{}
 }
 
-func (r *Redis) Init(env zerver.Environment) error {
-	compEnv := env.(zerver.ComponentEnvironment)
+func (r *Redis) Init(env zerver.Env) error {
+	compEnv := env.(*zerver.CompEnv)
 	var opt interface{}
 	var codec encoding.Codec
 	switch t := compEnv.GetSetAttr(REDIS, nil).(type) {

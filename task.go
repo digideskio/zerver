@@ -44,6 +44,6 @@ func convertTaskHandler(i interface{}) TaskHandler {
 	return nil
 }
 
-func (TaskHandlerFunc) Init(Environment) error { return nil }
+func (TaskHandlerFunc) Init(Env) error { return nil }
 func (fn TaskHandlerFunc) Handle(task Task)    { fn(task) }
 func (TaskHandlerFunc) Destroy()               {}

@@ -29,7 +29,7 @@ type Queue struct {
 	closeCond *sync2.LockCond
 }
 
-func (m *Queue) Init(env zerver.Environment) error {
+func (m *Queue) Init(env zerver.Env) error {
 	if m.Processor == nil {
 		return errors.Err("message processor shouldn't be nil")
 	}

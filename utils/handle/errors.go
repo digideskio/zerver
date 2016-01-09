@@ -4,6 +4,7 @@ import (
 	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/utils/httperrs"
 	"github.com/cosiner/zerver"
+	"net/http"
 )
 
 type Error struct {
@@ -25,13 +26,13 @@ func Wrap(handle func(zerver.Request, zerver.Response) error) zerver.HandleFunc 
 func SendErr(resp zerver.Response, err error) {
 	switch e := errors.Unwrap(err).(type) {
 	case httperrs.Error:
-		resp.ReportStatus(e.Code())
+		resp.StatusCode(e.Code())
 		if e.Code() < int(httperrs.Server) {
 			resp.Send(Error{e.Error()})
 			return
 		}
 	default:
-		resp.ReportInternalServerError()
+		resp.StatusCode(http.StatusInternalServerError)
 	}
 }
 
@@ -59,6 +60,6 @@ func ReportStatus(resp zerver.Response, status int, err error) {
 	if err != nil {
 		SendErr(resp, err)
 	} else {
-		resp.ReportStatus(status)
+		resp.StatusCode(status)
 	}
 }
