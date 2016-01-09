@@ -41,20 +41,18 @@ func (r Routes) Apply(router zerver.Router) error {
 	return nil
 }
 
-func (r Routes) convertFilters(filters ...interface{}) []zerver.Filter {
+func (r Routes) convertFilters(filters []interface{}) []zerver.Filter {
 	res := make([]zerver.Filter, len(filters))
 	for i, f := range filters {
 		if ft, is := f.(zerver.Filter); is {
 			res[i] = ft
-		}
-		if fn, is := f.(zerver.FilterFunc); is {
+		} else if fn, is := f.(zerver.FilterFunc); is {
 			res[i] = fn
-		}
-		if fn, is := f.(func(zerver.Request, zerver.Response, zerver.FilterChain)); is {
+		} else  if fn, is := f.(func(zerver.Request, zerver.Response, zerver.FilterChain)); is {
 			res[i] = zerver.FilterFunc(fn)
+		} else {
+			panic(fmt.Errorf("interceptor at index %d is not a filter.", i))
 		}
-
-		panic(fmt.Errorf("interceptor at index %d is not a filter.", i))
 	}
 	return res
 }

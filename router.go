@@ -20,6 +20,7 @@ type (
 		PrintRouteTree(w io.Writer)
 
 		Filter(pattern string, f Filter) error
+		FilterFunc(pattern string, f FilterFunc) error
 		Handler(pattern string, h Handler) error
 		TaskHandler(pattern string, th TaskHandler) error
 		WsHandler(pattern string, th WsConn) error
@@ -131,6 +132,10 @@ func (rt *router) Destroy() {
 	}
 }
 
+func (rt *router) FilterFunc(pattern string, f FilterFunc) error {
+	return rt.register(pattern, f)
+}
+
 func (rt *router) Filter(pattern string, f Filter) error {
 	return rt.register(pattern, f)
 }
@@ -157,7 +162,6 @@ func (rt *router) register(pattern string, processor interface{}) error {
 		if !rt.addPathRouter(routePath, r) {
 			return rt.reportExistError("Router", pattern)
 		}
-
 		return nil
 	}
 

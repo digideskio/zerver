@@ -97,20 +97,20 @@ func (e *CompEnv) String() string {
 	return e.name + ":" + e.state.String()
 }
 
-func (e *CompEnv) attrName(compName, attr string) string {
+func ComponentAttr(compName, attr string) string {
 	return compName + ":" + attr
 }
 
 func (e *CompEnv) Attr(name string) interface{} {
-	return e.Server().Attr(e.attrName(e.name, name))
+	return e.Server().Attr(ComponentAttr(e.name, name))
 }
 
 func (e *CompEnv) SetAttr(name string, value interface{}) {
-	e.Server().SetAttr(e.attrName(e.name, name), value)
+	e.Server().SetAttr(ComponentAttr(e.name, name), value)
 }
 
 func (e *CompEnv) GetSetAttr(name string, val interface{}) interface{} {
-	return e.Server().GetSetAttr(e.attrName(e.name, name), val)
+	return e.Server().GetSetAttr(ComponentAttr(e.name, name), val)
 }
 
 func (e *CompEnv) Init(Env) error {
