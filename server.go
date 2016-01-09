@@ -209,7 +209,7 @@ func (o *ServerOption) init() {
 		o.KeepAlivePeriod = 3 * time.Minute // same as net/http/server.go:tcpKeepAliveListener
 	}
 	if o.Codec == nil {
-		o.Codec = encoding.DefaultCodec
+		o.Codec = encoding.JSON
 	}
 }
 
