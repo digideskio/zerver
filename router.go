@@ -1,16 +1,22 @@
 package zerver
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net/url"
 	"strings"
 
 	"github.com/cosiner/gohper/errors"
-	"github.com/cosiner/gohper/runtime2"
 	"github.com/cosiner/gohper/strings2"
 	"github.com/cosiner/gohper/unsafe2"
+)
+
+var (
+	ErrConflictPathVar = errors.New("There is a similar route pattern which use same wildcard" +
+		" or catchall at the same position, " +
+		"this means one of them will nerver be matched, " +
+		"please check your routes")
+	ErrHandlerExists = errors.New("pattern handler already exists.")
 )
 
 type (
@@ -46,8 +52,6 @@ type (
 		filters []Filter
 	}
 
-	// router is a actual url router, it only process path of url, other section is
-	// not mentioned
 	router struct {
 		str      string    // path section hold by current route node
 		chars    []byte    // all possible first characters of next route node
@@ -55,24 +59,7 @@ type (
 		noFilter bool
 		routeProcessor
 	}
-
-	existError struct {
-		pos     string
-		typ     string
-		pattern string
-	}
 )
-
-const (
-	ErrConflictPathVar = errors.Err("There is a similar route pattern which use same wildcard" +
-		" or catchall at the same position, " +
-		"this means one of them will nerver be matched, " +
-		"please check your routes")
-)
-
-func (e existError) Error() string {
-	return fmt.Sprintf("%s: %s for this route: %s already exist", e.pos, e.typ, e.pattern)
-}
 
 // NewRouter create a new Router
 func NewRouter() Router {
@@ -82,15 +69,6 @@ func NewRouter() Router {
 	return rt
 }
 
-func (*router) reportExistError(typ, pattern string) error {
-	return existError{
-		pos:     runtime2.Caller(2),
-		typ:     typ,
-		pattern: pattern,
-	}
-}
-
-// Init init all handlers, filters, websocket handlers in route tree
 func (rt *router) Init(env Env) (err error) {
 	if rt.handler != nil {
 		err = rt.handler.Init(env)
@@ -112,7 +90,6 @@ func (rt *router) Init(env Env) (err error) {
 	return
 }
 
-// Destroy destroy router and all handlers, filters, websocket handlers
 func (rt *router) Destroy() {
 	if rt.handler != nil {
 		rt.handler.Destroy()
@@ -160,7 +137,7 @@ func (rt *router) register(pattern string, processor interface{}) error {
 	routePath, pathVars := compile(pattern)
 	if r, is := processor.(*router); is {
 		if !rt.addPathRouter(routePath, r) {
-			return rt.reportExistError("Router", pattern)
+			return ErrHandlerExists
 		}
 		return nil
 	}
@@ -171,7 +148,7 @@ func (rt *router) register(pattern string, processor interface{}) error {
 	}
 	if h, is := processor.(Handler); is {
 		if nrt.handler != nil {
-			return nrt.reportExistError("Handler", pattern)
+			return ErrHandlerExists
 		}
 		nrt.handler = h
 		nrt.handlerVars = pathVars
@@ -185,7 +162,7 @@ func (rt *router) register(pattern string, processor interface{}) error {
 	}
 	if ws, is := processor.(WsHandler); is {
 		if nrt.wsHandler != nil {
-			return nrt.reportExistError("WebSocketHandler", pattern)
+			return ErrHandlerExists
 		}
 		nrt.wsHandler = ws
 		nrt.wsHandlerVars = pathVars
@@ -194,7 +171,7 @@ func (rt *router) register(pattern string, processor interface{}) error {
 	}
 	if th, is := processor.(TaskHandler); is {
 		if nrt.taskHandler != nil {
-			return nrt.reportExistError("TaskHandler", pattern)
+			return ErrHandlerExists
 		}
 		nrt.taskHandler = th
 		nrt.taskHandlerVars = pathVars
