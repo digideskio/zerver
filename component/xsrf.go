@@ -15,7 +15,7 @@ import (
 	"github.com/cosiner/gohper/time2"
 	"github.com/cosiner/gohper/unsafe2"
 	"github.com/cosiner/gohper/utils/defval"
-	"github.com/cosiner/ygo/log"
+	log "github.com/cosiner/ygo/jsonlog"
 	"github.com/cosiner/zerver"
 )
 
@@ -49,6 +49,8 @@ type (
 		Pool    bytes2.Pool
 
 		TokenInfo TokenInfo // marshal/unmarshal token info, default use jsonToken
+
+		log *log.Logger
 	}
 
 	TokenInfo interface {
@@ -94,6 +96,7 @@ func (x *Xsrf) Init(env zerver.Env) error {
 		x.Pool = bytes2.FakePool{}
 	}
 	defval.Nil(&x.TokenInfo, jsonToken{})
+	x.log = log.Derive("Component", "Xsrf")
 	return nil
 }
 
@@ -114,7 +117,7 @@ func (x *Xsrf) Create(req zerver.Request, resp zerver.Response) {
 	defer x.Pool.Put(tokBytes)
 	err = resp.Send(Token{string(tokBytes)})
 	if err != nil {
-		log.Error("send xsrf token", err)
+		x.log.Error(log.M{"msg":"send xsrf token", "err":err.Error()})
 	}
 }
 

@@ -5,10 +5,9 @@ import (
 	"path/filepath"
 
 	"github.com/cosiner/gohper/utils/attrs"
-	"github.com/cosiner/gohper/utils/bytesize"
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/gohper/utils/httperrs"
-	"github.com/cosiner/ygo/log"
+	log "github.com/cosiner/ygo/jsonlog"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/utils/handle"
 )
@@ -34,6 +33,8 @@ type Handler struct {
 	PreChecker func(zerver.Request) error
 	SaveImage  func(File, attrs.Attrs) (path string, err error) // Save image file
 	PostDo     func(zerver.Request) error
+
+	log *log.Logger
 }
 
 // Init must be called
@@ -62,6 +63,7 @@ func (h *Handler) Init(env zerver.Env) error {
 		h.ErrTooLarge = httperrs.BadRequest.NewS("the upload file size is too large")
 	}
 
+	h.log = log.Derive("Component", "ImageHandler")
 	return nil
 }
 
@@ -143,7 +145,10 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 		}
 		defer fd.Close()
 
-		log.Debugf("upload file: %s, size: %s\n", fd.Filename(), bytesize.ToHuman(uint64(fd.Size())))
+		if h.log.IsDebugEnable() {
+			h.log.Debug(log.M{"msg": "file upload", "filename": fd.Filename(), "bytes": fd.Size()})
+		}
+
 		path, err := h.SaveImage(fd, req)
 		if err != nil {
 			handle.SendErr(resp, err)
@@ -153,7 +158,7 @@ func (h *Handler) Handle(req zerver.Request, resp zerver.Response) {
 		if h.PostDo != nil {
 			err := h.PostDo(req)
 			if err != nil {
-				log.Warn("PostDo", err)
+				h.log.Warn(log.M{"msg": "call post do failed", "err": err.Error()})
 			}
 		}
 

@@ -1,24 +1,22 @@
 package filter
 
 import (
-	"bytes"
-	"fmt"
 	"net/http"
 	"runtime"
 
-	"github.com/cosiner/gohper/unsafe2"
 	"github.com/cosiner/gohper/utils/defval"
-	"github.com/cosiner/ygo/log"
+	log "github.com/cosiner/ygo/jsonlog"
 	"github.com/cosiner/zerver"
 )
 
 type Recovery struct {
 	Bufsize int
-	NoStack bool
+	log     *log.Logger
 }
 
 func (r *Recovery) Init(env zerver.Env) error {
 	defval.Int(&r.Bufsize, 1024*4)
+	r.log = log.Derive("Filter", "Recovery")
 	return nil
 }
 
@@ -26,20 +24,15 @@ func (r *Recovery) Destroy() {}
 
 func (r *Recovery) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	defer func() {
-		e := recover()
-		if e == nil || r.NoStack {
+		if err := recover(); err != nil {
+			resp.StatusCode(http.StatusInternalServerError)
+			buf := make([]byte, r.Bufsize)
+			n := runtime.Stack(buf, false)
+			buf = buf[:n]
+
+			r.log.Error(log.M{"msg": "recover from panic", "error": err, "stack": string(buf)})
 			return
 		}
-
-		resp.StatusCode(http.StatusInternalServerError)
-
-		buffer := bytes.NewBuffer(make([]byte, 0, r.Bufsize))
-		fmt.Fprint(buffer, e)
-		buf := buffer.Bytes()
-
-		runtime.Stack(buf[len(buf):cap(buf)], false)
-
-		log.Error("Recover", unsafe2.String(buf[:cap(buf)]))
 	}()
 
 	chain(req, resp)

@@ -1,13 +1,10 @@
 package msq
 
 import (
-	"runtime"
-
 	"github.com/cosiner/gohper/bytes2"
 	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/sync2"
-	"github.com/cosiner/gohper/unsafe2"
-	"github.com/cosiner/ygo/log"
+	log "github.com/cosiner/ygo/jsonlog"
 	"github.com/cosiner/zerver"
 )
 
@@ -26,7 +23,8 @@ type Queue struct {
 	BytesPool          bytes2.Pool
 
 	queue     chan zerver.Task
-	closeCond *sync2.LockCond
+	closeFlag sync2.Flag
+	log       *log.Logger
 }
 
 func (m *Queue) Init(env zerver.Env) error {
@@ -41,13 +39,13 @@ func (m *Queue) Init(env zerver.Env) error {
 	}
 
 	m.queue = make(chan zerver.Task, m.TaskBufsize)
-
+	m.log = log.Derive("TaskHandler", "MessageQueue")
 	go m.start()
 	return nil
 }
 
 func (m *Queue) Handle(msg zerver.Task) {
-	if m.closeCond != nil || msg == nil {
+	if m.closeFlag.IsTrue() || msg == nil {
 		return
 	}
 
@@ -57,54 +55,38 @@ func (m *Queue) Handle(msg zerver.Task) {
 	m.queue <- msg
 }
 
+func (m *Queue) process(msg zerver.Task) {
+	err := m.Process(msg.Value())
+	if err != nil {
+		m.log.Error(log.M{"msg": "process message failed", "err": err.Error(), "pattern": msg.Pattern()})
+	}
+}
+
 func (m *Queue) start() {
-	defer func(m *Queue) {
-		e := recover()
-		if e == nil {
-			return
-		}
-		log.Error(e)
+	for msg := range m.queue {
+		m.process(msg)
+	}
+}
 
-		buf := m.BytesPool.Get(4096, true)
-
-		index := runtime.Stack(buf, false)
-		buf = buf[:index]
-		log.Error(unsafe2.String(buf))
-
-		m.BytesPool.Put(buf)
-
-		if !m.NoRecover {
-			go m.start()
-		}
-	}(m)
+func (m *Queue) waitEmpty() {
 	for {
 		select {
 		case msg, ok := <-m.queue:
 			if !ok {
 				return
 			}
-			err := m.Process(msg.Value())
-			if err != nil {
-				log.Error("msq "+msg.Pattern(), err)
-			}
-
-			if len(m.queue) == 0 && m.closeCond != nil {
-				m.closeCond.Signal()
-			} else {
-				break
-			}
+			m.process(msg)
+		default:
+			return
 		}
 	}
 }
 
 func (m *Queue) Destroy() {
-	if m.closeCond != nil {
+	if !m.closeFlag.MakeTrue() {
 		return
 	}
 
-	m.closeCond = sync2.NewLockCond(nil)
-	if len(m.queue) > 0 {
-		m.closeCond.Wait()
-	}
+	m.waitEmpty()
 	close(m.queue)
 }

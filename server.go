@@ -16,7 +16,7 @@ import (
 	"github.com/cosiner/gohper/encoding"
 	"github.com/cosiner/gohper/utils/attrs"
 	"github.com/cosiner/gohper/utils/defval"
-	"github.com/cosiner/ygo/log"
+	log "github.com/cosiner/ygo/jsonlog"
 	websocket "github.com/cosiner/zerver_websocket"
 )
 
@@ -74,6 +74,8 @@ type (
 
 		headers map[string]string
 		codec   encoding.Codec
+
+		log *log.Logger
 	}
 
 	// HeaderChecker is a http header checker, it accept a function which can get
@@ -143,7 +145,7 @@ func (s *Server) RemoveComponent(name string) {
 func (s *Server) StartTask(path string, value interface{}) {
 	handler := s.MatchTaskHandler(&url.URL{Path: path})
 	if handler == nil {
-		log.Error("No task handler found for:", path)
+		s.log.Warn(log.M{"msg": "task handler not found", "pattern": path})
 		return
 	}
 
@@ -234,15 +236,15 @@ func (s *Server) config(o *ServerOption) {
 
 	logErr(s.components.Init(s))
 
-	log.Info("Execute registered init before routes funcs ")
+	s.log.Info(log.M{"msg": "Execute registered init before routes funcs "})
 	for _, f := range s.OnLoadRoutes() {
 		logErr(f(s))
 	}
 
-	log.Info("Init Handlers and Filters")
+	s.log.Info(log.M{"msg": "Init Handlers and Filters"})
 	logErr(s.Router.Init(s))
 
-	log.Info("Execute registered finial init funcs")
+	s.log.Info(log.M{"msg": "Execute registered finial init funcs"})
 	for _, f := range s.OnStart() {
 		logErr(f(s))
 	}
@@ -250,8 +252,7 @@ func (s *Server) config(o *ServerOption) {
 	if len(errors) != 0 {
 		log.Fatal(errors)
 	}
-
-	log.Info("Server Start: ", o.ListenAddr)
+	s.log.Info(log.M{"msg": "server start", "addr": o.ListenAddr})
 	runtime.GC()
 }
 
@@ -262,9 +263,13 @@ func (s *Server) Start(opt *ServerOption) error {
 	if opt == nil {
 		opt = &ServerOption{}
 	}
+	s.log = log.Derive("Framework", "Server")
 	s.config(opt)
 
-	l := s.listen(opt)
+	l, err := s.listen(opt)
+	if err != nil {
+		return err
+	}
 
 	s.listener = l
 	srv := &http.Server{
@@ -296,10 +301,10 @@ func (ln *tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	return tc, nil
 }
 
-func (s *Server) listen(opt *ServerOption) net.Listener {
+func (s *Server) listen(opt *ServerOption) (net.Listener, error) {
 	ln, err := net.Listen("tcp", opt.ListenAddr)
 	if err != nil {
-		log.Panic(err)
+		return nil, err
 	}
 
 	ln = &tcpKeepAliveListener{
@@ -308,11 +313,10 @@ func (s *Server) listen(opt *ServerOption) net.Listener {
 	}
 
 	if opt.TLSConfig != nil {
-		return tls.NewListener(ln, opt.TLSConfig)
+		return tls.NewListener(ln, opt.TLSConfig), nil
 	}
-
 	if opt.CertFile == "" {
-		return ln
+		return ln, nil
 	}
 
 	// from net/http/server.go.ListenAndServeTLS
@@ -333,17 +337,10 @@ func (s *Server) listen(opt *ServerOption) net.Listener {
 			ln = tls.NewListener(ln, tc)
 		}
 	}
-
 	if err != nil {
-		if ln != nil {
-			if e := ln.Close(); e != nil {
-				log.Panic(e)
-			}
-		}
-		log.Panic(err)
+		ln.Close()
 	}
-
-	return ln
+	return nil, err
 }
 
 func (s *Server) connStateHook(conn net.Conn, state http.ConnState) {
@@ -376,7 +373,7 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 	var isTimeout = true
 	err := s.listener.Close() // don't accept connections
 	if err != nil {
-		log.Warn("listener close", err)
+		s.log.Warn(log.M{"msg": "server listener close failed", "err": err.Error()})
 	}
 
 	if timeout > 0 {
@@ -401,7 +398,7 @@ func (s *Server) Destroy(timeout time.Duration) bool {
 	for _, fn := range s.OnDestroy() {
 		err := fn(s)
 		if err != nil {
-			log.Error("destroy hook:", err)
+			s.log.Warn(log.M{"msg": "call server destroy hook failed", "err": err.Error()})
 		}
 	}
 

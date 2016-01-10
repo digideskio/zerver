@@ -8,7 +8,7 @@ import (
 	"github.com/cosiner/gohper/net2/http2"
 	"github.com/cosiner/gohper/utils/defval"
 	"github.com/cosiner/kv"
-	"github.com/cosiner/ygo/log"
+	log "github.com/cosiner/ygo/jsonlog"
 	"github.com/cosiner/zerver"
 	"github.com/cosiner/zerver/component"
 )
@@ -26,7 +26,8 @@ type (
 		PassingOnNoId bool
 		Error         string
 		ErrorOverlap  string
-		logger        log.Logger
+
+		log *log.Logger
 	}
 
 	IDStore interface {
@@ -117,7 +118,7 @@ func (ri *RequestId) Init(env zerver.Env) error {
 	defval.String(&ri.HeaderName, "X-Request-Id")
 	defval.String(&ri.Error, "header value X-Request-Id can't be empty")
 	defval.String(&ri.ErrorOverlap, "request already accepted before, please wait")
-
+	ri.log = log.Derive("Component", "RequestId")
 	return nil
 }
 
@@ -140,7 +141,7 @@ func (ri *RequestId) Filter(req zerver.Request, resp zerver.Response, chain zerv
 		if err := ri.Store.Save(id); err == ErrRequestIDExist {
 			resp.StatusCode(http.StatusForbidden)
 		} else if err != nil {
-			ri.logger.Warn(err)
+			ri.log.Warn(log.M{"msg": "save request id failed", "err": err.Error()})
 		} else {
 			chain(req, resp)
 			ri.Store.Remove(id)
