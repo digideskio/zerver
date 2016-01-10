@@ -39,20 +39,23 @@ func (j *JSONP) Filter(req zerver.Request, resp zerver.Response, chain zerver.Fi
 		return
 	}
 
+	buffer := bytes.NewBuffer(make([]byte, 0, 256))
 	bw := wrap.BuffRespWriter{ // to avoid write header 200 first when write callback name
-		Buffer: bytes.NewBuffer(make([]byte, 0, 256)),
+		Buffer: buffer,
 	}
-	resp.Wrap(func(w http.ResponseWriter) http.ResponseWriter {
+	resp.Wrap(func(w http.ResponseWriter, shouldClose bool) (http.ResponseWriter, bool) {
 		bw.ResponseWriter = w
-		return &bw
+		bw.ShouldClose = shouldClose
+		return &bw, shouldClose
 	})
 	chain(req, resp)
+	bw.Buffer = nil
 
 	_, err := io2.WriteString(resp, callback)
 	if err == nil {
 		_, err = io2.WriteString(resp, "(")
 		if err == nil {
-			_, err = resp.Write(bw.Buffer.Bytes())
+			_, err = resp.Write(buffer.Bytes())
 			if err == nil {
 				_, err = io2.WriteString(resp, ")")
 			}
