@@ -55,6 +55,7 @@ type (
 
 		Headers map[string]string
 		Codec   encoding.Codec
+		Logger  *log.Logger
 	}
 
 	// Server represent a web server
@@ -120,6 +121,10 @@ func (s *Server) Filepath(path string) string {
 
 func (s *Server) Codec() encoding.Codec {
 	return s.codec
+}
+
+func (s *Server) Logger() *log.Logger {
+	return s.log
 }
 
 // RegisterComponent let server manage this component and it's lifetime.
@@ -206,6 +211,10 @@ func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 }
 
 func (o *ServerOption) init() {
+	if o.Logger == nil {
+		o.Logger = log.Derive("Framework", "Server")
+	}
+
 	defval.String(&o.ListenAddr, ":4000")
 	if o.KeepAlivePeriod == 0 {
 		o.KeepAlivePeriod = 3 * time.Minute // same as net/http/server.go:tcpKeepAliveListener
@@ -230,6 +239,7 @@ func (s *Server) config(o *ServerOption) {
 			}
 		}
 	)
+	s.log = o.Logger
 	s.codec = o.Codec
 	s.headers = o.Headers
 	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
@@ -263,7 +273,6 @@ func (s *Server) Start(opt *ServerOption) error {
 	if opt == nil {
 		opt = &ServerOption{}
 	}
-	s.log = log.Derive("Framework", "Server")
 	s.config(opt)
 
 	l, err := s.listen(opt)

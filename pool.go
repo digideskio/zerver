@@ -1,16 +1,21 @@
 package zerver
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/cosiner/gohper/utils/attrs"
+)
 
 type requestEnv struct {
-	vars ReqVars
 	req  request
 	resp response
 }
 
 var reqEnvPool = &sync.Pool{
 	New: func() interface{} {
-		return &requestEnv{}
+		env := &requestEnv{}
+		env.req.Attrs = attrs.New()
+		return env
 	},
 }
 

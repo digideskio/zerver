@@ -4,7 +4,8 @@ import (
 	"sync"
 
 	"github.com/cosiner/gohper/encoding"
-	"github.com/syndtr/goleveldb/leveldb/errors"
+	"github.com/cosiner/gohper/errors"
+	log "github.com/cosiner/ygo/jsonlog"
 )
 
 // =============================================================================
@@ -39,9 +40,10 @@ type (
 	Env interface {
 		Server() *Server
 		Filepath(path string) string
-		Codec() encoding.Codec
 		StartTask(path string, value interface{})
 		Component(name string) (interface{}, error)
+		Codec() encoding.Codec
+		Logger() *log.Logger
 	}
 
 	// Component is a Object which will automaticlly initial/destroyed by server
