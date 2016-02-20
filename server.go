@@ -260,7 +260,7 @@ func (s *Server) config(o *ServerOption) {
 	}
 
 	if len(errors) != 0 {
-		log.Fatal(errors)
+		s.log.Fatal(log.M{"msg": "Server start failed.", "error": errors})
 	}
 	s.log.Info(log.M{"msg": "server start", "addr": o.ListenAddr})
 	runtime.GC()
