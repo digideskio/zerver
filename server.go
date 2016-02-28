@@ -17,7 +17,7 @@ import (
 	"github.com/cosiner/gohper/utils/attrs"
 	"github.com/cosiner/gohper/utils/defval"
 	log "github.com/cosiner/ygo/jsonlog"
-	websocket "github.com/cosiner/zerver_websocket"
+	ws "github.com/cosiner/zerver_websocket"
 )
 
 const (
@@ -65,7 +65,7 @@ type (
 		attrs.Attrs
 		components CompManager
 
-		checker websocket.HandshakeChecker
+		checker ws.HandshakeChecker
 
 		listener    net.Listener
 		state       int32          // destroy or normal running
@@ -163,7 +163,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 		request.URL.Path = path[:l-1]
 	}
 
-	if websocket.IsWebSocketRequest(request) {
+	if ws.IsWebSocketRequest(request) {
 		s.serveWebSocket(w, request)
 	} else {
 		s.serveHTTP(w, request)
@@ -175,7 +175,7 @@ func (s *Server) serveWebSocket(w http.ResponseWriter, request *http.Request) {
 	if handler == nil {
 		w.WriteHeader(http.StatusNotFound)
 	} else {
-		conn, err := websocket.UpgradeWebsocket(w, request, s.checker)
+		conn, err := ws.UpgradeWebsocket(w, request, s.checker)
 		if err == nil {
 			handler.Handle(newWsConn(s, conn, &vars))
 		} // else connecion will be auto-closed when error occoured,
@@ -242,7 +242,7 @@ func (s *Server) config(o *ServerOption) {
 	s.log = o.Logger
 	s.codec = o.Codec
 	s.headers = o.Headers
-	s.checker = websocket.HeaderChecker(o.WebSocketChecker).HandshakeCheck
+	s.checker = ws.HeaderChecker(o.WebSocketChecker).HandshakeCheck
 
 	logErr(s.components.Init(s))
 

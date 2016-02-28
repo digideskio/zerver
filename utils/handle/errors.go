@@ -1,10 +1,12 @@
 package handle
 
 import (
+	"net/http"
+
 	"github.com/cosiner/gohper/errors"
 	"github.com/cosiner/gohper/utils/httperrs"
+	log "github.com/cosiner/ygo/jsonlog"
 	"github.com/cosiner/zerver"
-	"net/http"
 )
 
 type Error struct {
@@ -32,6 +34,7 @@ func SendErr(resp zerver.Response, err error) {
 			return
 		}
 	default:
+		resp.Logger().Error(log.M{"msg": "internal server error", "error": err})
 		resp.StatusCode(http.StatusInternalServerError)
 	}
 }

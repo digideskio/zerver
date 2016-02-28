@@ -186,6 +186,8 @@ func (m *CompManager) Register(env Env, name string, comp interface{}) *CompEnv 
 	if name == "" {
 		if c, is := comp.(Component); is {
 			m.anonymous = append(m.anonymous, c)
+		} else {
+			panic("non-component object shouldn't be add to manager anonymously")
 		}
 		return nil
 	}
