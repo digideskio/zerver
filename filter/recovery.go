@@ -30,7 +30,7 @@ func (r *Recovery) Filter(req zerver.Request, resp zerver.Response, chain zerver
 			n := runtime.Stack(buf, false)
 			buf = buf[:n]
 
-			r.log.Error(log.M{"msg": "recover from panic", "error": err, "stack": string(buf)})
+			r.log.Raw(0, log.LEVEL_ERROR, string(buf))
 			return
 		}
 	}()

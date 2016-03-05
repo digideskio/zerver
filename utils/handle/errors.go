@@ -26,6 +26,9 @@ func Wrap(handle func(zerver.Request, zerver.Response) error) zerver.HandleFunc 
 }
 
 func SendErr(resp zerver.Response, err error) {
+	if err == nil {
+		panic("there is no error occurred")
+	}
 	switch e := errors.Unwrap(err).(type) {
 	case httperrs.Error:
 		resp.StatusCode(e.Code())
@@ -34,7 +37,7 @@ func SendErr(resp zerver.Response, err error) {
 			return
 		}
 	default:
-		resp.Logger().Error(log.M{"msg": "internal server error", "error": err})
+		resp.Logger().Error(log.M{"msg": "internal server error", "error": err.Error()})
 		resp.StatusCode(http.StatusInternalServerError)
 	}
 }
