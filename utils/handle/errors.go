@@ -69,3 +69,12 @@ func ReportStatus(resp zerver.Response, status int, err error) {
 		resp.StatusCode(status)
 	}
 }
+
+func SendStatus(resp zerver.Response, data interface{}, status int, err error) {
+	if err != nil {
+		SendErr(resp, err)
+	} else {
+		resp.StatusCode(status)
+		resp.Send(data)
+	}
+}

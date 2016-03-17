@@ -28,9 +28,23 @@ func (v *ReqVars) QueryVar(name string) string {
 	return v.queryVars.Get(name)
 }
 
+func (v *ReqVars) QueryVarMul(name string) []string {
+	if v.queryVars == nil {
+		return nil
+	}
+	return v.queryVars[name]
+}
+
 func (v *ReqVars) FormVar(name string) string {
 	if v.formVars == nil {
 		return ""
 	}
 	return v.formVars.Get(name)
+}
+
+func (v *ReqVars) FormVarMul(name string) []string {
+	if v.formVars == nil {
+		return nil
+	}
+	return v.formVars[name]
 }
