@@ -12,8 +12,8 @@ func init() {
 	pagers = &pager.PagerGroup{}
 }
 
-func Add(beginPage, beginIndex, pageSize int) *pager.Pager {
-	return pagers.Add(beginPage, beginIndex, pageSize)
+func Add(beginPage, beginIndex, pageSize, maxPage int) *pager.Pager {
+	return pagers.Add(beginPage, beginIndex, pageSize, maxPage)
 }
 
 func Range(req zerver.Request, pager *pager.Pager) (start, count int) {
