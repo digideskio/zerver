@@ -4,6 +4,7 @@ import (
 	"github.com/cosiner/gohper/time2"
 	log "github.com/cosiner/ygo/jsonlog"
 	"github.com/cosiner/zerver"
+	"github.com/cosiner/zerver/utils/request"
 )
 
 type Log struct {
@@ -23,7 +24,7 @@ func (l *Log) Filter(req zerver.Request, resp zerver.Response, chain zerver.Filt
 	l.log.Info(log.M{
 		"method":     req.ReqMethod(),
 		"url":        req.URL().String(),
-		"remote":     req.RemoteAddr(),
+		"remote":     request.RemoteAddr(req),
 		"userAgent":  req.GetHeader(zerver.HEADER_USERAGENT),
 		"cost":       cost.String(),
 		"statusCode": resp.StatusCode(0),
