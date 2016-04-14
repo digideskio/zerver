@@ -2,8 +2,8 @@ package filter
 
 import (
 	"net/http"
-	"runtime"
 
+	"github.com/cosiner/gohper/runtime2"
 	"github.com/cosiner/gohper/utils/defval"
 	log "github.com/cosiner/ygo/jsonlog"
 	"github.com/cosiner/zerver"
@@ -24,13 +24,10 @@ func (r *Recovery) Destroy() {}
 
 func (r *Recovery) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	defer func() {
-		if err := recover(); err != nil {
+		stack := runtime2.Recover(r.Bufsize)
+		if len(stack) > 0 {
 			resp.StatusCode(http.StatusInternalServerError)
-			buf := make([]byte, r.Bufsize)
-			n := runtime.Stack(buf, false)
-			buf = buf[:n]
-
-			r.log.Raw(0, log.LEVEL_ERROR, string(buf))
+			r.log.Raw(0, log.LEVEL_ERROR, string(stack))
 			return
 		}
 	}()

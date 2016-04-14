@@ -2,7 +2,7 @@ package zerver
 
 type (
 	Task interface {
-		Pattern() string
+		patternKeeper
 		Value() interface{}
 	}
 
@@ -14,20 +14,16 @@ type (
 	}
 
 	task struct {
-		pattern string
-		value   interface{}
+		patternString
+		value interface{}
 	}
 )
 
 func newTask(pattern string, value interface{}) Task {
 	return task{
-		pattern: pattern,
-		value:   value,
+		patternString: patternString(pattern),
+		value:         value,
 	}
-}
-
-func (t task) Pattern() string {
-	return t.pattern
 }
 
 func (t task) Value() interface{} {
@@ -44,6 +40,6 @@ func convertTaskHandler(i interface{}) TaskHandler {
 	return nil
 }
 
-func (TaskHandlerFunc) Init(Env) error { return nil }
-func (fn TaskHandlerFunc) Handle(task Task)    { fn(task) }
-func (TaskHandlerFunc) Destroy()               {}
+func (TaskHandlerFunc) Init(Env) error      { return nil }
+func (fn TaskHandlerFunc) Handle(task Task) { fn(task) }
+func (TaskHandlerFunc) Destroy()            {}

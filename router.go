@@ -31,9 +31,9 @@ type (
 		TaskHandler(pattern string, th TaskHandler) error
 		WsHandler(pattern string, th WsConn) error
 
-		MatchHandlerFilters(url *url.URL) (Handler, ReqVars, []Filter)
-		MatchWebSocketHandler(url *url.URL) (WsHandler, ReqVars)
-		MatchTaskHandler(url *url.URL) TaskHandler
+		MatchHandlerFilters(url *url.URL) (Handler, string, ReqVars, []Filter)
+		MatchWebSocketHandler(url *url.URL) (WsHandler, string, ReqVars)
+		MatchTaskHandler(url *url.URL) (TaskHandler, string)
 	}
 
 	routeProcessor struct {
@@ -180,23 +180,26 @@ func (rt *router) register(pattern string, processor interface{}) error {
 	panic("unreachable")
 }
 
-func (rt *router) MatchWebSocketHandler(url *url.URL) (WsHandler, ReqVars) {
+func (rt *router) MatchWebSocketHandler(url *url.URL) (WsHandler, string, ReqVars) {
 	path := url.Path
 	vars := ReqVars{}
 	rt, vars.urlVals = rt.matchOne(path, vars.urlVals)
-	if rt == nil || rt.wsHandler == nil {
-		return nil, vars
+	if rt == nil {
+		return nil, "", vars
+	}
+	if rt.wsHandler == nil {
+		return nil, rt.wsHandlerPattern, vars
 	}
 	vars.urlVars = rt.wsHandlerVars
-	return rt.wsHandler, vars
+	return rt.wsHandler, rt.wsHandlerPattern, vars
 }
 
-func (rt *router) MatchTaskHandler(url *url.URL) TaskHandler {
+func (rt *router) MatchTaskHandler(url *url.URL) (TaskHandler, string) {
 	if rt = rt.matchOnly(url.Path); rt == nil {
-		return nil
+		return nil, ""
 	}
 
-	return rt.taskHandler
+	return rt.taskHandler, rt.taskHandlerPattern
 }
 
 // func (rt *router) MatchHandler(url *url.URL) (handler Handler, indexer URLVarIndexer) {
@@ -213,7 +216,7 @@ func (rt *router) MatchTaskHandler(url *url.URL) TaskHandler {
 //  return
 // }
 
-func (rt *router) MatchHandlerFilters(url *url.URL) (Handler, ReqVars, []Filter) {
+func (rt *router) MatchHandlerFilters(url *url.URL) (Handler, string, ReqVars, []Filter) {
 	var (
 		path    = url.Path
 		vars    ReqVars
@@ -234,11 +237,14 @@ func (rt *router) MatchHandlerFilters(url *url.URL) (Handler, ReqVars, []Filter)
 			pathIndex, vars.urlVals, rt, continu = rt.matchMultiple(path, pathIndex, vars.urlVals)
 		}
 	}
-	if rt == nil || rt.handler == nil {
-		return nil, vars, filters
+	if rt == nil {
+		return nil, "", vars, filters
+	}
+	if rt.handler == nil {
+		return nil, rt.handlerPattern, vars, filters
 	}
 	vars.urlVars = rt.handlerVars
-	return rt.handler, vars, filters
+	return rt.handler, rt.handlerPattern, vars, filters
 }
 
 // addPath add an new path to route, use given function to operate the final

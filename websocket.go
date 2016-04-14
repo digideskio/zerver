@@ -15,6 +15,7 @@ type (
 		io.ReadWriteCloser
 		Env
 
+		patternKeeper
 		Vars() *ReqVars
 		WriteString(string) (int, error)
 		SetDeadline(t time.Time) error
@@ -25,6 +26,7 @@ type (
 	}
 
 	wsConn struct {
+		patternString
 		Env
 		vars *ReqVars
 		*websocket.Conn
@@ -39,12 +41,13 @@ type (
 	}
 )
 
-func newWsConn(e Env, conn *websocket.Conn, vars *ReqVars) *wsConn {
+func newWsConn(e Env, conn *websocket.Conn, pattern string, vars *ReqVars) *wsConn {
 	return &wsConn{
-		Env:     e,
-		Conn:    conn,
-		vars:    vars,
-		request: conn.Request(),
+		patternString: patternString(pattern),
+		Env:           e,
+		Conn:          conn,
+		vars:          vars,
+		request:       conn.Request(),
 	}
 }
 

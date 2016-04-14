@@ -148,13 +148,13 @@ func (s *Server) RemoveComponent(name string) {
 
 // StartTask start a task synchronously, the value will be passed to task handler
 func (s *Server) StartTask(path string, value interface{}) {
-	handler := s.MatchTaskHandler(&url.URL{Path: path})
+	handler, pat := s.MatchTaskHandler(&url.URL{Path: path})
 	if handler == nil {
 		s.log.Warn(log.M{"msg": "task handler not found", "pattern": path})
 		return
 	}
 
-	handler.Handle(newTask(path, value))
+	handler.Handle(newTask(pat, value))
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, request *http.Request) {
@@ -171,13 +171,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 }
 
 func (s *Server) serveWebSocket(w http.ResponseWriter, request *http.Request) {
-	handler, vars := s.MatchWebSocketHandler(request.URL)
+	handler, pat, vars := s.MatchWebSocketHandler(request.URL)
 	if handler == nil {
 		w.WriteHeader(http.StatusNotFound)
 	} else {
 		conn, err := ws.UpgradeWebsocket(w, request, s.checker)
 		if err == nil {
-			handler.Handle(newWsConn(s, conn, &vars))
+			handler.Handle(newWsConn(s, conn, pat, &vars))
 		} // else connecion will be auto-closed when error occoured,
 	}
 }
@@ -185,10 +185,10 @@ func (s *Server) serveWebSocket(w http.ResponseWriter, request *http.Request) {
 func (s *Server) serveHTTP(w http.ResponseWriter, request *http.Request) {
 	url := request.URL
 	url.Host = request.Host
-	handler, vars, filters := s.MatchHandlerFilters(url)
+	handler, pat, vars, filters := s.MatchHandlerFilters(url)
 
 	reqEnv := newRequestEnv()
-	req := reqEnv.req.init(s, request, &vars)
+	req := reqEnv.req.init(s, request, pat, &vars)
 	resp := reqEnv.resp.init(s, w)
 
 	headers := resp.Headers()

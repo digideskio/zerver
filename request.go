@@ -23,6 +23,7 @@ type (
 
 	Request interface {
 		Wrap(RequestWrapper)
+		patternKeeper
 
 		ReqMethod() string
 		URL() *url.URL
@@ -41,6 +42,7 @@ type (
 
 	// request represent an income request
 	request struct {
+		patternString
 		Env
 		attrs.Attrs
 		*http.Request
@@ -55,7 +57,8 @@ var (
 )
 
 // newRequest create a new request
-func (req *request) init(e Env, requ *http.Request, reqVars *ReqVars) Request {
+func (req *request) init(e Env, requ *http.Request, pattern string, reqVars *ReqVars) Request {
+	req.patternString = patternString(pattern)
 	req.Env = e
 	req.Request = requ
 
