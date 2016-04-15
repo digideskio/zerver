@@ -58,25 +58,25 @@ func (r *HostRouter) Destroy() {
 	return
 }
 
-func (r *HostRouter) MatchHandlerFilters(url *url.URL) (zerver.Handler, zerver.ReqVars, []zerver.Filter) {
+func (r *HostRouter) MatchHandlerFilters(url *url.URL) (zerver.Handler, string, zerver.ReqVars, []zerver.Filter) {
 	if router := r.match(url); router != nil {
 		return router.MatchHandlerFilters(url)
 	}
 
-	return nil, zerver.ReqVars{}, nil
+	return nil, "", zerver.ReqVars{}, nil
 }
 
-func (r *HostRouter) MatchWebSocketHandler(url *url.URL) (zerver.WsHandler, zerver.ReqVars) {
+func (r *HostRouter) MatchWebSocketHandler(url *url.URL) (zerver.WsHandler, string, zerver.ReqVars) {
 	if router := r.match(url); router != nil {
 		return router.MatchWebSocketHandler(url)
 	}
 
-	return nil, zerver.ReqVars{}
+	return nil, "", zerver.ReqVars{}
 }
 
-func (r *HostRouter) MatchTaskHandler(url *url.URL) zerver.TaskHandler {
+func (r *HostRouter) MatchTaskHandler(url *url.URL) (zerver.TaskHandler, string) {
 	if router := r.match(url); router != nil {
 		return router.MatchTaskHandler(url)
 	}
-	return nil
+	return nil, ""
 }
