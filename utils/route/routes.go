@@ -8,6 +8,12 @@ import (
 	"github.com/cosiner/zerver/utils/handle"
 )
 
+var globalInterceptors []zerver.Filter
+
+func GlobalIntercept(inters ...interface{}) {
+	globalInterceptors = append(globalInterceptors, convertFilters(inters)...)
+}
+
 type Route struct {
 	zerver.Handler
 	handler.MapHandler
@@ -28,6 +34,22 @@ func convertHandleFunc(h interface{}) zerver.HandleFunc {
 	panic("not a handle function")
 }
 
+func convertFilters(filters []interface{}) []zerver.Filter {
+	res := make([]zerver.Filter, len(filters))
+	for i, f := range filters {
+		if ft, is := f.(zerver.Filter); is {
+			res[i] = ft
+		} else if fn, is := f.(zerver.FilterFunc); is {
+			res[i] = fn
+		} else if fn, is := f.(func(zerver.Request, zerver.Response, zerver.FilterChain)); is {
+			res[i] = zerver.FilterFunc(fn)
+		} else {
+			panic(fmt.Errorf("interceptor at index %d is not a filter.", i))
+		}
+	}
+	return res
+}
+
 func (r Routes) Apply(router zerver.Router) error {
 	for pat, rt := range r {
 		if rt.Handler == nil {
@@ -39,22 +61,6 @@ func (r Routes) Apply(router zerver.Router) error {
 		}
 	}
 	return nil
-}
-
-func (r Routes) convertFilters(filters []interface{}) []zerver.Filter {
-	res := make([]zerver.Filter, len(filters))
-	for i, f := range filters {
-		if ft, is := f.(zerver.Filter); is {
-			res[i] = ft
-		} else if fn, is := f.(zerver.FilterFunc); is {
-			res[i] = fn
-		} else  if fn, is := f.(func(zerver.Request, zerver.Response, zerver.FilterChain)); is {
-			res[i] = zerver.FilterFunc(fn)
-		} else {
-			panic(fmt.Errorf("interceptor at index %d is not a filter.", i))
-		}
-	}
-	return res
 }
 
 func (r Routes) HandleFunc(method, pattern string, fn zerver.HandleFunc, interceptors ...interface{}) Routes {
@@ -69,7 +75,13 @@ func (r Routes) HandleFunc(method, pattern string, fn zerver.HandleFunc, interce
 		}
 	}
 
-	rt.MapHandler.Use(method, zerver.Intercept(fn, r.convertFilters(interceptors)...))
+	inters := convertFilters(interceptors)
+	if len(globalInterceptors) != 0 {
+		tmpInters := make([]zerver.Filter, 0, len(globalInterceptors)+len(interceptors))
+		tmpInters = append(tmpInters, globalInterceptors...)
+		inters = append(tmpInters, inters...)
+	}
+	rt.MapHandler.Use(method, zerver.Intercept(fn, inters...))
 	r[pattern] = rt
 	return r
 }
