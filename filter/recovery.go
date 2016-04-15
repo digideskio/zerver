@@ -24,13 +24,12 @@ func (r *Recovery) Destroy() {}
 
 func (r *Recovery) Filter(req zerver.Request, resp zerver.Response, chain zerver.FilterChain) {
 	defer func() {
-		stack := runtime2.Recover(r.Bufsize)
-		if len(stack) > 0 {
+		if err := recover(); err != nil {
+			stack := runtime2.Stack(r.Bufsize, false)
 			resp.StatusCode(http.StatusInternalServerError)
 			r.log.Raw(0, log.LEVEL_ERROR, string(stack))
 			return
 		}
 	}()
-
 	chain(req, resp)
 }
