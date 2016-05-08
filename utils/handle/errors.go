@@ -29,15 +29,19 @@ func SendErr(resp zerver.Response, err error) {
 	if err == nil {
 		panic("there is no error occurred")
 	}
+	logger := resp.Logger()
 	switch e := errors.Unwrap(err).(type) {
 	case httperrs.Error:
 		resp.StatusCode(e.Code())
+		if logger.IsDebugEnable() {
+			logger.Debug(log.M{"msg": "request error", "error": err.Error()})
+		}
 		if e.Code() < int(httperrs.Server) {
 			resp.Send(Error{e.Error()})
 			return
 		}
 	default:
-		resp.Logger().Error(log.M{"msg": "internal server error", "error": err.Error()})
+		logger.Error(log.M{"msg": "internal server error", "error": err.Error()})
 		resp.StatusCode(http.StatusInternalServerError)
 	}
 }
