@@ -55,6 +55,12 @@ func BadRequest(err error) error {
 }
 
 func SendBadRequest(resp zerver.Response, err error) {
+	if BadRequestError != nil {
+		logger := resp.Logger()
+		if logger.IsDebugEnable() {
+			logger.Debug(log.M{"msg": "request error", "error": err.Error()})
+		}
+	}
 	SendErr(resp, BadRequest(err))
 }
 
